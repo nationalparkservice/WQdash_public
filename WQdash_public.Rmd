@@ -12,8 +12,10 @@ runtime: shiny
 # Install and load packages
 rm(list=ls())
 
-pkgs <- c("flexdashboard", "shiny", "knitr",  "here", "janitor", "mgcv", "plyr", "scales", "rtf", "rmarkdown", "shinyWidgets", "leaflet", "RgoogleMaps", "plotrix", "GGally", "plotly", "httr", "jsonlite", "tidyverse", "readr", "sp", "rgdal", "sf", "rgeos", "magrittr", "leaflet.extras", "lubridate", "fontawesome", "viridisLite", "purrr",
+pkgs <- c("flexdashboard", "shiny", "knitr",  "here", "tidyverse", "janitor", "mgcv", "plyr", "scales", "rtf", "rmarkdown", "shinyWidgets", "leaflet", "RgoogleMaps", "plotrix", "GGally", "plotly", "httr", "jsonlite", "tidyverse", "readr", "sp", "rgdal", "sf", "rgeos", "magrittr", "leaflet.extras", "lubridate", "fontawesome", "viridisLite", "purrr",
           "stringr",
+          "NADA2", # for MK
+          "ggpubr", # for drawing separate legends <<<<<<<<<<<<<<<<<<<<<<
               "heatmaply", # for interactive heat plots
               "reactable", # for easy nested tables
               "htmltools", # for arranging plots in tab (browsable)
@@ -21,7 +23,7 @@ pkgs <- c("flexdashboard", "shiny", "knitr",  "here", "janitor", "mgcv", "plyr",
               "RColorBrewer", # to display brewer palettes
               "shinyjs", # for easy functions that use JavaScript
               "stringr", # to detect text snippets
-              # "sortable", # drag-and-drop rank input
+              "sortable", # drag-and-drop rank input
               "tmaptools", # for flexible color mapping
               "DT", # for interactive tables
               "zoo", # for year-month
@@ -1085,7 +1087,8 @@ FuncPlotDat <- function() {
           need(input$sel_Categ %in% unique(rv_param_temp$categLevelsPlot$CharacteristicName), message = "The selected categorical characteristic is not recognized as a categorical characteristic in the dataset. Please first add it to the categorical definitions file."))
         plotCategDat <- rv$dat %>% # pulling from the original data
           dplyr::filter(CharacteristicName == input$sel_Categ) %>%
-          dplyr::select(OrganizationFormalName, ActivityStartDate, MonitoringLocationIdentifier, CategName = CharacteristicName, CategResultMeasureValue = ResultMeasureValue)
+          dplyr::select(OrganizationFormalName, ActivityStartDate, MonitoringLocationIdentifier, CategName = CharacteristicName, CategResultMeasureValue = ResultMeasureValue) %>%
+          distinct(.)
 
         plotDat %<>% dplyr::left_join(plotCategDat, by = c("OrganizationFormalName", "MonitoringLocationIdentifier", "ActivityStartDate"))
         plotDat$CategResultMeasureValue <- as.factor(plotDat$CategResultMeasureValue)
@@ -1415,7 +1418,7 @@ FuncPlotScatter <- function(plot_dat, quant_df = NULL, categ_df = NULL, x_nam = 
   # Returns:
   #   List of scatterplot
   # 
-
+cat("line1419")
   shiny::req(sum(!is.na(plot_dat$y)) > 0) # make sure there are data
   
   # All plots share a single x-axis. Don't need to do this for other x_nam because those are factors with specified levels.
@@ -1430,7 +1433,7 @@ if(x_nam == "ActivityStartDate") {
 
   # Create the water quality plot(s)
   p1_points_list <- list()
-  
+  cat("line1434")
   unique_df <- plot_dat %>% expand(CharacteristicName, MonitoringLocationIdentifier) %>% arrange(CharacteristicName, MonitoringLocationIdentifier) # data frame of unique characteristic-sites
   
   char_vec <- unique_df$CharacteristicName
@@ -1444,7 +1447,7 @@ if(x_nam == "ActivityStartDate") {
     shiny::req(!is.null(yaxes_min_temp))
     yaxes_min = switch((yaxes_min_temp <= 0)+1, 0.9*yaxes_min_temp, yaxes_min_temp - 0.1)
     yaxes_max = switch((fixed_free_y=="fixed" & length(unique(unique_df$CharacteristicName)) < 2)+1, 1.1*max(dat_df$y, dat_df$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE), 1.1*max(plot_dat$y, plot_dat$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE))
-    
+    cat("line1448")
     # Set up the plot...
     if(x_nam=="ActivityStartDate") {
       p_points <- ggplot(data = dat_df, aes(x = x, y = y)) + 
@@ -1461,7 +1464,7 @@ if(x_nam == "ActivityStartDate") {
           scale_x_continuous(breaks = 1:length(levels(plot_dat$x)), labels = levels(plot_dat$x))
       }
       }
-    
+   cat("line1465") 
     # If adding threshold background...
   if(!is.null(thresh_list)) {
 
@@ -1484,7 +1487,7 @@ if(x_nam == "ActivityStartDate") {
     dat_df$CategResultMeasureValue <- factor(dat_df$CategResultMeasureValue, levels = levs) 
     cols <- unlist(base::strsplit(str_replace_all(categ_df$CategColor[categ_df$CharacteristicName == input$sel_Categ], "[()]", ""), split="//"))
     names(cols) <- levs # create a named color vector to use as palette
-    
+ cat("line1488")   
     p_points <- p_points +  
       geom_point(aes(shape = pointShape, color = CategResultMeasureValue, fill = CategResultMeasureValue, text = paste0("Characteristic Set: ", CharacteristicSet, "<br>Monitoring Site: ", MonitoringLocationIdentifier, "<br>Survey Date: ", ActivityStartDate, "<br><br>X-value: ", x, "<br>Parameter Value: ", y, "<br>Detection Level: ", ResultDetectionConditionText, "<br>Categorical Level: ", CategResultMeasureValue)), size = 2, show.legend = c(fill = FALSE, color = TRUE, shape = FALSE)) + # aesthetic text is for ggplotly tooltip. Gives warning that it's not recognized but it still works and it's the only way to also allow geom_smooth (weird)
       scale_fill_manual(values = cols, na.value = "black", drop = FALSE) +
@@ -1502,7 +1505,7 @@ if(x_nam == "ActivityStartDate") {
         geom_point(aes(shape = pointShape, text = paste0("Characteristic Set: ", CharacteristicSet, "<br>Monitoring Site: ", MonitoringLocationIdentifier, "<br>Survey Date: ", ActivityStartDate, "<br><br>X-value: ", x, "<br>Parameter Value: ", y, "<br>Detection Level: ", ResultDetectionConditionText)), size = 2, color = "black", show.legend = FALSE)
       }
   }
-  
+  cat("line1506")
   # Shape the points for quantified vs. censored data
     p1_points <- p_points +
       scale_shape_manual(values = c("quant" = 16, "censored" = 1))
@@ -1529,7 +1532,7 @@ if(x_nam == "ActivityStartDate") {
           geom_point(data = highlight_dat, aes(x = x, y = y), color = "turquoise2", size = 2.5)
       }
     }
-    
+  cat("line1533")  
     # If adding loess smooth...
   if(add_loess) {
     # If plotting all stations on one plot, color by station
@@ -1547,7 +1550,7 @@ if(x_nam == "ActivityStartDate") {
     
     # If plotting percentile lines...
     p1_points <- FuncQuantLines(quant_df = quant_df, combine_stations = combine_stations, dat_df = dat_df, p = p1_points)
-  
+cat("line1551")  
   # Final formatting of plots
   p1_points <- p1_points +
     scale_y_continuous(trans = trans_y, labels = function(x) as.character(round(x,2)), breaks = pretty_breaks(), limits = c(yaxes_min, yaxes_max)) + # alternatively, can use 'coord_cartesian(ylim = c(yaxes_min, yaxes_max))' to zoom in to the limits rather than "cutting off" the limits, as setting limits within scale_y_continuous() would do 
@@ -1638,7 +1641,7 @@ if(x_nam == "ActivityStartDate") {
     } else {
     gage_plot <- NA # blank data frame
     }
-  
+  cat("line1642")
    # If adding precipitation plot...
   if(input$sel_AddGagePrecip == "precipitation" & !is.null(precip_dat)) {
     if(x_nam=="ActivityStartDate") {
@@ -1708,7 +1711,7 @@ if(x_nam == "ActivityStartDate") {
     } else {
     precip_plot <- NA # blank data frame
   }
-  
+  cat("line1712")
   return_list <- list(p1_points_list, char_vec, gage_plot, precip_plot)
   return(return_list)
 }
@@ -1862,6 +1865,7 @@ FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, y_sc
   withProgress(message = "Generating plots", detail = "...updating plots", value = 0, {
     incl_cens <- any(c("Present Below Quantification Limit", "Not Detected", "Present Above Quantification Limit") %in% unique(plot_dat$ResultDetectionConditionText)) # TRUE if there are any reporting limits
   
+    cat("line1865")
     if(time_unit == "ActivityStartDate" & plot_type == "box") {time_unit <- "Yr"} # Box plots for time series are grouped by year
     
     thresh_list <- switch(rv_param_temp$threshType,
@@ -1893,6 +1897,8 @@ FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, y_sc
           precipDat <- FuncPrecipDat(precip_station = input$sel_PrecipStation)
           precip_YScale <- input$sel_precip_YScale
         }
+      
+      cat("line1898")
       # For seasonal patterns...
       if(time_unit != "ActivityStartDate") {
         xseq = switch(time_unit,
@@ -1917,7 +1923,7 @@ FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, y_sc
       } else {
         month_summary <- FALSE
       }
-  
+  cat("line1921")
     if(plot_type %in% c("points", "points_smooth")) {
 
       ts_plot <- FuncPlotScatter(plot_dat = plot_dat, quant_df = quant_dat, categ_df = rv_param_temp$categLevelsPlot, x_nam = time_unit, combine_stations = ifelse(length(unique(plot_dat$CharacteristicName)) == 2, ifelse(input$sel_PlotByStation, FALSE, TRUE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), trans_y = y_scale, trans_gage_y = gage_YScale, trans_precip_y = precip_YScale, add_loess = ifelse(plot_type == "points_smooth", TRUE, FALSE), incl_cens = incl_cens, thresh_list = thresh_list, rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat, month_summary = month_summary, highlight_yr = highlight_yr)}
@@ -1926,7 +1932,7 @@ FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, y_sc
       ts_plot <- FuncPlotBox(plot_dat = plot_dat, quant_df = quant_dat, x_nam = time_unit, combine_stations = ifelse(length(unique(plot_dat$CharacteristicName)) == 2, ifelse(input$sel_PlotByStation, FALSE, TRUE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), trans_y = y_scale, trans_gage_y = gage_YScale, trans_precip_y = precip_YScale, incl_cens = incl_cens, thresh_list = thresh_list, rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat)}
 
     # PUT THE PLOTS TOGETHER
-
+cat("line1930")
     shiny::req(!is.null(ts_plot[[1]]))
 
     # Get the shared legend if it exists - getting shared legends to format properly with plotly is a PITB. Tried following many stackexchange suggestions, with no success.
@@ -1974,7 +1980,7 @@ if(input$sel_AddGagePrecip == "precipitation" & !is.null(precipDat) & "ggplot" %
     is_grouped_boxplots = FALSE
   )
 }
-    
+    cat("line1978")
     shiny::req(!is.null(param_plotly))
       
       if(exists("extra_plotly")) {
@@ -2039,28 +2045,34 @@ with_tooltip <- function(value, tooltip) {
   tags$abbr(style = "text-decoration: underline; text-decoration-style: dotted; cursor: help", title = tooltip, value)
 }
 
+download_button <- function(outputId, label = "Download", class = NULL, ...)  {
+     tags$a(id = outputId, class = paste("btn btn-default shiny-download-link", 
+        class), href = "", target = "_blank", download = NA, 
+        icon("download"), label, ...)
+}
+
 ```
 
 ```{r startup}
 
-rv <- reactiveValues(parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, userSelect = list(), savedFilterResults = NULL, savedFilterResultsYears = NULL)
+rv <- reactiveValues(wqp_url = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, userSelect = list())
   
-rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = NULL, seasonalPlot = NULL, plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, sharedLegend = list(heatLegend = NULL, timeSeriesLegend = NULL, MKLegend = NULL), showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL)
+rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = NULL, seasonalPlot = NULL, plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, sharedLegend = list(heatLegend = NULL, timeSeriesLegend = NULL, MKLegend = NULL), showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL)
 ```
 
 ```{r action_button_beginSearch}
 # Action to begin data search from Main Page----
 observeEvent(eventExpr = input$button_beginSearch, {
   
-    rv <- reactiveValues(parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, userSelect = list(), savedFilterResults = NULL, savedFilterResultsYears = NULL)
+    rv <- reactiveValues(wqp_url = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, userSelect = list())
   
-  rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = NULL, seasonalPlot = NULL, plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, sharedLegend = list(heatLegend = NULL, timeSeriesLegend = NULL, MKLegend = NULL), showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL)
+  rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = NULL, seasonalPlot = NULL, plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, sharedLegend = list(heatLegend = NULL, timeSeriesLegend = NULL, MKLegend = NULL), showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL)
   
   # Reset map center and map bounds to NULL
   session$sendCustomMessage(type = "setNull", message = "map_center") 
   session$sendCustomMessage(type = "setNull", message = "map_bounds")
   
-  # Hide wellPanels
+  # Hide filter wellPanels
   restart_panels_filter <- c("new_data_P1", "new_data_P2", "new_data_P3", "new_data_P4", "create_categfile_P1", "create_categfile_P2", "create_categfile_P3") # "wp_filter_yr_season", "wp_filter_sampling_chars", "wp_filter_org", "wp_filter_wqchar",
   lapply(restart_panels_filter, FUN = function(x) shinyjs::hideElement(x))
   
@@ -2640,6 +2652,9 @@ observeEvent(eventExpr = input$button_downloadData, {
   stationChoiceString <- paste0(stationChoiceTemp, collapse = "&siteid=")
   
   datURL <- paste0("https://www.waterqualitydata.us/data/Result/search?siteType=", siteTypeChoiceString, "&organization=", orgChoiceString, "&siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&minactivities=", input$sel_MinActivities, "&startDateLo=", format(input$sel_ImportStartDate,"%m-%d-%Y"), "&startDateHi=", format(input$sel_ImportEndDate,"%m-%d-%Y"), "&sampleMedia=Water&mimeType=csv&zip=no") # could not find a way to use dataRetrieval for multiple HUCs or multiple sites
+  
+  rv$wqp_url <- datURL
+  cat(datURL)
 
   if(http_status(GET(datURL))$category!="Success") { # make sure the service call is valid
       showModal(
@@ -2749,35 +2764,34 @@ observeEvent(eventExpr = input$button_downloadData, {
   import_input <- c("sel_UnitCode", "sel_ImportStartDate", "sel_ImportEndDate", "sel_MinActivities", "sel_SiteType", "sel_HUClevel", "sel_SelectMethod", "sel_OriginStationID", "sel_DiskKmUpstream", "sel_IncludeTribs", "sel_DistKmDownstream", "sel_IncludeDiversions", "sel_Organization", "sel_Gages", "sel_Meteo", "sel_CharType")
   FuncUpdateUserSelect(inputs_to_update = import_input) 
   
-  # Save to local directory ----
-  setProgress(4/5, detail = "Saving output files")
-  showModal( # Pop-up modal asking user to enter prefix to append to saved files
-    modalDialog(
-      textInput("out_prefix", "Prefix to append to output files: ",
-                placeholder = paste0("WQdash_", rv$parkID, "_", paste0(gsub(pattern = "-", replacement = "", x = Sys.Date()))),
-                value = paste0("WQdash_", rv$parkID, "_", paste0(gsub(pattern = "-", replacement = "", x = Sys.Date())))
-      ),
-      footer = tagList(
-        actionButton("button_goSave", "SAVE")
-      )
-    ))
+  # # Save to local directory ----
+  # setProgress(4/5, detail = "Saving output files")
+  # showModal( # Pop-up modal asking user to enter prefix to append to saved files
+  #   modalDialog(
+  #     textInput("out_prefix", "Prefix to append to output files: ",
+  #               placeholder = paste0("WQdash_", rv$parkID, "_", paste0(gsub(pattern = "-", replacement = "", x = Sys.Date()))),
+  #               value = paste0("WQdash_", rv$parkID, "_", paste0(gsub(pattern = "-", replacement = "", x = Sys.Date())))
+  #     ),
+  #     footer = tagList(
+  #       actionButton("button_goSave", "SAVE")
+  #     )
+  #   ))
   
-  observeEvent(input$button_goSave, {
+  # observeEvent(input$button_goSave, {
     rv$orgs$Selected <- FALSE
     rv$orgs$Selected[rv$orgs$OrganizationFormalName %in% input$sel_Organization] <- TRUE # identify if each organization was selected for import or not
-    saveRDS(isolate(reactiveValuesToList(rv)), paste0("Data_out/", input$out_prefix, ".RDS"))
-    write_csv(rv$dat, paste0("Data_out/", input$out_prefix, "_WQP_formatted.csv"))
-    write_csv(rawDat, paste0("Data_out/", input$out_prefix, "_WQP_raw.csv")) # save the raw WQP data
+    # saveRDS(isolate(reactiveValuesToList(rv)), paste0("Data_out/", input$out_prefix, ".RDS"))
+    # write_csv(rv$dat, paste0("Data_out/", input$out_prefix, "_WQP_formatted.csv"))
+    # write_csv(rawDat, paste0("Data_out/", input$out_prefix, "_WQP_raw.csv")) # save the raw WQP data # <<<<<<<<<<<<<<<<<<<<<< PICK UP FROM HERE. DOWNLOAD TO USER'S COMPUTER.
   
   rv_param_temp$resetFilter <- TRUE
+  rv_param_temp$newImport <- TRUE
  
     showModal(modalDialog(
       title = "Done",
-      paste0("The data for dashboard use have been saved as '", input$out_prefix, ".RDS' in the folder 'Data_out' of the current working directory, ", getwd(), ". For your reference, the raw and formatted WQP data have been saved as '", input$out_prefix, "_WQP_raw.csv' and '", input$out_prefix, "_WQP_formatted.csv' in the same 'Data_out' folder.You may now navigate to the FILTER DATA tab to choose a subset of data to work with.") 
+      paste0("Data import SUCCESSFUL. To download the formatted .RDS file to your computer, press the `Download Formatted RDS` button in the left side panel. You may now navigate to the FILTER DATA tab to choose a subset of data to work with.") 
     ))
   })
-        
-    })
 }, ignoreInit = TRUE) # end of observeEvent
 ```
   
@@ -2836,78 +2850,45 @@ renderUI({
   FuncShowWellPanel(input$sel_FilterWQChar, "wp_filter_wqchar")
 })
 
-# Load saved filter data ----
-observeEvent(eventExpr = input$button_showSavedFilter, {
-  
-  if(is.null(rv$dat)) {
-    showModal(modalDialog(
-      title = "No Data",
-      "No data available. Please use the 'Get WQP Data' tab to first import or load water quality data."))
-    }
-  shiny::req(!is.null(rv$dat))
-  
-  if(is.null(rv$savedFilterResults)|is.null(rv$savedFilterResultsYears)) {
-    showModal(modalDialog(
-      title = "No saved filter results",
-      "Could not find filter results saved with this .RDS file."))
-    }
-  shiny::req(!is.null(rv$savedFilterResults) & !is.null(rv$savedFilterResultsYears))
-  
-  withProgress(message = "Loading saved filter results....", value = 0, {
-    
-  rv_param_temp$subDat <- rv$savedFilterResults
-  rv_param_temp$subDatYears <- rv$savedFilterResultsYears
-  
-  if(!is.null(rv_param_temp$subDat)) {
-    rv_param_temp$subDatTypes <- as.data.frame(FuncDataTypes(dat = rv_param_temp$subDat))
-    # Sys.sleep(1)
-
-  FuncRefreshFilterShowOptions(set_value = FALSE)
-  
-  showModal(modalDialog(
-    title = "Done",
-    "In the 'Filtered Data Summary' table, select a water quality characteristic to see its sampling summaries and raw data."))
-  } else {
-    showModal(modalDialog(
-      title = "No Data",
-      "No data meet the filter criteria (e.g., the minimum required number of survey years may be too large)"
-    ))
-    }
-  })
-})
-
-# Action to save filter results with the current .RDS file ----
-output$button_saveFilter <- downloadHandler(
-  
-  filename = function() {
-    return(here::here(input$saved_data_file$name))
-  },
-  content = function(file) {
-    # update rv$userSelect with current filter settings (except for settings re: whether or not to show some input options)
-    
-    if(is.null(rv$dat)) {
-      showModal(modalDialog(
-        title = "No Data",
-        "No data available. Please use the 'Get WQP Data' tab to first import or load water quality data."))
-    }
-    shiny::req(!is.null(rv$dat))
-    
-    if(is.null(rv_param_temp$subDat)|is.null(rv_param_temp$subDatYears)) {
-      showModal(modalDialog(
-            title = "No data meet the selected criteria",
-            "Please change the selected filter criteria. After filter results appear in the tab window, you can save the results for future use by clicking the 'Save these filter results...' hyperlink"))
-    }
-    
-    shiny::req(!is.null(rv_param_temp$subDat) & !is.null(rv_param_temp$subDatYears))
-    
-    rv$savedFilterResults <- rv_param_temp$subDat # save the filter output to rv
-    rv$savedFilterResultsYears <- rv_param_temp$subDatYears
-    
-    filter_input <- c("sel_DefineSeasons", "sel_SeasonsStart", "sel_Season1Name", "sel_Season1Range", "sel_Season2Name", "sel_Season2Range", "sel_Season3Name", "sel_Season3Range", "sel_Season4Name", "sel_Season4Range", "sel_YrRange", "sel_MinYrs", "sel_MinStations", "sel_ActivityType", "sel_ResultStatus", "sel_LimitDepths", "sel_DepthUnit", "sel_MinDepth", "sel_MaxDepth", "sel_SummaryOrg", "sel_FilterWQChar", "sel_NPSparam", "sel_SummaryParam", "sel_TimeSubunit", "sel_RawFilteredDataCols")
-    FuncUpdateUserSelect(inputs_to_update = filter_input) # save the filter settings to rv$userSelect
-    saveRDS(isolate(reactiveValuesToList(rv)), file)
-  }
-)
+# # Load saved filter data ----
+# observeEvent(eventExpr = input$button_showSavedFilter, {
+#   
+#   if(is.null(rv$dat)) {
+#     showModal(modalDialog(
+#       title = "No Data",
+#       "No data available. Please use the 'Get WQP Data' tab to first import or load water quality data."))
+#     }
+#   shiny::req(!is.null(rv$dat))
+#   
+#   if(is.null(rv$savedFilterResults)|is.null(rv$savedFilterResultsYears)) {
+#     showModal(modalDialog(
+#       title = "No saved filter results",
+#       "Could not find filter results saved with this .RDS file."))
+#     }
+#   shiny::req(!is.null(rv$savedFilterResults) & !is.null(rv$savedFilterResultsYears))
+#   
+#   withProgress(message = "Loading saved filter results....", value = 0, {
+#     
+#   rv_param_temp$subDat <- rv$savedFilterResults
+#   rv_param_temp$subDatYears <- rv$savedFilterResultsYears
+#   
+#   if(!is.null(rv_param_temp$subDat)) {
+#     rv_param_temp$subDatTypes <- as.data.frame(FuncDataTypes(dat = rv_param_temp$subDat))
+#     # Sys.sleep(1)
+# 
+#   FuncRefreshFilterShowOptions(set_value = FALSE)
+#   
+#   showModal(modalDialog(
+#     title = "Done",
+#     "In the 'Filtered Data Summary' table, select a water quality characteristic to see its sampling summaries and raw data."))
+#   } else {
+#     showModal(modalDialog(
+#       title = "No Data",
+#       "No data meet the filter criteria (e.g., the minimum required number of survey years may be too large)"
+#     ))
+#     }
+#   })
+# })
 
 # Action to attach a thresholds file ----
 observeEvent(eventExpr = input$button_getThreshFile, { 
@@ -3416,8 +3397,9 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
     rv_param_temp$plotDat <- NULL
   } else {
         withProgress(message = "Generating plot data...", value = 0, {
+
           
-    rv_param_temp$plotDat <- FuncPlotDat() # this function also assigns data to rv_param_temp$quantDat
+          rv_param_temp$plotDat <- FuncPlotDat() # this function also assigns data to rv_param_temp$quantDat
     
     # shiny::req(!is.null(input$sel_PlotType), !is.null(input$sel_FreeY), !is.null(input$sel_YScale), !is.null(input$sel_PlotByStation), !is.null(input$sel_AddGagePrecip), !is.null(input$sel_Categ), !is.null(rv_param_temp$plotSummarizeBy), !is.null(input$sel_SeasonalTimeUnit), !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$threshType))
 
@@ -3617,13 +3599,44 @@ Get WQP Data
 Inputs {.sidebar data-width=285}
 -------------------------------------
 ```{r main_data_sidebar}  
+
 useShinyjs(rmd = TRUE)
 
 br()
 
-FuncAboutButton(nam = "button_aboutGetWQPData")
-observeEvent(eventExpr = input$button_aboutGetWQPData, {
-  browseURL(here::here("About_files", "aboutGetWQPData.html"))})
+# FuncAboutButton(nam = "button_aboutGetWQPData")
+# observeEvent(eventExpr = input$button_aboutGetWQPData, {
+#   browseURL(here::here("About_files", "aboutGetWQPData.html"))})
+
+# Download RDS to user location ----
+renderUI({
+  shiny::req(!is.null(rv))
+            
+          saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+          saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+          saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+  
+  shiny::req(rv_param_temp$newImport == TRUE)
+             
+  download_button(
+  outputId = "download_RDS", 
+  label = "Download Formatted RDS File")
+})
+  
+renderUI({
+  shiny::req(!is.null(rv$wqp_url))
+  em(tags$a(href=rv$wqp_url, "WQP data URL"))# target="_blank", 
+})
+
+output$download_RDS <- downloadHandler(
+  shiny::req(!is.null(rv)),
+  filename = function() {
+    paste0("WQdash_", rv$parkID, "_", paste0(gsub(pattern = "-", replacement = "", x = Sys.Date())))
+    },
+    content = function(file) {
+      saveRDS(isolate(reactiveValuesToList(rv)), file)
+    }
+  )
 
 br()
 
@@ -3856,9 +3869,6 @@ output$table_selected_orgs <- renderReactable({
   # shiny::validate(
     # need(!is.null(rv$dat), message = "No data available. Please first import or load water quality data.")) # can't call FuncOrderCheck from in here
   shiny::req(!is.null(rv$dat), !is.null(rv$sitesPointsSub), !is.null(rv$userSelect$sel_Organization))
-  
-    # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-    #       saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
           
   df_site <- rv$sitesPointsSub@data %>%
     dplyr::filter(MonitoringLocationIdentifier %in% rv$selectedStations$MonitoringLocationIdentifier & OrganizationFormalName %in% rv$userSelect$sel_Organization) %>%
@@ -4040,23 +4050,15 @@ Inputs {.sidebar data-width=320}
 ```{r define_filter_sidebar}
 br()
 
-FuncAboutButton(nam = "button_aboutCheckFilterData")
-observeEvent(eventExpr = input$button_aboutCheckFilterData, {
-  browseURL(here::here("About_files", "aboutCheckFilterData.html"))})
+# FuncAboutButton(nam = "button_aboutCheckFilterData")
+# observeEvent(eventExpr = input$button_aboutCheckFilterData, {
+#   browseURL(here::here("About_files", "aboutCheckFilterData.html"))})
 
 br()
 
 br()
 
 strong("Data Filter Options")
-
-br()
-
-# actionButton("button_showSavedFilter", "USE SAVED FILTER RESULTS", style="border-color:black; background-color: lightblue; border:0px; width:100%; margin:0px") # refreshes with the saved filter results
-# 
-# br()
-# 
-# downloadLink("button_saveFilter", label = "Save filter results to the current .RDS file")
 
 br()
 
@@ -4546,7 +4548,8 @@ DTOutput("table_raw_filtered")
 tags$style("#table_raw_filtered{height:100vh;overflow-x:scroll;overflow-y:scroll}")
 ```
 
-Define Categorical Characters {.hidden}
+<!-- Define Categorical Characters {.hidden} -->
+Define Categorical Characters
 ====================================== 
 
 Leftside Panel  {data-width=210}
@@ -4676,14 +4679,12 @@ div(style="display:inline-block; width:180px;", actionButton("button_categDelete
 
 br()
 
-br()
+# br()
 
 output$categDT <- DT::renderDT({rv_param_temp$categLevelsPlot}, editable = TRUE)
 proxyDT <- DT::dataTableProxy("categDT")
     
 dataTableOutput("categDT")
-
-br()
 
 br()
 
@@ -4708,9 +4709,9 @@ Inputs {.sidebar data-width=355}
 
 br()
 
-FuncAboutButton(nam = "button_aboutTSPlots")
-observeEvent(eventExpr = input$button_aboutTSPlots, {
-  browseURL(here::here("About_files", "aboutTSPlots.html"))})
+# FuncAboutButton(nam = "button_aboutTSPlots")
+# observeEvent(eventExpr = input$button_aboutTSPlots, {
+#   browseURL(here::here("About_files", "aboutTSPlots.html"))})
 
 br()
 
@@ -5044,7 +5045,7 @@ renderPlot({ # separate validation statements so they are checked in sequence
 renderPlotly({ # separate validation statements so they are checked in sequence
 
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE)
-
+cat("line5039")
   shiny::validate(
     need(!is.null(rv_param_temp$showCharSets) & !is.null(rv_param_temp$showStations), message = "From the left sidebar, please select characteristic(s), characteristic set(s) and monitoring site(s) to plot, then click the green 'REFRESH PLOT DATA' button"))
 
@@ -5054,15 +5055,15 @@ renderPlotly({ # separate validation statements so they are checked in sequence
     if(!is.null(input$sel_PlotByStation) & !is.null(rv_param_temp$showStations)) {
       shiny::validate(need(length(rv_param_temp$showStations) < 6 | input$sel_PlotByStation == TRUE, message = "The maximum number of monitoring sites to display in a single plot is FIVE. From the left sidebar, please either select 'Show one monitoring site per plot' or reduce the number of sites to display."))
     }
-  
+ cat("line5049") 
   shiny::req(!is.null(input$sel_PlotType), !is.null(input$sel_FreeY), !is.null(input$sel_YScale), !is.null(input$sel_PlotByStation), !is.null(input$sel_AddGagePrecip), !is.null(input$sel_Categ), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$threshType))
-
+cat("line5051")
   rv_param_temp$finalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = "ActivityStartDate", free_y = input$sel_FreeY, y_scale = input$sel_YScale, highlight_yr = NULL) # the plot should update only if one of these arguments changes
-  
+  cat("line5053")
   shiny::req(!is.null(rv_param_temp$finalPlot))
   rv_param_temp$finalPlot
   })
-unlink("Rplots.pdf")
+# unlink("Rplots.pdf")
 ```
 
 ### Seasonal Patterns
@@ -5075,11 +5076,11 @@ unlink("Rplots.pdf")
 
 <div align="center">
 ```{r seasonal_plots_slider}
-# renderUI({
-#   shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$seasonalPlot))
-#   shiny::req(length(unique(rv_param_temp$plotDat$Yr)) > 0)
-# sliderTextInput("sel_HighlightSurvYr", force_edges = TRUE, label = h4(strong("Choose a survey year to highlight blue in point plots")), choices = sort(unique(rv_param_temp$plotDat$Yr)), selected = switch(is.null(input$sel_HighlightSurvYr)+1, input$sel_HighlightSurvYr, max(rv_param_temp$plotDat$Yr, na.rm = TRUE)), dragRange = FALSE, animate = FALSE, width = "500px")
-#   })
+renderUI({
+  shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$seasonalPlot))
+  shiny::req(length(unique(rv_param_temp$plotDat$Yr)) > 0)
+sliderTextInput("sel_HighlightSurvYr", force_edges = TRUE, label = h4(strong("Choose a survey year to highlight blue in point plots")), choices = sort(unique(rv_param_temp$plotDat$Yr)), selected = switch(is.null(input$sel_HighlightSurvYr)+1, input$sel_HighlightSurvYr, max(rv_param_temp$plotDat$Yr, na.rm = TRUE)), dragRange = FALSE, animate = FALSE, width = "500px")
+  })
 ```
 </div>
 
@@ -5210,9 +5211,9 @@ Inputs {.sidebar data-width=250}
 -------------------------------------
 ```{r summary_sidebar}  
 br()
-FuncAboutButton(nam = "button_aboutSpatialPatterns")
-observeEvent(eventExpr = input$button_aboutSpatialPatterns, {
-  browseURL(here::here("About_files", "aboutSpatialPatterns.html"))})
+# FuncAboutButton(nam = "button_aboutSpatialPatterns")
+# observeEvent(eventExpr = input$button_aboutSpatialPatterns, {
+#   browseURL(here::here("About_files", "aboutSpatialPatterns.html"))})
 br()
 br()
 wellPanel(
@@ -5480,9 +5481,9 @@ Inputs {.sidebar data-width=355}
 
 br()
 
-FuncAboutButton(nam = "button_aboutPlotDataTables")
-observeEvent(eventExpr = input$button_aboutPlotDataTables, {
-  browseURL(here::here("About_files", "aboutPlotDataTables.html"))})
+# FuncAboutButton(nam = "button_aboutPlotDataTables")
+# observeEvent(eventExpr = input$button_aboutPlotDataTables, {
+#   browseURL(here::here("About_files", "aboutPlotDataTables.html"))})
 
 br()
 
@@ -5575,9 +5576,9 @@ Inputs {.sidebar data-width=250}
 
 br()
 
-FuncAboutButton(nam = "button_aboutTrendAnalysis")
-observeEvent(eventExpr = input$button_aboutTrendAnalysis, {
-  browseURL(here::here("About_files", "button_aboutTrendAnalysis.html"))})
+# FuncAboutButton(nam = "button_aboutTrendAnalysis")
+# observeEvent(eventExpr = input$button_aboutTrendAnalysis, {
+#   browseURL(here::here("About_files", "button_aboutTrendAnalysis.html"))})
 
 br()
 
@@ -5700,3 +5701,36 @@ output$table_MKraw <- DT::renderDT({
 DTOutput("table_MKraw")
 tags$style("#table_MKraw{height:100vh;overflow-x:scroll;overflow-y:scroll}")
 ```
+
+SHINY TEST PAGE
+====================================== 
+
+Test link to jump to an otherwise hidden page of the dashboard
+tags$a("Create custom categorical", onclick="customHref('page-Define-Categorical-Characters'); ")
+
+Test alternative Mann Kendall packages (that hopefully don't app_cache)
+
+
+Troubleshooting & FAQ's
+====================================== 
+
+TROUBLESHOOTING
+* I could not import data from web services (import aborted)
+* Some of the data from WQP were not in the imported data file
+* I found a bug in the dashboard! How do I report it?
+* I found a mistake in the data--how do I report it?
+
+FAQ's
+
+* Where do the data come from?
+* What is a water quality "characteristic set"?
+* How can I set custom seasons if I don't want to use calendar seasons?
+* How can I export figures and tables from the dashboard?
+* Mann Kendall calcs--how are they done? What criteria for pre-checking the data? Are they reliable?
+* How were default threshold limits determined?
+https://www.epa.gov/wqs-tech/state-specific-water-quality-standards-effective-under-clean-water-act-cwa#tb4
+* How to display categorical parameters with colors
+* How to upload my own threshold limits?
+* Can I set threshold limits calculated over multiple days, etc.?
+* Can I download the dashboard to my own computer?
+* GitHub link and contact email for questions, suggestions, reporting bugs
