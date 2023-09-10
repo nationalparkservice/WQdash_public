@@ -9,6 +9,7 @@ runtime: shiny
 ---
 
 ```{r global, include=FALSE}
+
 # Install and load packages
 rm(list=ls())
 
@@ -434,10 +435,10 @@ FuncRefreshFilterShowOptions <- function(set_value) {
                       # label = "Show options to filter by organization",
                       value = set_value)
   
-  updateCheckboxInput(session,
-                      "sel_FilterWQChar",
-                      # label = "Show options to filter by water quality characteristic",
-                      value = set_value)
+  # updateCheckboxInput(session,
+  #                     "sel_FilterWQChar",
+  #                     # label = "Show options to filter by water quality characteristic",
+  #                     value = set_value)
 }
 
 FuncUpdateHome <- function() {
@@ -827,7 +828,7 @@ FuncPlotlyHeatMap <- function(dat, y_name, facet_by_name, legend_name, is_discre
           l= 80,
           r=40)
           )
-  return_list <- list(legend = shared_legend, plot = plotly_heatmap)
+  return_list <- list(shared_legend = shared_legend, plotly_page = plotly_heatmap)
   return(return_list)
 }
 
@@ -1335,7 +1336,7 @@ FuncAddThresh <- function(v_char, thresh, p, xlow_temp = NULL, xhigh_temp = NULL
   return(p)
 }
 
-FuncPlotScatter <- function(plot_dat, quant_df = NULL, categ_df = NULL, x_nam = "ActivityStartDate", combine_stations = FALSE, fixed_free_y = "fixed", trans_y = "identity", trans_gage_y = "identity", trans_precip_y = "identity", add_loess = TRUE, incl_cens = FALSE, thresh_list = NULL, rotate_x = FALSE, gage_dat = NULL, precip_dat = NULL, month_summary = FALSE, highlight_yr = NULL) {
+FuncPlotScatter <- function(plot_dat, quant_df = NULL, categ_df = NULL, x_nam = "ActivityStartDate", combine_stations = FALSE, fixed_free_y = "fixed", trans_y = "identity", trans_gage_y = "identity", trans_precip_y = "identity", add_loess = TRUE, incl_cens = FALSE, thresh_list = NULL, rotate_x = FALSE, gage_dat = NULL, precip_dat = NULL, month_summary = FALSE) {
   # Function to generate scatterplot of data, with censored values shown as dotted intervals
   #
   # Args:
@@ -1352,12 +1353,11 @@ FuncPlotScatter <- function(plot_dat, quant_df = NULL, categ_df = NULL, x_nam = 
   #   rotate_x: should x-axis labels be rotated?
   #   gage_dat: USGS gage station data, if streamflow plot should be included: otherwise, NULL
   #   precip_dat: weather station data, if precipitation plot should be included; otherwise, NULL
-  #   highlight_yr: In seasonal point plots, year of data to highlight
   #
   # Returns:
   #   List of scatterplot
   # 
-cat("FUNCPLOTSCATTER")
+
   shiny::req(sum(!is.na(plot_dat$y)) > 0) # make sure there are data
   
   # All plots share a single x-axis. Don't need to do this for other x_nam because those are factors with specified levels.
@@ -1413,7 +1413,7 @@ if(x_nam == "ActivityStartDate") {
   }
     
     # ...if coloring by a categorical characteristic, set up the data...
-  if(input$sel_Categ != "none" & !is.null(categ_df)) { 
+  if(input$sel_Categ != "none" & !is.null(categ_df)) {
     levs <- unlist(base::strsplit(str_replace_all(categ_df$CategOrder[categ_df$CharacteristicName == input$sel_Categ], "[()]", ""), split="//")) # these are the categorical levels from the category import file--pull from there rather than from data to ensure no levels are omitted just because they were not in the data
     levels_ok <- all(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == input$sel_Categ])) %in% levs)
     shiny::req(!is.null(levels_ok))
@@ -1422,17 +1422,16 @@ if(x_nam == "ActivityStartDate") {
           title = "Categorical levels mismatch",
           paste0("At least one categorical level found in the data (", paste(sort(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == input$sel_Categ]))), collapse = ", "), ") is not included in the levels imported from the  category file (", paste(sort(levs), collapse = ", "), "). Please amend the category file to match the data."))
         )}
-    
-    dat_df$CategResultMeasureValue <- factor(dat_df$CategResultMeasureValue, levels = levs) 
+    dat_df$CategResultMeasureValue <- factor(dat_df$CategResultMeasureValue, levels = levs)
     cols <- unlist(base::strsplit(str_replace_all(categ_df$CategColor[categ_df$CharacteristicName == input$sel_Categ], "[()]", ""), split="//"))
     names(cols) <- levs # create a named color vector to use as palette
- cat("line1488")   
-    p_points <- p_points +  
+ cat("line1488")
+    p_points <- p_points +
       geom_point(aes(shape = pointShape, color = CategResultMeasureValue, fill = CategResultMeasureValue, text = paste0("Characteristic Set: ", CharacteristicSet, "<br>Monitoring Site: ", MonitoringLocationIdentifier, "<br>Survey Date: ", ActivityStartDate, "<br><br>X-value: ", x, "<br>Parameter Value: ", y, "<br>Detection Level: ", ResultDetectionConditionText, "<br>Categorical Level: ", CategResultMeasureValue)), size = 2, show.legend = c(fill = FALSE, color = TRUE, shape = FALSE)) + # aesthetic text is for ggplotly tooltip. Gives warning that it's not recognized but it still works and it's the only way to also allow geom_smooth (weird)
       scale_fill_manual(values = cols, na.value = "black", drop = FALSE) +
       scale_color_manual(name = paste0(input$sel_Categ, "     "), limits = levs, values = cols, na.value = "black", drop = FALSE) # specifying all possible values in limits is required to make sure they are not dropped from legend when not in data
   } else {
-      
+
       # ..if combining sites for a single characteristic, so coloring by monitoring site...
       if(rv_param_temp$plotSummarizeBy == "by_char" & combine_stations==TRUE) { # if coloring by monitoring site, use viridis color scale
         p_points <- p_points +
@@ -1462,15 +1461,7 @@ if(x_nam == "ActivityStartDate") {
         geom_segment(data = dat_cens, aes(x = x, xend = x, y = segment_start, yend = segment_end), size = 0.25, linetype = "dotted")
     }
   }
-  
-  # If highlighting a certain year in seasonal plots...
-    if(!is.null(highlight_yr)) {
-      highlight_dat <- subset(dat_df, Yr == highlight_yr, select = c(x, y))
-      if(nrow(highlight_dat) > 0) {
-        p1_points <- p1_points +
-          geom_point(data = highlight_dat, aes(x = x, y = y), color = "turquoise2", size = 2.5)
-      }
-    }
+
   cat("line1533")  
     # If adding loess smooth...
   if(add_loess) {
@@ -1542,16 +1533,6 @@ cat("line1551")
         gage_plot <- ggplot(gage_dat, aes(x = x, y = MeanDailyDischarge)) +
           geom_point(aes(text = paste0("Gage Name: ", GageName, "<br>Survey date: ", ActivityStartDate, "<br><br>X-value: ", x, "<br>Mean daily discharge (cfs): ", MeanDailyDischarge)), alpha = 0.5)
         
-        # If highlighting a certain year...
-        if(!is.null(highlight_yr)) {
-          highlight_gage_dat <- subset(gage_dat, Yr == highlight_yr, select = c(x, MeanDailyDischarge))
-
-          if(nrow(highlight_gage_dat) > 0) {
-            gage_plot <- gage_plot +
-              geom_point(data = highlight_gage_dat, aes(x = x, y = MeanDailyDischarge), color = "turquoise2", size = 2.5)
-          }
-          }
-        
         if(x_nam=="DayOfYr") {
           gage_plot <- gage_plot +
             scale_x_continuous(breaks = seq(from = 0, to = 366, by = 20))
@@ -1611,16 +1592,6 @@ cat("line1551")
         precip_dat$x <- as.numeric(precip_dat$x)
         precip_plot <- ggplot(precip_dat, aes(x = x, y = PRCP_cm)) +
           geom_point(aes(text = paste0("Weather Station Name: ", MeteoName, "<br>Survey date: ", ActivityStartDate, "<br><br>X-value: ", x, "<br>Daily precipitation (cm)): ", PRCP_cm)), alpha = 0.5)
-        
-        # If highlighting a certain year...
-        if(!is.null(highlight_yr)) {
-          highlight_precip_dat <- subset(precip_dat, Yr == highlight_yr, select = c(x, PRCP_cm))
-
-          if(nrow(highlight_precip_dat) > 0) {
-            precip_plot <- precip_plot +
-              geom_point(data = highlight_precip_dat, aes(x = x, y = PRCP_cm), color = "turquoise2", size = 2.5)
-          }
-          }
         
         if(x_nam=="DayOfYr") {
           precip_plot <- precip_plot +
@@ -1799,11 +1770,12 @@ FuncPlotBox <- function(plot_dat, quant_df = NULL, x_nam = "Yr", combine_station
   return(return_list)
 }
   
-FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, y_scale, highlight_yr = NULL) {
+FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, y_scale, categLevelsPlot = rv_param_temp$categLevelsPlot) {
+ 
+  plot_dat <- isolate(plot_dat)
 # Includes censored data
     incl_cens <- any(c("Present Below Quantification Limit", "Not Detected", "Present Above Quantification Limit") %in% unique(plot_dat$ResultDetectionConditionText)) # TRUE if there are any reporting limits
   
-    cat("FUNCPLOTPAGE")
     if(time_unit == "ActivityStartDate" & plot_type == "box") {time_unit <- "Yr"} # Box plots for time series are grouped by year
     
     thresh_list <- switch(rv_param_temp$threshType,
@@ -1864,7 +1836,7 @@ FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, y_sc
   cat("line1921")
     if(plot_type %in% c("points", "points_smooth")) {
 
-      ts_plot <- FuncPlotScatter(plot_dat = plot_dat, quant_df = quant_dat, categ_df = rv_param_temp$categLevelsPlot, x_nam = time_unit, combine_stations = ifelse(length(unique(plot_dat$CharacteristicName)) == 2, ifelse(input$sel_PlotByStation, FALSE, TRUE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), trans_y = y_scale, trans_gage_y = gage_YScale, trans_precip_y = precip_YScale, add_loess = ifelse(plot_type == "points_smooth", TRUE, FALSE), incl_cens = incl_cens, thresh_list = thresh_list, rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat, month_summary = month_summary, highlight_yr = highlight_yr)}
+      ts_plot <- FuncPlotScatter(plot_dat = plot_dat, quant_df = quant_dat, categ_df = categLevelsPlot, x_nam = time_unit, combine_stations = ifelse(length(unique(plot_dat$CharacteristicName)) == 2, ifelse(input$sel_PlotByStation, FALSE, TRUE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), trans_y = y_scale, trans_gage_y = gage_YScale, trans_precip_y = precip_YScale, add_loess = ifelse(plot_type == "points_smooth", TRUE, FALSE), incl_cens = incl_cens, thresh_list = thresh_list, rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat, month_summary = month_summary)}
 
     if(plot_type == "box") {
       ts_plot <- FuncPlotBox(plot_dat = plot_dat, quant_df = quant_dat, x_nam = time_unit, combine_stations = ifelse(length(unique(plot_dat$CharacteristicName)) == 2, ifelse(input$sel_PlotByStation, FALSE, TRUE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), trans_y = y_scale, trans_gage_y = gage_YScale, trans_precip_y = precip_YScale, incl_cens = incl_cens, thresh_list = thresh_list, rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat)}
@@ -1875,9 +1847,9 @@ cat("line1930")
 
     # Get the shared legend if it exists - getting shared legends to format properly with plotly is a PITB. Tried following many stackexchange suggestions, with no success.
       if(!is.null(get_legend(ts_plot[[1]][[1]]))) {
-      rv_param_temp$sharedLegend$timeSeriesLegend <- ggpubr::as_ggplot(get_legend(ts_plot[[1]][[1]])) # if a legend exists, extract it
+      shared_legend <- ggpubr::as_ggplot(get_legend(ts_plot[[1]][[1]])) # if a legend exists, extract it
     } else {
-      rv_param_temp$sharedLegend$timeSeriesLegend <- NULL
+      shared_legend <- NULL
     }
 
     plot_ht <- 340
@@ -1939,7 +1911,9 @@ if(input$sel_AddGagePrecip == "precipitation" & !is.null(precipDat) & "ggplot" %
               titleX = TRUE,
               titleY = TRUE,
               which_layout = 1)
-    return(plotly_page)
+      return_list <- list(plotly_page = plotly_page, shared_legend = shared_legend)
+    # return(plotly_page)
+      return(return_list)
 }
 
 FuncPieDat <- function(limit_type) {
@@ -1974,7 +1948,7 @@ FuncPieDat <- function(limit_type) {
 FuncClearAll <- function() {
   rv <- reactiveValues(wqp_url = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, userSelect = list())
   
-  rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = NULL, seasonalPlot = NULL, plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, sharedLegend = list(heatLegend = NULL, timeSeriesLegend = NULL, MKLegend = NULL), showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL)
+  rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, seasonalTimeUnit = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL)
   
   # Hide filter wellPanels
   restart_panels_filter <- c("new_data_P1", "new_data_P2", "new_data_P3", "new_data_P4", "create_categfile_P1", "create_categfile_P2", "create_categfile_P3") # "wp_filter_yr_season", "wp_filter_sampling_chars", "wp_filter_org", "wp_filter_wqchar",
@@ -2008,7 +1982,7 @@ download_button <- function(outputId, label = "Download", class = NULL, ...)  {
 
 rv <- reactiveValues(wqp_url = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, userSelect = list())
   
-rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = NULL, seasonalPlot = NULL, plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, sharedLegend = list(heatLegend = NULL, timeSeriesLegend = NULL, MKLegend = NULL), showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL)
+rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, seasonalTimeUnit = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL)
 ```
 
 ```{r action_button_beginSearch}
@@ -2465,7 +2439,7 @@ observeEvent(eventExpr = input$button_highlightStations, {
         shiny::req(input$sel_DistKmUpstream > 0 | input$sel_DistKmDownstream > 0)
       }
 
-    withProgress(message = "Downloading from Hydro Network-Linked Data Index", value = 0, {
+    withProgress(message = "Downloading from Hydro Network-Linked Data Index...", value = 0, {
       
         showModal(tags$div(id = "gif_modal", modalDialog(
       HTML('<img src="https://media.giphy.com/media/l44QjgeQ5ium91n9K/source.gif"><br><center>I am just your entertainment.<br><center>The progress bar is below.'), # custom loading gif--raccoon thief
@@ -2710,7 +2684,7 @@ observeEvent(eventExpr = input$button_downloadData, {
  
     showModal(modalDialog(
       title = "Done",
-      paste0("Data import SUCCESSFUL. You may now navigate to the FILTER DATA tab to choose a subset of data to work with. OPTIONAL: To download the formatted .RDS file to your computer, press the `Download Formatted RDS` button in the left side panel. ") 
+      paste0("Data import SUCCESSFUL. You may now navigate to the FILTER DATA tab to choose a subset of data to work with. OPTIONAL: To download the formatted data file (.RDS) to your computer, press the `Download Formatted RDS` button in the left side panel. ") 
     ))
   })
 }, ignoreInit = TRUE) # end of observeEvent
@@ -2768,7 +2742,7 @@ renderUI({
   FuncShowWellPanel(input$sel_FilterYrSeason, "wp_filter_yr_season")
   FuncShowWellPanel(input$sel_FilterSamplingChars, "wp_filter_sampling_chars")
   FuncShowWellPanel(input$sel_FilterOrg, "wp_filter_org")
-  FuncShowWellPanel(input$sel_FilterWQChar, "wp_filter_wqchar")
+  # FuncShowWellPanel(input$sel_FilterWQChar, "wp_filter_wqchar")
 })
 
 # Action to attach a thresholds file ----
@@ -3246,8 +3220,7 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
   shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_SummarizeBy))
   rv_param_temp$plotSummarizeBy <- isolate(input$sel_SummarizeBy)
   rv_param_temp$threshType <- isolate(input$sel_ShowThresholds) # save the input setting so plots don't change unless the plot data has been refreshed
-  
-  cat("REFRESH PLOT DATA")
+  rv_param_temp$seasonalTimeUnit <- isolate(input$sel_SeasonalTimeUnit)
 
   if(isolate(rv_param_temp$plotSummarizeBy) == "by_char") {
     rv_param_temp$showStations <- isolate(input$sel_ShowStations)
@@ -3274,45 +3247,46 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
       ))
     }
   shiny::req(!is.null(rv_param_temp$showCharSets))
+      rv_param_temp$finalPlot <- rv_param_temp$seasonalPlot <- list(plotly_page = NULL, shared_legend = NULL)
 
 # Format plot data for time series plot tab
   if(any(is.null(rv_param_temp$subDat),  is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharSets), is.null(rv_param_temp$plotSummarizeBy), is.null(input$sel_AddQuantile), is.null(input$sel_Categ), is.null(input$sel_AddGagePrecip), is.null(rv_param_temp$threshType))) { 
    
     rv_param_temp$plotDat <- NULL
+
   } else {          
 
-      withProgress(message = "Generating plots", value = 0, {
+      withProgress(message = "Formatting plot data...", value = 0, {
           
           rv_param_temp$plotDat <- FuncPlotDat() # this function also assigns data to rv_param_temp$quantDat
+          
+            shiny::req(!is.null(input$sel_PlotType), !is.null(input$sel_FreeY), !is.null(input$sel_YScale), !is.null(input$sel_PlotByStation), !is.null(input$sel_AddGagePrecip), !is.null(input$sel_Categ), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$seasonalTimeUnit), !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$threshType))
+#   
+#   saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+# saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+
+    rv_param_temp$finalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = "ActivityStartDate", free_y = input$sel_FreeY, y_scale = input$sel_YScale)
+     
+  rv_param_temp$seasonalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = rv_param_temp$seasonalTimeUnit, free_y = input$sel_FreeY, y_scale = input$sel_YScale)
     
-   shiny::req(!is.null(input$sel_PlotType), !is.null(input$sel_FreeY), !is.null(input$sel_YScale), !is.null(input$sel_PlotByStation), !is.null(input$sel_AddGagePrecip), !is.null(input$sel_Categ), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$threshType), !is.null(rv_param_temp$quantDat))
-
-
-  rv_param_temp$finalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = "ActivityStartDate", free_y = input$sel_FreeY, y_scale = input$sel_YScale, highlight_yr = NULL) # the plot should update only if one of these arguments changes
-  # cat("line5053")
- 
-    # shiny::req(!is.null(input$sel_PlotType), !is.null(input$sel_FreeY), !is.null(input$sel_YScale), !is.null(input$sel_PlotByStation), !is.null(input$sel_AddGagePrecip), !is.null(input$sel_Categ), !is.null(rv_param_temp$plotSummarizeBy), !is.null(input$sel_SeasonalTimeUnit), !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$threshType))
-
-  # rv_param_temp$finalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = "ActivityStartDate", free_y = input$sel_FreeY, y_scale = input$sel_YScale, highlight_yr = NULL) # the plot should update only if one of these arguments changes
-      
-    # rv_param_temp$seasonalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = input$sel_SeasonalTimeUnit, free_y = input$sel_FreeY, y_scale = input$sel_YScale)
     
-    # rv_param_temp$seasonalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = input$sel_SeasonalTimeUnit, free_y = input$sel_FreeY, y_scale = input$sel_YScale, highlight_yr = input$sel_HighlightSurvYr)
         })
-    }
+  }
+      unlink("Rplots.pdf")
 })
 ```
 
 ```{r events_trends_page}
 # Action to update MK summaries ----
 observeEvent(eventExpr = input$button_updateMK, {
-  if(any(is.null(rv_param_temp$plotDat), is.null(rv_param_temp$finalPlot), is.null(rv_param_temp$plotSummarizeBy))) {
-    rv_param_temp$trendDat <- rv_param_temp$MK <- rv_param_temp$MKHeatPlots <- NULL
+  if(any(is.null(rv_param_temp$plotDat), is.null(rv_param_temp$plotSummarizeBy))) {
+    rv_param_temp$trendDat <- rv_param_temp$MK <- rv_param_temp$MKHeatPlots$plotly_page <- rv_param_temp$MKHeatPlots$shared_legend <- NULL
 
   } else {
     shiny::req(!is.null(input$sel_TrendType), !is.null(rv_param_temp$plotSummarizeBy))
 
-    withProgress(message = "Updating Mann-Kendall summaries....", value = 0, {
+    withProgress(message = "Updating Mann-Kendall summaries...", value = 0, {
 
     trendDat <- rv_param_temp$plotDat %>%
       dplyr::mutate(Year = as.integer(Yr))
@@ -3381,15 +3355,15 @@ observeEvent(eventExpr = input$button_updateMK, {
     FacetBy = factor(FacetBy),
     HoverLabel = paste0(MonitoringLocationIdentifier, "<br>", CharacteristicName, "<br>", rv_param_temp$seasonType, ": ", Yr, "<br>MEDIAN for ", Y, ": ", FillCol))
       
-      out_MKPlot <- FuncPlotlyHeatMap(dat = MKHeatDat, y_name = "Interval", facet_by_name = switch((rv_param_temp$plotSummarizeBy == "by_char")+1, "Characteristic Name", "Monitoring Site"), legend_name = "Median Value", is_discrete = FALSE, indiv_scale = switch((rv_param_temp$plotSummarizeBy == "by_char")+1, TRUE, FALSE))
+      MKPlot <- FuncPlotlyHeatMap(dat = MKHeatDat, y_name = "Interval", facet_by_name = switch((rv_param_temp$plotSummarizeBy == "by_char")+1, "Characteristic Name", "Monitoring Site"), legend_name = "Median Value", is_discrete = FALSE, indiv_scale = switch((rv_param_temp$plotSummarizeBy == "by_char")+1, TRUE, FALSE))
       
-  rv_param_temp$sharedLegend$MKLegend <- out_MKPlot$legend
-  rv_param_temp$MKHeatPlots <- out_MKPlot$plot
+  rv_param_temp$MKHeatPlots$shared_legend <- MKPlot$shared_legend
+  rv_param_temp$MKHeatPlots$plotly_page <- MKPlot$plotly_page
   
     } else {
       rv_param_temp$MK <- NULL
-      rv_param_temp$MKHeatPlots <- NULL
-      rv_param_temp$sharedLegend$MKLegend <- NULL
+  rv_param_temp$MKHeatPlots$shared_legend <- NULL
+  rv_param_temp$MKHeatPlots$plotly_page <- NULL
     }
     })
     
@@ -3498,27 +3472,6 @@ br()
 # observeEvent(eventExpr = input$button_aboutGetWQPData, {
 #   browseURL(here::here("About_files", "aboutGetWQPData.html"))})
 
-# Download RDS to user location ----
-renderUI({
-  shiny::req(!is.null(rv))
-  
-  shiny::req(rv_param_temp$newImport == TRUE)
-             
-  download_button(
-  outputId = "download_RDS", 
-  label = "Download Formatted RDS File")
-})
-
-output$download_RDS <- downloadHandler(
-  shiny::req(!is.null(rv)),
-  filename = function() {
-    paste0("WQdash_", rv$parkID, "_", paste0(gsub(pattern = "-", replacement = "", x = Sys.Date()), ".RDS"))
-    },
-    content = function(file) {
-      saveRDS(isolate(reactiveValuesToList(rv)), file)
-    }
-  )
-
 br()
 
 br()
@@ -3532,7 +3485,7 @@ wellPanel(
   
   radioButtons("sel_GetData",
                label = NULL,
-               choices = c("Load data file from computer"  = "existing_data",
+               choices = c("Load data file (.RDS) from computer"  = "existing_data",
                            "Download data from web services" = "new_data")),
   
   
@@ -3685,6 +3638,30 @@ shinyjs::hidden( # initially hide this well panel
     
     ) # end filter-import panel
   ) # end hide for filter-import panel
+
+br()
+
+# Download RDS to user location ----
+renderUI({
+  shiny::req(!is.null(rv))
+  
+  shiny::req(rv_param_temp$newImport == TRUE)
+             
+  download_button(
+  outputId = "download_RDS", 
+  label = "Download Formatted RDS File")
+})
+
+output$download_RDS <- downloadHandler(
+  shiny::req(!is.null(rv)),
+  filename = function() {
+    paste0("WQdash_", rv$parkID, "_", paste0(gsub(pattern = "-", replacement = "", x = Sys.Date()), ".RDS"))
+    },
+    content = function(file) {
+      saveRDS(isolate(reactiveValuesToList(rv)), file)
+    }
+  )
+
 ```
 
 Data for Import {.tabset .tabset-fade}
@@ -4092,14 +4069,14 @@ shinyjs::hidden( # initially hide this well panel
 )  # end of 'wp_filter_yr_season'
   
 # Filter data by WQ characteristic
-renderUI({
-  checkboxInput("sel_FilterWQChar",
-                label = "Show options to filter by water quality characteristic",
-                value = switch(is.null(input$sel_FilterWQChar)+1, input$sel_FilterWQChar, TRUE))
+# renderUI({
+#   checkboxInput("sel_FilterWQChar",
+#                 label = "Show options to filter by water quality characteristic",
+#                 value = switch(is.null(input$sel_FilterWQChar)+1, input$sel_FilterWQChar, TRUE))
+# 
+#   })
 
-  })
-
-shinyjs::hidden( # initially hide this well panel
+# shinyjs::hidden( # initially hide this well panel
   wellPanel(
     id = "wp_filter_wqchar",
 
@@ -4135,7 +4112,7 @@ rv_param_temp$selectParam <- rv$dat %>%
       checkboxGroupInput("sel_SummaryParam",
                          label = h6("Water quality characteristics to summarize: "),
                          choices = sort(rv_param_temp$selectParam),
-                         selected = rv_param_temp$selectParam[rv_param_temp$selectParam %in% c("Dissolved oxygen (DO)", "Escherichia coli", "Flow, severity (choice list)", "Flow, stream stage (choice list)", "Nitrate", "pH", "Specific conductance", "Temperature, water", "Turbidity")]
+                         selected = switch(is.null(input$sel_SummaryParam)+1, input$sel_SummaryParam, rv_param_temp$selectParam[rv_param_temp$selectParam %in% c("Dissolved oxygen (DO)", "Escherichia coli", "Flow, severity (choice list)", "Flow, stream stage (choice list)", "Nitrate", "pH", "Specific conductance", "Temperature, water", "Turbidity")])
       )
     }),
 
@@ -4145,7 +4122,7 @@ renderUI({
       FuncAllNoneButtons(cond = "input.sel_SummaryParam", name_all = "button_allSummaryParam", name_none = "button_noSummaryParam")
 })
 )
-) # end of 'wp_filter_wqchar'
+# ) # end of 'wp_filter_wqchar'
 
 # Filter data by organization
 renderUI({
@@ -4245,7 +4222,7 @@ renderUI({
       radioButtons("sel_TimeSubunit",
                label = h6("Time unit for 'Filtered Data Sample Sizes'"),
                choices = c("Month" = "Mnth", "Season" = "Season"),
-               selected = "Season")
+               selected = switch(is.null(input$sel_TimeSubunit)+1, input$sel_TimeSubunit, "Season"))
     })
 
 br()
@@ -4614,7 +4591,7 @@ renderUI({
 
 # Generate bold, red warning if characteristic sets with different measurement units are compared for a single characteristic
 tags$div(renderText({ 
-  shiny::req(!is.null(rv_param_temp$finalPlot), !is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$showCharSets))
+  shiny::req(!is.null(rv_param_temp$finalPlot$plotly_page), !is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$showCharSets))
 
   char_incomp <- rv_param_temp$plotDat %>% dplyr::group_by(CharacteristicName) %>% dplyr::summarize(num_units = length(unique(na.omit(ResultMeasure.MeasureUnitCode)))) %>% dplyr::ungroup() %>% dplyr::filter(num_units > 1) %>% .$CharacteristicName
 
@@ -4914,10 +4891,10 @@ Time Series Plots {.tabset .tabset-fade}
 ```{r TS_plots_legend}
 renderPlot({ # separate validation statements so they are checked in sequence
   shiny::req(!is.null(rv$userSelect), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
-  if(any(!rv$userSelect$sel_Organization %in% rv$sitesPointsSub@data$OrganizationFormalName, is.null(rv_param_temp$finalPlot), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharSets), is.null(rv_param_temp$sharedLegend$timeSeriesLegend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
+  if(any(!rv$userSelect$sel_Organization %in% rv$sitesPointsSub@data$OrganizationFormalName, is.null(rv_param_temp$finalPlot$shared_legend), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharSets))) { # this if-statement forces the plot to be reset to blank when these conditions apply
     ts_plotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
   } else {
-    ts_plotly_legend <- grid.arrange(rv_param_temp$sharedLegend$timeSeriesLegend)
+    ts_plotly_legend <- grid.arrange(rv_param_temp$finalPlot$shared_legend)
   }
   ts_plotly_legend
 }, height = 40) # setting the width here or at the 'Legend' subheading seems to rescale the height too. Size of ggplot legends is absolute. Set height through the 'Legend' subheading in combination with here. Legend width will not adjust with browser window. Fixed the width issue by putting the plot notes on a white background.
@@ -4938,17 +4915,13 @@ cat("line5039")
       shiny::validate(need(length(rv_param_temp$showStations) < 6 | input$sel_PlotByStation == TRUE, message = "The maximum number of monitoring sites to display in a single plot is FIVE. From the left sidebar, please either select 'Show one monitoring site per plot' or reduce the number of sites to display."))
     }
  cat("line5049") 
- 
-  # shiny::req(!is.null(input$sel_PlotType), !is.null(input$sel_FreeY), !is.null(input$sel_YScale), !is.null(input$sel_PlotByStation), !is.null(input$sel_AddGagePrecip), !is.null(input$sel_Categ), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$threshType), !is.null(rv_param_temp$quantDat))
 
 
-  # rv_param_temp$finalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = "ActivityStartDate", free_y = input$sel_FreeY, y_scale = input$sel_YScale, highlight_yr = NULL) # the plot should update only if one of these arguments changes
-  # cat("line5053")
     
-  shiny::req(!is.null(rv_param_temp$finalPlot))
-  rv_param_temp$finalPlot
+  shiny::req(!is.null(rv_param_temp$finalPlot$plotly_page))
+  rv_param_temp$finalPlot$plotly_page
+  
   })
-unlink("Rplots.pdf")
 ```
 
 ### Seasonal Patterns
@@ -4959,23 +4932,13 @@ unlink("Rplots.pdf")
 
 * <font size="2"> The same data selected for time series plots are also used for seasonal patterns plots </font>
 
-<div align="center">
-```{r seasonal_plots_slider}
-renderUI({
-  shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$seasonalPlot))
-  shiny::req(length(unique(rv_param_temp$plotDat$Yr)) > 0)
-sliderTextInput("sel_HighlightSurvYr", force_edges = TRUE, label = h4(strong("Choose a survey year to highlight blue in point plots")), choices = sort(unique(rv_param_temp$plotDat$Yr)), selected = switch(is.null(input$sel_HighlightSurvYr)+1, input$sel_HighlightSurvYr, max(rv_param_temp$plotDat$Yr, na.rm = TRUE)), dragRange = FALSE, animate = FALSE, width = "500px")
-  })
-```
-</div>
-
 ```{r seasonal_plots_legend}
 renderPlot({ # separate validation statements so they are checked in sequence
   shiny::req(!is.null(rv$userSelect), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
-  if(any(!rv$userSelect$sel_Organization %in% rv$sitesPointsSub@data$OrganizationFormalName, is.null(rv_param_temp$seasonalPlot), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharSets), is.null(rv_param_temp$sharedLegend$timeSeriesLegend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
+  if(any(!rv$userSelect$sel_Organization %in% rv$sitesPointsSub@data$OrganizationFormalName, is.null(rv_param_temp$seasonalPlot$shared_legend), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharSets))) { # this if-statement forces the plot to be reset to blank when these conditions apply
     ts_plotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
   } else {
-    ts_plotly_legend <- grid.arrange(rv_param_temp$sharedLegend$timeSeriesLegend)
+    ts_plotly_legend <- grid.arrange(rv_param_temp$seasonalPlot$shared_legend)
   }
   ts_plotly_legend
 }, height = 40) # setting the width here or at the 'Legend' subheading seems to rescale the height too. Size of ggplot legends is absolute. Set height through the 'Legend' subheading in combination with here. Legend width will not adjust with browser window. Fixed the width issue by putting the plot notes on a white background.
@@ -4998,19 +4961,8 @@ renderPlotly({
     shiny::validate(need(length(rv_param_temp$showStations) < 6 | input$sel_PlotByStation == TRUE, message = "The maximum number of monitoring sites to display in a single plot is FIVE. From the left sidebar, please either select 'Show one monitoring site per plot' or reduce the number of sites to display."))
   }
   
-  shiny::req(!is.null(input$sel_PlotType), !is.null(input$sel_FreeY), !is.null(input$sel_YScale), !is.null(input$sel_PlotByStation), !is.null(input$sel_AddGagePrecip), !is.null(input$sel_Categ), !is.null(rv_param_temp$plotSummarizeBy), !is.null(input$sel_SeasonalTimeUnit), !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$threshType))
-  
-    withProgress(message = "Generating plots", value = 0, {
-
-                     saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
- saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
- saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
- 
-  rv_param_temp$seasonalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = input$sel_SeasonalTimeUnit, free_y = input$sel_FreeY, y_scale = input$sel_YScale, highlight_yr = input$sel_HighlightSurvYr)
-  
-  shiny::req(!is.null(rv_param_temp$seasonalPlot))
-  rv_param_temp$seasonalPlot
-  })
+  shiny::req(!is.null(rv_param_temp$seasonalPlot$plotly_page))
+  rv_param_temp$seasonalPlot$plotly_page
 })
 ```
 
@@ -5544,12 +5496,12 @@ tags$style("#table_MKsummary{height:500px;overflow-x:scroll;overflow-y:scroll}")
 
 ```{r MK_medians_legend}
 renderPlot({ # separate validation statements so they are checked in sequence
-  shiny::req(!is.null(input$sel_TrendType), !is.null(rv_param_temp$trendDat), !is.null(rv_param_temp$MK), !is.null(rv_param_temp$MKHeatPlots))
+  shiny::req(!is.null(input$sel_TrendType), !is.null(rv_param_temp$trendDat), !is.null(rv_param_temp$MK))
 
-  if(any(is.null(input$sel_TrendType), is.null(rv_param_temp$trendDat), is.null(rv_param_temp$MK), is.null(rv_param_temp$MKHeatPlots))) { # this if-statement forces the plot to be reset to blank when these conditions apply
+  if(any(is.null(input$sel_TrendType), is.null(rv_param_temp$trendDat), is.null(rv_param_temp$MK), is.null(rv_param_temp$MKHeatPlots$shared_legend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
     MK_heatplotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
   } else {
-    MK_heatplotly_legend <- grid.arrange(rv_param_temp$sharedLegend$MKLegend)
+    MK_heatplotly_legend <- grid.arrange(rv_param_temp$MKHeatPlots$shared_legend)
   }
   MK_heatplotly_legend
 }, height = 40)
@@ -5560,9 +5512,9 @@ renderPlot({ # separate validation statements so they are checked in sequence
 output$out_MKHeat <- renderPlotly({
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = TRUE, MK = TRUE)
 
-  shiny::req(!is.null(input$sel_TrendType), !is.null(rv_param_temp$trendDat), !is.null(rv_param_temp$MK), !is.null(rv_param_temp$MKHeatPlots))
+  shiny::req(!is.null(input$sel_TrendType), !is.null(rv_param_temp$trendDat), !is.null(rv_param_temp$MK), !is.null(rv_param_temp$MKHeatPlots$plotly_page))
 
-  rv_param_temp$MKHeatPlots
+  rv_param_temp$MKHeatPlots$plotly_page
 })
 
 # tags$style("#out_MKHeat{height:100vh;overflow-x:scroll;overflow-y:scroll}")
