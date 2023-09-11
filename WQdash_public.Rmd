@@ -62,10 +62,10 @@ tags$style("#gif_modal .modal-body {padding:0px}
             #gif_modal .modal-dialog {width:auto; display:inline-block; position:absolute; top:35%;left:50%; transform:translate(-50%, -50%) !important;}
 ")
 
-# This expands maps to fill screen
-tags$style("map param_map {
+# This expands initial map to fill screen
+tags$style("initial_map {
            height: calc(100vh - 80px) !important;
-           }")
+           }") # IF THIS DOESN'T WORK, SEE...
 
 # Call this to force an input value to reset to NULL
 tags$script("
@@ -131,9 +131,9 @@ tag.map.title <- tags$style(HTML("
   }
 ")) # add title to leaflet map
 
-# tags$style(".chart-stage-flex {
-#   overflow: scroll !important;
-# }") # Helps ensure data table bottoms don't get cut off
+tags$style(".chart-stage-flex {
+  overflow: scroll !important;
+}") # Helps ensure data table bottoms don't get cut off
 
 
 ```
@@ -330,7 +330,7 @@ FuncBaseMap <- function(maptype) {
       markerColor = "orange")
   
   # Order map layers -- higher zIndex is on "top"
-  map <- leaflet(options = leafletOptions(zoomControl = FALSE, zoomSnap = 0.25)) %>% # ORIGINAL INITIAL_MAP HAD leaflet(options = leafletOptions(zoomControl = FALSE, zoomSnap = 0.25)) %>%...
+  map <- leaflet(options = leafletOptions(zoomControl = FALSE, zoomSnap = 0.25)) %>%
     addMapPane("pane_unitPoly", zIndex = 210) %>%
     addMapPane("pane_HUC", zIndex = 220) %>%
     addMapPane("pane_facilitiesPoints", zIndex = 225) %>%
@@ -2346,7 +2346,6 @@ cat("line2336")
       rm(facilitiesURL, tempFacilitiesOutput)
       unlink("tempFacilities.geojson")
     }
-cat("line2386")
     # If displaying shapes, points, etc., Leaflet will automatically project the WGS84 long-lat coordinates when displaying. Leaflet only supports TILES that have been published in EPSG 3857, so if using other tiles (e.g., NPS), need to change projections
   })
   
@@ -3262,9 +3261,7 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
           
             shiny::req(!is.null(input$sel_PlotType), !is.null(input$sel_FreeY), !is.null(input$sel_YScale), !is.null(input$sel_PlotByStation), !is.null(input$sel_AddGagePrecip), !is.null(input$sel_Categ), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$seasonalTimeUnit), !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$threshType))
 #   
-#   saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-# saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+
 
     rv_param_temp$finalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = "ActivityStartDate", free_y = input$sel_FreeY, y_scale = input$sel_YScale)
      
@@ -3465,14 +3462,6 @@ Inputs {.sidebar data-width=300}
 ```{r main_data_sidebar}  
 
 useShinyjs(rmd = TRUE)
-
-br()
-
-# FuncAboutButton(nam = "button_aboutGetWQPData")
-# observeEvent(eventExpr = input$button_aboutGetWQPData, {
-#   browseURL(here::here("About_files", "aboutGetWQPData.html"))})
-
-br()
 
 br()
 
@@ -3908,14 +3897,6 @@ Inputs {.sidebar data-width=320}
 ```{r define_filter_sidebar}
 br()
 
-# FuncAboutButton(nam = "button_aboutCheckFilterData")
-# observeEvent(eventExpr = input$button_aboutCheckFilterData, {
-#   browseURL(here::here("About_files", "aboutCheckFilterData.html"))})
-
-br()
-
-br()
-
 strong("Data Filter Options")
 
 br()
@@ -4335,6 +4316,7 @@ output$table_filtered_chars <- renderReactable({
     compact = FALSE,
     bordered = TRUE,
     showPageSizeOptions = TRUE)
+
   })
 reactableOutput("table_filtered_chars")
 tags$style("#table_filtered_chars{height:100vh;overflow-x:scroll;overflow-y:scroll}")
@@ -4566,12 +4548,6 @@ output$button_exportCateg <- downloadHandler(
 Inputs {.sidebar data-width=355}
 -------------------------------------
 ```{r TS_plots_sidebar}
-
-br()
-
-# FuncAboutButton(nam = "button_aboutTSPlots")
-# observeEvent(eventExpr = input$button_aboutTSPlots, {
-#   browseURL(here::here("About_files", "aboutTSPlots.html"))})
 
 br()
 
@@ -5051,11 +5027,7 @@ Inputs {.sidebar data-width=250}
 -------------------------------------
 ```{r summary_sidebar}  
 br()
-# FuncAboutButton(nam = "button_aboutSpatialPatterns")
-# observeEvent(eventExpr = input$button_aboutSpatialPatterns, {
-#   browseURL(here::here("About_files", "aboutSpatialPatterns.html"))})
-br()
-br()
+
 wellPanel(
   id = "summarize_map_options",
   p(strong("Map options")),
@@ -5126,12 +5098,6 @@ iconMeteo = makeAwesomeIcon(icon= "fa-cloud", library = "fa", squareMarker = TRU
     addPolygons(data = rv[[rv$userSelect$sel_HUClevel]], group = paste0(rv$userSelect$sel_HUClevel, " boundaries"), color = "blue", fillColor = "lightblue", fillOpacity = 0.3, weight = 0.7, layerId = ~HUC, options = pathOptions(pane = "pane_param_HUC")) %>% # HUC polygons
     addScaleBar() %>%
     addControl(rv$parkID, position = "topleft") # add 4-letter UNIT code on map
-  
-  # if(!is.null(input$sel_ShowChar) & !is.null(input$sel_SurvYr) & !is.null(input$sel_ParamMapShow)) {
-  #   shiny::req(input$sel_ParamMapShow != "show")
-  #   param_map %<>%
-  #     addControl(tags$div(tag.map.title, HTML(input$sel_ShowChar, " in Year ", input$sel_SurvYr)), position = "topleft", className="map-title")
-  # }
     
   # Done with the standard mapping. Now to conditional layers.
   
@@ -5321,13 +5287,6 @@ Inputs {.sidebar data-width=355}
 
 br()
 
-# FuncAboutButton(nam = "button_aboutPlotDataTables")
-# observeEvent(eventExpr = input$button_aboutPlotDataTables, {
-#   browseURL(here::here("About_files", "aboutPlotDataTables.html"))})
-
-br()
-
-br()
  # >>>>>>>>>>>>>>> PICK UP FROM HERE --THIS PAGE GENERATES WARNING MESSAGE ABOUT TEXT TO BE WRITTEN MUST BE ONE CHARACTER VECTOR?? <<<<<<<<<<<<<<<<<<<<<<<
 # renderUI({
 #   shiny::req(!is.null(rv_param_temp$plotSummarizeBy))
@@ -5413,14 +5372,6 @@ Trend Analysis
 Inputs {.sidebar data-width=250}
 -------------------------------------
 ```{r trend_sidebar}  
-
-br()
-
-# FuncAboutButton(nam = "button_aboutTrendAnalysis")
-# observeEvent(eventExpr = input$button_aboutTrendAnalysis, {
-#   browseURL(here::here("About_files", "button_aboutTrendAnalysis.html"))})
-
-br()
 
 br()
 
@@ -5513,6 +5464,10 @@ output$out_MKHeat <- renderPlotly({
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = TRUE, MK = TRUE)
 
   shiny::req(!is.null(input$sel_TrendType), !is.null(rv_param_temp$trendDat), !is.null(rv_param_temp$MK), !is.null(rv_param_temp$MKHeatPlots$plotly_page))
+#   
+#       saveRDS(isolate(reactiveValuesToList(rv)), "MAP_rv.RDS")
+# saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "MAP_rv_param_temp.RDS")
+# saveRDS(isolate(reactiveValuesToList(input)), "MAP_input.RDS")
 
   rv_param_temp$MKHeatPlots$plotly_page
 })
