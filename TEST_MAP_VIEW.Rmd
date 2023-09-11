@@ -338,7 +338,7 @@ FuncGageDat <- function(gage_station) {
   # Returns:
   #   Streamflow data for the selected gage station, and limited to the range of dates for which data will be plot
 
-  shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv$gagesDat), !is.null(input$sel_DefineSeasons))
+  shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv$gagesDat), !is.null(rv$userSelect$sel_DefineSeasons))
   shiny::validate(need(gage_station %in% unique(rv$gagesDat$GageName), message = "Streamflow data not available for the selected gage station"))
   gageDat <- subset(rv$gagesDat, GageName == gage_station & ActivityStartDate >= min(rv_param_temp$plotDat$ActivityStartDate, na.rm = TRUE) & ActivityStartDate <= max(rv_param_temp$plotDat$ActivityStartDate, na.rm = TRUE)) %>%
     dplyr::ungroup()
@@ -1900,7 +1900,7 @@ renderUI({
 output$param_map <- renderLeaflet({
   
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE) # make sure data have been imported and filtered, and plot data have been generated
-  shiny::req(!is.null(rv_param_temp$subDat), !is.null(rv$sitesPointsSub), !is.null(rv$unitPoly), !is.null(rv$userSelect), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$palOrg), !is.null(input$sel_ParamMapShow),)
+  shiny::req(!is.null(rv_param_temp$subDat), !is.null(rv$sitesPointsSub), !is.null(rv$unitPoly), !is.null(rv$userSelect), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$palOrg), !is.null(input$sel_ParamMapShow))
   
   tags$style(type = "text/css", "#param_map {height: calc(100vh - 80px) !important;}") # expand map to fill screen
   
@@ -1999,17 +1999,17 @@ if(!is.null(rv$selectedGages)) {
   }
   cat("line2745")
   # 
-  saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
-  saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
-  saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
-  
-  shiny::req(!is.null(input$sel_ShowStations), !is.null(input$sel_ShowOneStation))
+
+  # saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+  # shiny::req(!is.null(rv_param_temp$showStations), !is.null(rv_param_temp$showStations))
   
   # Highlight stations that are in the summary plots...
   if(input$sel_ParamMapShow == "show") {
     
     param_map %<>%
-      addCircleMarkers(data = switch((rv_param_temp$plotSummarizeBy == "by_station") + 1, rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% input$sel_ShowStations,], rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% input$sel_ShowOneStation,]), group = "Selected monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, popup = ~SITEPOP, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations")) # selected WQ stations are shown as larger, white-outlined points
+      addCircleMarkers(data = switch((rv_param_temp$plotSummarizeBy == "by_station") + 1, rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% rv_param_temp$showStations,], rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% rv_param_temp$showStations,]), group = "Selected monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, popup = ~SITEPOP, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations")) # selected WQ stations are shown as larger, white-outlined points
   }
   cat("line3098")
   

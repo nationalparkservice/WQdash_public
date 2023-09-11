@@ -1129,7 +1129,7 @@ FuncGageDat <- function(gage_station) {
   # Returns:
   #   Streamflow data for the selected gage station, and limited to the range of dates for which data will be plot
 
-  shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv$gagesDat), !is.null(input$sel_DefineSeasons))
+  shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv$gagesDat), !is.null(rv$userSelect$sel_DefineSeasons))
   shiny::validate(need(gage_station %in% unique(rv$gagesDat$GageName), message = "Streamflow data not available for the selected gage station"))
   gageDat <- subset(rv$gagesDat, GageName == gage_station & ActivityStartDate >= min(rv_param_temp$plotDat$ActivityStartDate, na.rm = TRUE) & ActivityStartDate <= max(rv_param_temp$plotDat$ActivityStartDate, na.rm = TRUE)) %>%
     dplyr::ungroup()
