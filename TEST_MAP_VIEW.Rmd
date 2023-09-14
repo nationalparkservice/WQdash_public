@@ -325,7 +325,7 @@ FuncPlotDat <- function() {
       plotDat2 <- plotDat %>%
         dplyr::mutate(PercCateg = NA)
     }
-    
+  
     return(plotDat2)
   }
  
@@ -1363,7 +1363,7 @@ observeEvent(eventExpr = input$button_allSummaryParam, {
   updateCheckboxGroupInput(session,
                            "sel_SummaryParam",
                            # label = h6("Water quality characteristics to summarize: "),
-                           choices = sort(rv_param_temp$selectParam),
+                           # choices = sort(rv_param_temp$selectParam),
                            selected = sort(rv_param_temp$selectParam))
   }, ignoreInit = TRUE) # end of observeEvent
 
@@ -1376,7 +1376,7 @@ observeEvent(eventExpr = input$button_noSummaryParam, {
   updateCheckboxGroupInput(session,
                            "sel_SummaryParam",
                            # label = h6("Water quality characteristics to summarize: "),
-                           choices = sort(rv_param_temp$selectParam),
+                           # choices = sort(rv_param_temp$selectParam),
                            selected = character(0))
   }, ignoreInit = TRUE) # end of observeEvent
 
@@ -1386,7 +1386,7 @@ observeEvent(eventExpr = input$button_allStations, {
   updateCheckboxGroupInput(session,
                            "sel_ShowStations",
                            # label = h6("Select monitoring site(s):"),
-                           choices = switch((!is.null(input$sel_ShowChar))+1, NULL, sort(unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowChar]))),
+                           # choices = switch((!is.null(input$sel_ShowChar))+1, NULL, sort(unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowChar]))),
                            selected = sort(unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowChar])))
   }, ignoreInit = TRUE) # end of observeEvent
 
@@ -1396,7 +1396,7 @@ observeEvent(eventExpr = input$button_noStations, {
   updateCheckboxGroupInput(session,
                            "sel_ShowStations",
                            # label = h6("Select monitoring site(s):"),
-                           choices = switch((!is.null(input$sel_ShowChar))+1, NULL, sort(unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowChar]))),
+                           # choices = switch((!is.null(input$sel_ShowChar))+1, NULL, sort(unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowChar]))),
                            selected = character(0))
   }, ignoreInit = TRUE) # end of observeEvent
 
@@ -1407,7 +1407,7 @@ observeEvent(eventExpr = input$button_allStationChars, {
   updateCheckboxGroupInput(session,
                            "sel_ShowStationChars",
                            # label = h6("Select characteristic(s):"),
-                           choices = sort(intersect(unique(rv_param_temp$subDat$CharacteristicName[rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation]), rv_param_temp$subDatTypes$CharacteristicName[rv_param_temp$subDatTypes$DataType == "numeric"])),
+                           # choices = sort(intersect(unique(rv_param_temp$subDat$CharacteristicName[rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation]), rv_param_temp$subDatTypes$CharacteristicName[rv_param_temp$subDatTypes$DataType == "numeric"])),
                            selected = sort(intersect(unique(rv_param_temp$subDat$CharacteristicName[rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation]), rv_param_temp$subDatTypes$CharacteristicName[rv_param_temp$subDatTypes$DataType == "numeric"]))
   )
   }, ignoreInit = TRUE) # end of observeEvent
@@ -1419,7 +1419,7 @@ observeEvent(eventExpr = input$button_noStationChars, {
   updateCheckboxGroupInput(session,
                            "sel_ShowStationChars",
                            # label = h6("Select characteristic(s):"),
-                           choices = sort(intersect(unique(rv_param_temp$subDat$CharacteristicName[rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation]), rv_param_temp$subDatTypes$CharacteristicName[rv_param_temp$subDatTypes$DataType == "numeric"])),
+                           # choices = sort(intersect(unique(rv_param_temp$subDat$CharacteristicName[rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation]), rv_param_temp$subDatTypes$CharacteristicName[rv_param_temp$subDatTypes$DataType == "numeric"])),
                            selected = character(0))
   }, ignoreInit = TRUE) # end of observeEvent
 
@@ -1430,7 +1430,7 @@ observeEvent(eventExpr = input$button_allCharSets, {
   updateCheckboxGroupInput(session,
                            "sel_ShowCharSets",
                            # label = h6("Select characteristic set(s):"),
-                           choices = sort(unique(rv_param_temp$subDat$CharacteristicSet[rv_param_temp$subDat$CharacteristicName==input$sel_ShowChar & rv_param_temp$subDat$MonitoringLocationIdentifier %in% input$sel_ShowStations])),
+                           # choices = sort(unique(rv_param_temp$subDat$CharacteristicSet[rv_param_temp$subDat$CharacteristicName==input$sel_ShowChar & rv_param_temp$subDat$MonitoringLocationIdentifier %in% input$sel_ShowStations])),
                            selected = sort(unique(rv_param_temp$subDat$CharacteristicSet[rv_param_temp$subDat$CharacteristicName==input$sel_ShowChar & rv_param_temp$subDat$MonitoringLocationIdentifier %in% input$sel_ShowStations]))
   )
   }, ignoreInit = TRUE) # end of observeEvent
@@ -1442,7 +1442,7 @@ observeEvent(eventExpr = input$button_noCharSets, {
   updateCheckboxGroupInput(session,
                            "sel_ShowCharSets",
                            # label = h6("Select characteristic set(s):"),
-                           choices = sort(unique(rv_param_temp$subDat$CharacteristicSet[rv_param_temp$subDat$CharacteristicName==input$sel_ShowChar & rv_param_temp$subDat$MonitoringLocationIdentifier %in% input$sel_ShowStations])),
+                           # choices = sort(unique(rv_param_temp$subDat$CharacteristicSet[rv_param_temp$subDat$CharacteristicName==input$sel_ShowChar & rv_param_temp$subDat$MonitoringLocationIdentifier %in% input$sel_ShowStations])),
                            selected = character(0)
   )
   }, ignoreInit = TRUE) # end of observeEvent
@@ -1454,7 +1454,7 @@ observeEvent(eventExpr = input$button_allStationCharSets, {
   updateCheckboxGroupInput(session,
                            "sel_ShowStationCharSets",
                            # label = h6("Select characteristic set(s):"),
-                           choices = switch((!is.null(input$sel_ShowStationChars))+1, NULL, sort(unique(rv_param_temp$subDat$CharacteristicSet[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowStationChars & rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation]))),
+                           # choices = switch((!is.null(input$sel_ShowStationChars))+1, NULL, sort(unique(rv_param_temp$subDat$CharacteristicSet[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowStationChars & rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation]))),
                            selected = switch((!is.null(input$sel_ShowStationChars))+1, NULL, sort(unique(rv_param_temp$subDat$CharacteristicSet[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowStationChars & rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation])))
   )
   }, ignoreInit = TRUE) # end of observeEvent
@@ -1466,7 +1466,7 @@ observeEvent(eventExpr = input$button_noStationCharSets, {
   updateCheckboxGroupInput(session,
                            "sel_ShowStationCharSets",
                            # label = h6("Select characteristic set(s):"),
-                           choices = switch((!is.null(input$sel_ShowStationChars))+1, NULL, sort(unique(rv_param_temp$subDat$CharacteristicSet[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowStationChars & rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation]))),
+                           # choices = switch((!is.null(input$sel_ShowStationChars))+1, NULL, sort(unique(rv_param_temp$subDat$CharacteristicSet[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowStationChars & rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation]))),
                            selected = character(0))
   }, ignoreInit = TRUE) # end of observeEvent
       
@@ -1477,6 +1477,7 @@ observeEvent(eventExpr = input$button_noStationCharSets, {
 
 # <<<<<<<<<<<<<<<<<< SPLOT OUT REFRESH DATA FROM THE PLOT GENERATION
 observeEvent(eventExpr = input$button_refreshPlotData, { 
+  
   shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_SummarizeBy))
   rv_param_temp$plotSummarizeBy <- isolate(input$sel_SummarizeBy)
   rv_param_temp$threshType <- isolate(input$sel_ShowThresholds) # save the input setting so plots don't change unless the plot data has been refreshed
@@ -1486,12 +1487,13 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
     rv_param_temp$showStations <- isolate(input$sel_ShowStations)
     rv_param_temp$showCharSets <- isolate(input$sel_ShowCharSets)
     }
-  
+
   if(rv_param_temp$plotSummarizeBy == "by_station") {
     rv_param_temp$showStations <- isolate(input$sel_ShowOneStation)
     rv_param_temp$showCharSets <- isolate(input$sel_ShowStationCharSets)
    }
   
+  # rv_param_temp$showStations <- rv_param_temp$selectedMapSites # <<<<<<<<<<<<<<<
   if(is.null(rv_param_temp$showStations)) {
     showModal(modalDialog(
       title = "No Monitoring Sites Selected",
@@ -1525,53 +1527,64 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
 ```
 
 ```{r click_map_plots}          
-# Update site site selection based on map clicks. DO NOT update plots yet, that occurs only after user presses button to refresh plots.
-# These were originally in observeEvent refreshPlots
+# Had to make sure layerId only on the site shapefiles, not also the HUC shapefiles
 
 # User selects stations by clicking (to show data plots)
-# observeEvent(input$param_map_marker_click, {
-#   shiny::req(!is.null(rv), input$sel_ParamMapShow == "show")  #<<<<<<<<<< NEED TO CHANGE SO MAP SHOWS ALL BY DEFAULT
-# 
-#     clicked_site <- input$param_map_marker_click$id
-# 
-#       if(clicked_site %in% rv_param_temp$selectedMapSites) { # check if the click is in a selected site, then remove the site from selected sites
-#         rv_param_temp$selectedMapSites <- rv_param_temp$selectedMapSites[rv_param_temp$selectedMapSites != clicked_site] # then remove it from the list of selected sites
-#       } else {
-#         rv_param_temp$selectedMapSites <- c(rv_param_temp$selectedMapSites, clicked_site) # append the ID of clicked site
-#         }
-# 
-#     # Now update the map to show the current selected sites
-# 
-#     leafletProxy("param_map") %>%
-#       addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% rv_param_temp$selectedMapSites,], group = "Selected monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, popup = ~SITEPOP, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations"))
-# 
-#     # Also update the user select in left side panel
-# 
-#     # if(input$sel_SummarizeBy == "by_char") {
-#     #   updateCheckboxGroupInput(session,
-#     #                            "sel_ShowStations",
-#     #                            selected = rv_param_temp$selectedMapSites)
-#     # }
-#     # 
-#     # if(input$sel_SummarizeBy == "by_station") {
-#     #   updateSelectInput(session,
-#     #                     "sel_ShowOneStation",
-#     #                     selected = rv_param_temp$selectedMapSites)
-#     # }
-#     }, ignoreInit = TRUE) # end of observeEvent
+observeEvent(input$param_map_marker_click, {
+  shiny::req(!is.null(input$sel_ParamMapShow))
+shiny::req(input$sel_ParamMapShow == "show")  #<<<<<<<<<< NEED TO CHANGE SO MAP SHOWS ALL BY DEFAULT
+
+    saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
+  saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+  saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+  # <<<<<<<<<<<< PICK UP FROM HERE. When I click a second site, it goes bonkers. I also can't unclick for one site, many stations
+
+    clicked_site <- input$param_map_marker_click$id
+    
+    if(is.null(rv_param_temp$selectedMapSites)) {
+      rv_param_temp$selectedMapSites <- c(clicked_site)
+    } else {
+      if(clicked_site %in% rv_param_temp$selectedMapSites) { # check if the click is in a selected site, then remove the site from selected sites
+        rv_param_temp$selectedMapSites <- rv_param_temp$selectedMapSites[rv_param_temp$selectedMapSites != clicked_site] # then remove it from the list of selected sites
+      } else {
+        rv_param_temp$selectedMapSites <- c(rv_param_temp$selectedMapSites, clicked_site) # append the ID of clicked site
+        }
+    }
+
+    # Now update the map to show the current selected sites
+
+    leafletProxy("param_map") %>%
+      addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% rv_param_temp$selectedMapSites,], group = "Selected monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, popup = ~SITEPOP, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations"))
+
+    # Also update the user select in left side panel
+
+    if(input$sel_SummarizeBy == "by_char") {
+      updateCheckboxGroupInput(session,
+                               "sel_ShowStations",
+                               selected = rv_param_temp$selectedMapSites)
+    }
+
+    if(input$sel_SummarizeBy == "by_station") {
+      updateSelectInput(session,
+                        "sel_ShowOneStation",
+                        selected = rv_param_temp$selectedMapSites)
+    }
+    }, ignoreInit = TRUE) # end of observeEvent
 
 
 # <<<<<< THESE SHOULD ONLY BE RUN AFTER REFRESHPLOT FIRST PRESSED, OTHERWISE WILL HAVE SAME PROBLEM WITH CATEG COLORS. NEED TO CODE THAT IN.
 
-renderUI({
-  shiny::req(!is.null(input$sel_PlotType), !is.null(input$sel_FreeY), !is.null(input$sel_YScale), !is.null(input$sel_PlotByStation), !is.null(input$sel_AddGagePrecip), !is.null(input$sel_Categ), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$seasonalTimeUnit), !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$quantDat), !is.null(rv_param_temp$threshType))
+# renderUI({
+#   shiny::req(!is.null(input$sel_PlotType), !is.null(input$sel_FreeY), !is.null(input$sel_YScale), !is.null(input$sel_PlotByStation), !is.null(input$sel_AddGagePrecip), !is.null(input$sel_Categ), !is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$seasonalTimeUnit), !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$quantDat), !is.null(rv_param_temp$threshType))
+# 
+#   shiny::req(input$sel_ParamMapShow == "show", !is.null(input$param_map_marker_click$id)) # Map click highlights sites only if marker type is on "show"
+# 
+# 
+#   rv_param_temp$map_plot_dat <- rv_param_temp$plotDat %>% dplyr::filter(MonitoringLocationIdentifier == rv_param_temp$selectedMapSites)
+#   rv_param_temp$map_quant_dat <- rv_param_temp$quantDat %>% dplyr::filter(MonitoringLocationIdentifier == rv_param_temp$selectedMapSites)
+#   
 
-  shiny::req(input$sel_ParamMapShow == "show", !is.null(input$param_map_marker_click$id)) # Map click highlights sites only if marker type is on "show"
-
-
-  rv_param_temp$map_plot_dat <- rv_param_temp$plotDat %>% dplyr::filter(MonitoringLocationIdentifier == input$param_map_marker_click$id)
-  rv_param_temp$map_quant_dat <- rv_param_temp$quantDat %>% dplyr::filter(MonitoringLocationIdentifier == input$param_map_marker_click$id)
-})
+# })
 
 ```
 
@@ -1633,7 +1646,7 @@ renderUI({
                           selected = input$sel_ShowStations
   )# don't do switch here because will cause problems with select all/none
   
-  rv_param_temp$selectedMapSites <- input$sel_ShowStations # update this for map
+  # rv_param_temp$selectedMapSites <- input$sel_ShowStations # update this for map
   }),
 
 renderUI({
@@ -1665,15 +1678,15 @@ renderUI({
     shiny::req(!is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$subDat))
   shiny::req(input$sel_SummarizeBy == "by_station")
   
-  cat("line1667")
     selectInput("sel_ShowOneStation",
                 label = h6("Select a monitoring site:"),
                 choices = sort(unique(rv_param_temp$subDat$MonitoringLocationIdentifier)),
                 selected = input$sel_ShowOneStation)
-    cat("line1672")
-    rv_param_temp$selectedMapSites <- input$sel_ShowOneStation # update this for map click
-    cat("line1674")
 }),
+
+renderUI({
+  rv_param_temp$selectedMapSites <- input$sel_ShowOneStation
+}), # update this for map click # <<<<<<<<<<<<<<<<<<<<<<<<
 
 renderUI({
   shiny::req(!is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$subDat), !is.null(rv_param_temp$subDatTypes), !is.null(input$sel_ShowOneStation))
@@ -1932,13 +1945,8 @@ renderUI({
 output$param_map <- renderLeaflet({
 
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE) # make sure data have been imported and filtered, and plot data have been generated
-  
-  # saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
-  
-  shiny::req(!is.null(rv_param_temp$subDat), !is.null(rv$sitesPointsSub), !is.null(rv$unitPoly), !is.null(rv$userSelect), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$palOrg), !is.null(input$sel_ParamMapShow))
-
+  # 
+  shiny::req(!is.null(rv_param_temp$subDat), !is.null(rv$sitesPointsSub), !is.null(rv$unitPoly), !is.null(rv$userSelect), !is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$palOrg), !is.null(input$sel_ParamMapShow))
 
   tags$style(type = "text/css", "#param_map {height: calc(100vh - 80px) !important;}") # expand map to fill screen
 
@@ -1955,8 +1963,8 @@ iconMeteo = makeAwesomeIcon(icon= "fa-cloud", library = "fa", squareMarker = TRU
   iconCWA = makeAwesomeIcon(icon= "fa-building", library = "fa", markerColor = "lightgray")
 
   param_map <- leaflet() %>%
-    addMapPane("pane_param_selectedStations", zIndex = 260) %>% # always keep selected monitoring station points on "top" of map layers (highest zIndex)
-    addMapPane("pane_param_filteredStations", zIndex = 250) %>%
+    addMapPane("pane_param_selectedStations", zIndex = 250) %>% # higher index is on top
+    addMapPane("pane_param_availableStations", zIndex = 245) %>%
     addMapPane("pane_param_polylines", zIndex = 230) %>%
     addMapPane("pane_param_facilitiesPointsSub", zIndex = 226) %>%
     addMapPane("pane_param_gageStations", zIndex = 225) %>%
@@ -1968,7 +1976,7 @@ iconMeteo = makeAwesomeIcon(icon= "fa-cloud", library = "fa", squareMarker = TRU
     addTiles(options = tileOptions(noWrap = TRUE), group = "Street") %>%
     addProviderTiles("Esri.WorldImagery", options = providerTileOptions(noWrap = TRUE), group="Satellite") %>%
     addPolygons(data = rv$unitPoly, group = "NPS unit", color = "black", fillColor = "yellow", fillOpacity = 1, weight = 1, options = pathOptions(pane = "pane_param_unitPoly")) %>% # park unit outline
-    addPolygons(data = rv[[rv$userSelect$sel_HUClevel]], group = paste0(rv$userSelect$sel_HUClevel, " boundaries"), color = "blue", fillColor = "lightblue", fillOpacity = 0.3, weight = 0.7, layerId = ~HUC, options = pathOptions(pane = "pane_param_HUC")) %>% # HUC polygons
+    addPolygons(data = rv[[rv$userSelect$sel_HUClevel]], group = paste0(rv$userSelect$sel_HUClevel, " boundaries"), color = "blue", fillColor = "lightblue", fillOpacity = 0.3, weight = 0.7, options = pathOptions(pane = "pane_param_HUC")) %>% # HUC polygons
     addScaleBar() %>%
     addControl(rv$parkID, position = "topleft") # add 4-letter UNIT code on map
 
@@ -1976,9 +1984,20 @@ cat("line3026")
 
   # Done with the standard mapping. Now to conditional layers.
 
-  show_layers <- data.frame(layer = c(paste0(rv$userSelect$sel_HUClevel, " boundaries"), "Filtered monitoring sites", "Selected monitoring sites", "Imported stream lines", "Discharge facilities", "Available gage stations", "Available weather stations"), show = c(TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE)) # dataframe to track what layers to show
+  show_layers <- data.frame(layer = c(paste0(rv$userSelect$sel_HUClevel, " boundaries"), "Available monitoring sites", "Selected monitoring sites", "Imported stream lines", "Discharge facilities", "Available gage stations", "Available weather stations"), show = c(TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE)) # dataframe to track what layers to show
+  
+  if(input$sel_SummarizeBy == "by_char") { # if multiple sites per characteristic, then available sites are only those that actually have the selected characteristic
+    shiny::req(!is.null(input$sel_ShowChar))
+    avail_sites_data <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowChar]),]
+  } else {
+    avail_sites_data <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier),]
+  }
+  
+cat("line1985")
 
-  show_char <- switch((rv_param_temp$plotSummarizeBy == "by_char")+1, input$sel_ShowStationChars, input$sel_ShowChar) # if summarize by station, this can be multiple characteristics; otherwise, it's just one characteristic <<<<<<<<<<<<<<<<<<<<<<<<<<<< I NED TO PUT THIS SOMEWHERE
+  param_map %<>%
+    addCircleMarkers(data = avail_sites_data, group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, popup = ~SITEPOP, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations")) # WQ stations for which data (for selected parameter) are available  
+cat("line1988")
 
   # If UP-DOWN selection
   if(rv$userSelect$sel_SelectMethod=="methodDist") {
@@ -2038,13 +2057,26 @@ if(!is.null(rv$selectedGages)) {
   cat("line2745")
   #
 
-  # Show filtered stations
-  if(input$sel_ParamMapShow == "show") {
-
-    param_map %<>%
-      addCircleMarkers(rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier),], group = "Filtered monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, popup = ~SITEPOP, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = FALSE, opacity = 1, options = pathOptions(pane = "pane_param_filteredStations"))
-  }
   cat("line3098")
+    # Highlight selected stations
+  if(input$sel_ParamMapShow == "show") { # White outline on sites selected from left panel
+    
+      if(input$sel_SummarizeBy == "by_char" & !is.null(input$sel_ShowStations)) { # if multiple sites per characteristic, then available sites are only those that actually have the selected characteristic
+        selected_sites_data <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% input$sel_ShowStations,]
+        } else {
+    if(!is.null(input$sel_ShowOneStation)) {
+      selected_sites_data <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% input$sel_ShowOneStation,]
+    }
+    
+  }
+    
+    if(!is.null(selected_sites_data)) {
+      param_map %<>%
+      addCircleMarkers(data = selected_sites_data, group = "Selected monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, popup = ~SITEPOP, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations")) # selected WQ stations are shown as larger, white-outlined points
+    }
+     
+  }
+  
 
   # If summarizing by characteristic, then additional summary options are available
   if(rv_param_temp$plotSummarizeBy == "by_char") {
@@ -2069,9 +2101,9 @@ if(!is.null(rv$selectedGages)) {
         dplyr::mutate(SITEPOP = paste0("Site: ", MonitoringLocationIdentifier, "<br>Year: ", Yr, "<br>Median Value: ", median_val))
       param_map %<>%
         addControl(tags$div(tag.map.title, HTML(input$sel_ShowChar, " in Year ", input$sel_SurvYr)), position = "topleft", className="map-title") %>%
-        addCircleMarkers(data = temp_median_plot, lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, label = ~SITELAB, popup = ~SITEPOP, radius = 12, fillColor = ~palNumeric(median_val), fillOpacity = 1, color = ~palNumeric(median_val), stroke = FALSE, opacity = 1, options = pathOptions(pane = "pane_param_filteredStations")) %>%
+        addCircleMarkers(data = temp_median_plot, lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, label = ~SITELAB, popup = ~SITEPOP, radius = 12, fillColor = ~palNumeric(median_val), fillOpacity = 1, color = ~palNumeric(median_val), stroke = FALSE, opacity = 1, options = pathOptions(pane = "pane_param_selectedStations")) %>%
         addLegend(pal = palNumeric, values = temp_median$median_val, position = "topleft", title = input$sel_ShowChar) %>%
-        hideGroup("Filtered monitoring sites") %>%
+        hideGroup("Available monitoring sites") %>%
         hideGroup("Selected monitoring sites")
     }
 
@@ -2108,12 +2140,12 @@ if(!is.null(rv$selectedGages)) {
           width = input$sel_MapPointSize,
           chartdata = as.matrix(subset(thresh_mat, select = thresh_list[[1]]$cut_categ)),
           colorPalette = thresh_list[[1]]$cut_colors,
-          color = "black",
           opacity = 1) %>%
-        hideGroup("Filtered monitoring sites")%>%
+        hideGroup("Available monitoring sites")%>%
         hideGroup("Selected monitoring sites")
     }
     cat("lnie2658")
+    
     # If map choice is 'perc'
     if(input$sel_ParamMapShow == "perc") {
       shiny::validate(need(sum(!is.na(rv_param_temp$plotDat$PercCateg)) > 0, message = "No percentile limits set for these data"))
@@ -2138,9 +2170,8 @@ if(!is.null(rv$selectedGages)) {
           layerId = perc_mat$SITELAB,
           chartdata = as.matrix(perc_mat[, c("below", "between", "above")]),
           colorPalette = c("lightgray", "#56B4E9", "orange"),
-          color = "black",
           opacity = 1) %>%
-        hideGroup("Filtered monitoring sites") %>%
+        hideGroup("Available monitoring sites") %>%
         hideGroup("Selected monitoring sites")
     }
   }
@@ -2192,9 +2223,11 @@ cat("line5039")
       shiny::validate(need(length(rv_param_temp$showStations) < 6 | input$sel_PlotByStation == TRUE, message = "The maximum number of monitoring sites to display in a single plot is FIVE. From the left sidebar, please either select 'Show one monitoring site per plot' or reduce the number of sites to display."))
     }
 
-  shiny::req(!is.null(rv_param_temp$map_plot_dat), !is.null(rv_param_temp$map_quant_dat))
+  # shiny::req(!is.null(rv_param_temp$map_plot_dat), !is.null(rv_param_temp$map_quant_dat))
+  shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$quantDat))
   
-    rv_param_temp$finalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$map_plot_dat, quant_dat = rv_param_temp$map_quant_dat, time_unit = "ActivityStartDate", free_y = input$sel_FreeY, y_scale = input$sel_YScale)
+    # rv_param_temp$finalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$map_plot_dat, quant_dat = rv_param_temp$map_quant_dat, time_unit = "ActivityStartDate", free_y = input$sel_FreeY, y_scale = input$sel_YScale)
+    rv_param_temp$finalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = "ActivityStartDate", free_y = input$sel_FreeY, y_scale = input$sel_YScale)
     
     shiny::req(!is.null(rv_param_temp$finalPlot$plotly_page))
     rv_param_temp$finalPlot$plotly_page
@@ -2233,9 +2266,13 @@ renderPlotly({
     shiny::validate(need(length(rv_param_temp$showStations) < 6 | input$sel_PlotByStation == TRUE, message = "The maximum number of monitoring sites to display in a single plot is FIVE. From the left sidebar, please either select 'Show one monitoring site per plot' or reduce the number of sites to display."))
   }
   
-  shiny::req(!is.null(rv_param_temp$map_plot_dat), !is.null(rv_param_temp$map_quant_dat))
+  # shiny::req(!is.null(rv_param_temp$map_plot_dat), !is.null(rv_param_temp$map_quant_dat))
   
-    rv_param_temp$seasonalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$map_plot_dat, quant_dat = rv_param_temp$map_quant_dat, time_unit = rv_param_temp$seasonalTimeUnit, free_y = input$sel_FreeY, y_scale = input$sel_YScale)
+    # rv_param_temp$seasonalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$map_plot_dat, quant_dat = rv_param_temp$map_quant_dat, time_unit = rv_param_temp$seasonalTimeUnit, free_y = input$sel_FreeY, y_scale = input$sel_YScale)
+    
+  shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$quantDat))
+  
+    rv_param_temp$seasonalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = rv_param_temp$seasonalTimeUnit, free_y = input$sel_FreeY, y_scale = input$sel_YScale)
 
   shiny::req(!is.null(rv_param_temp$seasonalPlot$plotly_page))
   rv_param_temp$seasonalPlot$plotly_page

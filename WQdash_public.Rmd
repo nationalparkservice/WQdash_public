@@ -2374,7 +2374,7 @@ observeEvent(eventExpr = input$button_highlightStations, {
         title = "No HUCs selected",
         "Please click on the map to select HUC(s)."
       ))
-      shiny::req(!is.null(rv$srvelectedHucs))
+      shiny::req(!is.null(rv$selectedHucs))
     }
     if(is.null(input$sel_Organization)) {
       showModal(modalDialog(
@@ -3685,12 +3685,9 @@ output$map <- renderLeaflet({
             overlayGroups = na.omit(c("NPS unit", rv$userSelect$sel_HUClevel, "Available monitoring sites", ifelse(!is.null(rv$selectedStations), "Selected monitoring sites", NA), ifelse(!is.null(rv$facilitiesPointsSub), "Discharge facilities", NA), ifelse(!is.null(rv$gageStations), "Gage stations", NA), ifelse(!is.null(rv$meteoStations), "Weather stations", NA), "Map legend")),
             options = layersControlOptions(collapsed = TRUE)) %>%
           setView(lng = switch((is.null(isolate(input$map_center$lng))+1), isolate(input$map_center$lng), mean(rv$unitPoly@bbox["x",])), lat = switch((is.null(isolate(input$map_center$lat))+1), isolate(input$map_center$lat), mean(rv$unitPoly@bbox["y",])), zoom = input$sel_MapZoom)
-        }
-  })
-
-leafletOutput("map", height="100%", width = "100%")
-
-# User selects HUCs by clicking (when new data imported) ----
+      }
+  
+  # User selects HUCs by clicking (when new data imported) ----
 observeEvent(input$map_shape_click, {
   shiny::req(rv$userSelect$sel_SelectMethod=="methodHuc", !is.null(rv), !is.null(rv$userSelect$sel_HUClevel), !is.null(input$sel_GetData))
   shiny::req(input$sel_GetData=="new_data")
@@ -3704,9 +3701,10 @@ observeEvent(input$map_shape_click, {
         leafletProxy("map") %>% addPolygons(data = rv[[rv$userSelect$sel_HUClevel]][rv[[rv$userSelect$sel_HUClevel]]$HUC==click$id,], group = rv$userSelect$sel_HUClevel, color = "blue", fillColor = "lightblue", fillOpacity = 0.7, opacity = 1, weight = 1.5, layerId = ~HUC, options = pathOptions(pane = "pane_HUC"))
       } # and change the polygon to selected color
   }, ignoreInit = TRUE) # end of observeEvent
+  })
 
-# <<<<<<<<<< CHECK THESE LIMITS
-# https://edits.nationalmap.gov/arcgis/rest/services/WBD/Wbd_PostVersion/FeatureServer/2/serviceLimits?f=geojson
+leafletOutput("map", height="100%", width = "100%")
+
 ```
 
 ### Selected Sites
