@@ -1203,8 +1203,8 @@ FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, y_sc
           precipDat$x <- factor(precipDat[[time_unit]], levels = xseq, labels = xseq)
         }
       }
-      if(!is.null(input$sel_AddGagePrecip) & !is.null(input$sel_PlotType) & !is.null(input$sel_MonthSummary)) {
-        month_summary <- all(input$sel_AddGagePrecip != "none", input$sel_PlotType %in% c("points", "points_smooth"), input$sel_MonthSummary == TRUE)
+      if(!is.null(input$sel_AddGagePrecip) & !is.null(input$sel_PlotType)) {
+        month_summary <- all(input$sel_AddGagePrecip != "none", input$sel_PlotType %in% c("points", "points_smooth"))
       } else {
         month_summary <- FALSE
       }
@@ -1621,9 +1621,9 @@ rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to 
 ```{r update_map_userinput}
 # Update map selection and selection vector when user input changes from side bar
 # renderUI({
-#   shiny::req(!is.null(input$sel_ParamMapShow), !is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$param_map_highlight), !is.null(isolate(rv_param_temp$update_from_sidebar)))
-#   shiny::req(input$sel_ParamMapShow == "show", isolate(rv_param_temp$update_from_sidebar) == TRUE) # when param_map marker set to "show"
-#     cat("UPDATE FROM SIDEBAR\n")  
+#   shiny::req(!is.null(input$sel_ParamMapShow), !is.null(input$sel_SummarizeBy), isolate(!is.null(rv_param_temp$param_map_highlight)), isolate(!is.null(rv_param_temp$update_from_sidebar)))
+#   shiny::req(input$sel_ParamMapShow == "show", isolate(rv_param_temp$update_from_sidebar == TRUE)) # when param_map marker set to "show"
+#     cat("TRIGGERED UPDATE FROM SIDEBAR\n")
 #   #   
 #   #           saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
 #   # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
@@ -1632,36 +1632,39 @@ rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to 
 #     
 #     update_selected_sites <- FALSE
 #     if(all(input$sel_SummarizeBy == "by_char", !is.null(input$sel_ShowChar))) { # if selecting multiple stations for one characteristic
-# cat("line1611")
+# 
 #       if(!identical(isolate(rv_param_temp$param_map_highlight), input$sel_ShowStations)) { # if map selection does not match user input. Need to use identical() so can deal with character(0)
 #         rv_param_temp$param_map_highlight <- input$sel_ShowStations
-#         # avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowChar]),]
-#         update_selected_sites <- TRUE # need to update map
-#       }
-#     }
-# cat("line1618")
-#     if(all(input$sel_SummarizeBy == "by_station", !is.null(input$sel_ShowOneStation))) { # if selecting one station for many characteristics
-#       if(!identical(isolate(rv_param_temp$param_map_highlight), input$sel_ShowOneStation)) { # if map selection does not match user input
-#         rv_param_temp$param_map_highlight <- input$sel_ShowOneStation
-#         cat("line1622")
-#         # avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier),]
+#         avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowChar]),]
+#         cat("CALCULATED AVAIL SITES BY CHAR\n")
 #         update_selected_sites <- TRUE # need to update map
 #       }
 #     }
 # 
-#     cat("line1619")
+#     if(all(input$sel_SummarizeBy == "by_station", !is.null(input$sel_ShowOneStation))) { # if selecting one station for many characteristics
+#       if(!identical(isolate(rv_param_temp$param_map_highlight), input$sel_ShowOneStation)) { # if map selection does not match user input
+#         rv_param_temp$param_map_highlight <- input$sel_ShowOneStation
+# 
+#         avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier),]
+#         cat("CALCULATED AVAIL SITES BY STATION\n")
+#         update_selected_sites <- TRUE # need to update map
+#       }
+#     }
+# 
+# 
 #     # Update map selection
 #     if (update_selected_sites == TRUE) {
 #       cat("UPDATE FROM SIDEBAR IS TRUE\n")
-#         cat("line1622")
+# 
 #         leafletProxy("param_map") %>% # unselect all available sites
 #           addCircleMarkers(data = FuncParamAvailSites(input$sel_SummarizeBy), group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations"))
 #         cat("UNSELECTED ALL SITES\n")
 # 
-#     #   leafletProxy("param_map") %>% # highlight only the user-selected input sites
-#     # addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% isolate(rv_param_temp$param_map_highlight),], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_availableStations"))
+#       leafletProxy("param_map") %>% # highlight only the user-selected input sites
+#     addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% isolate(rv_param_temp$param_map_highlight),], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_availableStations"))
+#         cat("HIGHLIGHTED SELECTED SITES\n")
 #     }
-#   cat("line1631")
+# 
 # })
 ```
 
@@ -1887,15 +1890,7 @@ p(strong("Add streamflow/precip")),
                   choices = c("Identity" = "identity", "Ln()" = "log"),
                   selected = switch(is.null(input$sel_precip_YScale)+1, input$sel_precip_YScale, "identity"))
       )
-    }),
-  
-  renderUI({
-    shiny::req(!is.null(input$sel_AddGagePrecip), !is.null(input$sel_PlotType))
-    shiny::req(input$sel_AddGagePrecip != "none" & input$sel_PlotType %in% c("points", "points_smooth"))
-  checkboxInput("sel_MonthSummary",
-                      label = "Summarize time series point plot by month-year",
-                      value = TRUE)
-  })
+    })
 ) # end of well panel
 
 wellPanel(
@@ -2070,12 +2065,12 @@ cat("line3026")
   } else {
     avail_sites_data <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier),]
   }
-  
+  # isolate({
 cat("RENDERING AVAILABLE SITES IN FULL MAP\n")
   param_map %<>%
     addCircleMarkers(data = avail_sites_data, group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations")) # WQ stations for which data (for selected parameter) are available  
 cat("line1988")
-
+# })
   
 
   # If UP-DOWN selection
@@ -2140,6 +2135,7 @@ if(!is.null(rv$selectedGages)) {
   # Highlight selected stations
   if(input$sel_ParamMapShow == "show")
     {
+    # isolate({
     # if(is.null(rv_param_temp$param_map_highlight)) { # White outline on sites selected from left panel
       # rv_param_temp$update_from_sidebar <- TRUE # so it's no longer NULL and can now be activated
     cat("RENDERING SELECTED SITES IN FULL MAP\n")
@@ -2151,6 +2147,7 @@ if(!is.null(rv$selectedGages)) {
       }
       
     # } # selected WQ stations are shown as larger, white-outlined points
+    # })
     } 
   
     # Highlight selected stations
