@@ -1323,7 +1323,7 @@ FuncPieDat <- function(limit_type) {
 FuncClearAll <- function() {
   rv <- reactiveValues(wqp_url = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, userSelect = list())
   
-  rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, seasonalTimeUnit = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL, update_from_sidebar = NULL, param_map_highlight = character(0))# <<<<<<<<<<< ADDED STUFF
+  rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, seasonalTimeUnit = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)# <<<<<<<<<<< ADDED STUFF
   
   # Hide filter wellPanels
   restart_panels_filter <- c("new_data_P1", "new_data_P2", "new_data_P3", "new_data_P4", "create_categfile_P1", "create_categfile_P2", "create_categfile_P3") # "wp_filter_yr_season", "wp_filter_sampling_chars", "wp_filter_org", "wp_filter_wqchar",
@@ -1335,14 +1335,20 @@ FuncClearAll <- function() {
 }
 
 FuncParamAvailSites <- function(sel) {
+  shiny::req(!is.null(rv$sitesPointsSub), !is.null(rv_param_temp$subDat))
+    cat("FUNCPARAMAVAILSITES")
   if(sel == "by_station") {
     avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier),]
   } 
   if(sel == "by_char") {
+    shiny::req(!is.null(input$sel_ShowChar))
     avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowChar]),]
     
   }
+    cat("LEAVING FUNCPARAMAVILSITES\n")
+    return(avail_sites)
 }
+
 
 ```
 
@@ -1350,7 +1356,7 @@ FuncParamAvailSites <- function(sel) {
 
 rv <- reactiveValues(wqp_url = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, userSelect = list())
   
-rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, seasonalTimeUnit = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL, update_from_sidebar = NULL, param_map_highlight = character(0)) # <<<<<<<<<<< ADDED STUFF
+rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, seasonalTimeUnit = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL) # <<<<<<<<<<< ADDED STUFF
 
 load_rv_param_temp <- readRDS("C:/Users/echeng/Desktop/WQdash_public/MAP_rv_param_temp.RDS")
 load_rv <- readRDS("C:/Users/echeng/Desktop/WQdash_public/MAP_rv.RDS")
@@ -1543,104 +1549,120 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
 observeEvent(input$param_map_marker_click, {
   shiny::req(!is.null(input$sel_SummarizeBy), !is.null(input$sel_ParamMapShow))
 shiny::req(input$sel_ParamMapShow == "show")  
-
+  isolate({
+    
+  
 rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to this
- clicked_site <- input$param_map_marker_click$id
+
+    clicked_site <- input$param_map_marker_click$id
+    cat("GRABBED CLICKED SITE\n")
+    # if(input$sel_SummarizeBy == "by_char") {
+    #   # shiny::req(!is.null(input$sel_ShowStations))
+    #   prior_sites <- input$sel_ShowStations
+    # } else {
+    #   # shiny::req(!is.null(input$sel_ShowOneStation))
+    #   prior_sites <- input$sel_ShowOneStation
+    # }
     
-  # > PICK UP FROM HERE. MAP works great, and it correctly updates user sidebar, but when I refresh plot data then all the selected sites on map disappear. For ONE STATION, all works unless I remove all sites from map. Then it stops working. Sometimes the plots include sites that are not selected?
-    # Need to clear out plots when first load. SEasonly plots time unit doesn't real-time update. Show one monitoring site per plot doesn't work. Lower threshold and lower % should be moved out of real-time options?? Also allow to select order. Progress bar terminates early.
-    
-    if(clicked_site %in% isolate(rv_param_temp$param_map_highlight)) { # if the click is in a selected site
-      cat("line1544")
-        rv_param_temp$param_map_highlight <- isolate(rv_param_temp$param_map_highlight)[isolate(rv_param_temp$param_map_highlight) != clicked_site] # then remove it from the list of selected sites
-        # leafletProxy("param_map") %>%
-        #   addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier == clicked_site,], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations")) # and change the site to unselected on the map
-        cat("REMOVED-->", clicked_site)
+  #       saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+ 
+    if(clicked_site %in% rv_param_temp$param_map_highlight) { # if the click is in a selected site
+      cat("WAS ALREADY SELECTED\n")
+        rv_param_temp$param_map_highlight <- rv_param_temp$param_map_highlight[rv_param_temp$param_map_highlight != clicked_site] # then remove it from the list of selected sites
+        cat("REMOVED CLICKED SITE FROM VECTOR\n")
+        leafletProxy("param_map") %>%
+          addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier == clicked_site,], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations")) # and change the site to unselected on the map
+        cat("REMOVED CLICKED SITE FROM MAP\n")
         } else { # if the click is in an unselected site
+          cat("CLICKED SITE IS NEW\n")
           if(input$sel_SummarizeBy == "by_station") { # if summarizing by station
-            rv_param_temp$param_map_highlight <- clicked_site # only the clicked site is saved
-          #   leafletProxy("param_map") %>% # unselect all available sites
-          # addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier)[unique(rv_param_temp$subDat$MonitoringLocationIdentifier) != clicked_site],], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations"))
+            rv_param_temp$param_map_highlight <- clicked_site
+            cat("UPDATED VECTOR WITH ONLY CLICKED SITE\n")
+             leafletProxy("param_map") %>%
+          addCircleMarkers(data = FuncParamAvailSites("by_station"), group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations"))
+             cat("CLEARED MAP OF ALL SELECTIONS\n")
+            
+            
             
           } else { # if summarizing by characteristic
-            rv_param_temp$param_map_highlight <- c(isolate(rv_param_temp$param_map_highlight), clicked_site) # append the ID of clicked site
+            rv_param_temp$param_map_highlight <- c(rv_param_temp$param_map_highlight, clicked_site) # append the ID of clicked site
+            cat("UPDATED VECTOR BY APPENDING CLICKED SITE\n")
           }
           
-          # Unselect all available sites
-          leafletProxy("param_map") %>%
-          addCircleMarkers(data = FuncParamAvailSites(input$sel_SummarizeBy), group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations"))
-          
-          # leafletProxy("param_map") %>% # highlight the clicked site on the map
-          #   addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier == clicked_site,], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_availableStations"))
-          
-          # Highlight all selected sites
-          leafletProxy("param_map") %>% # highlight the clicked site on the map
-            addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% isolate(rv_param_temp$param_map_highlight),], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_availableStations"))
-          }
+           leafletProxy("param_map") %>% # and highlight the site on the map
+            addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier == clicked_site,], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_availableStations"))
+           cat("ADDED CLICKED SITE ON MAP\n")
+      }
     
     # Also update the user select in left side panel
 
     if(input$sel_SummarizeBy == "by_char") {
       updateCheckboxGroupInput(session,
                                "sel_ShowStations",
-                               selected = isolate(rv_param_temp$param_map_highlight))
+                               selected = rv_param_temp$param_map_highlight)
     }
 
     if(input$sel_SummarizeBy == "by_station") {
       updateSelectInput(session,
                         "sel_ShowOneStation",
-                        selected = isolate(rv_param_temp$param_map_highlight))
+                        selected = rv_param_temp$param_map_highlight)
 
     }
- 
- rv_param_temp$update_from_sidebar <- TRUE
+    
+    rv_param_temp$update_from_sidebar <- TRUE 
+    })
     }, ignoreInit = TRUE) # end of observeEvent
 
 ```
 
+
 ```{r update_map_userinput}
 # Update map selection and selection vector when user input changes from side bar
-renderUI({
-  shiny::req(!is.null(input$sel_ParamMapShow), !is.null(input$sel_SummarizeBy), !is.null(isolate(rv_param_temp$update_from_sidebar)))
-  shiny::req(input$sel_ParamMapShow == "show", isolate(rv_param_temp$update_from_sidebar == TRUE)) # when param_map marker set to "show"
-    cat("UPDATE RV PARAM MAP")  
-  #   
-  #           saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
-    
-    
-    update_selected_sites <- FALSE
-    if(all(input$sel_SummarizeBy == "by_char", !is.null(input$sel_ShowChar))) { # if selecting multiple stations for one characteristic
-cat("line1611")
-      if(!identical(isolate(rv_param_temp$param_map_highlight), input$sel_ShowStations)) { # if map selection does not match user input. Need to use identical() so can deal with character(0)
-        rv_param_temp$param_map_highlight <- input$sel_ShowStations
-        # avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowChar]),]
-        update_selected_sites <- TRUE # need to update map
-      }
-    }
-cat("line1618")
-    if(all(input$sel_SummarizeBy == "by_station", !is.null(input$sel_ShowOneStation))) { # if selecting one station for many characteristics
-      if(!identical(isolate(rv_param_temp$param_map_highlight), input$sel_ShowOneStation)) { # if map selection does not match user input
-        rv_param_temp$param_map_highlight <- input$sel_ShowOneStation
-        cat("line1622")
-        # avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier),]
-        update_selected_sites <- TRUE # need to update map
-      }
-    }
-
-    cat("line1619")
-    # Update map selection
-    if (update_selected_sites == TRUE) {
-        cat("line1622")
-        leafletProxy("param_map") %>% # unselect all available sites
-          addCircleMarkers(data = FuncParamAvailSites(input$sel_SummarizeBy), group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations"))
-
-      leafletProxy("param_map") %>% # highlight only the user-selected input sites
-    addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% isolate(rv_param_temp$param_map_highlight),], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_availableStations"))
-    }
-  cat("line1631")
-})
+# renderUI({
+#   shiny::req(!is.null(input$sel_ParamMapShow), !is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$param_map_highlight), !is.null(isolate(rv_param_temp$update_from_sidebar)))
+#   shiny::req(input$sel_ParamMapShow == "show", isolate(rv_param_temp$update_from_sidebar) == TRUE) # when param_map marker set to "show"
+#     cat("UPDATE FROM SIDEBAR\n")  
+#   #   
+#   #           saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
+#   # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+#   # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+#     
+#     
+#     update_selected_sites <- FALSE
+#     if(all(input$sel_SummarizeBy == "by_char", !is.null(input$sel_ShowChar))) { # if selecting multiple stations for one characteristic
+# cat("line1611")
+#       if(!identical(isolate(rv_param_temp$param_map_highlight), input$sel_ShowStations)) { # if map selection does not match user input. Need to use identical() so can deal with character(0)
+#         rv_param_temp$param_map_highlight <- input$sel_ShowStations
+#         # avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowChar]),]
+#         update_selected_sites <- TRUE # need to update map
+#       }
+#     }
+# cat("line1618")
+#     if(all(input$sel_SummarizeBy == "by_station", !is.null(input$sel_ShowOneStation))) { # if selecting one station for many characteristics
+#       if(!identical(isolate(rv_param_temp$param_map_highlight), input$sel_ShowOneStation)) { # if map selection does not match user input
+#         rv_param_temp$param_map_highlight <- input$sel_ShowOneStation
+#         cat("line1622")
+#         # avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier),]
+#         update_selected_sites <- TRUE # need to update map
+#       }
+#     }
+# 
+#     cat("line1619")
+#     # Update map selection
+#     if (update_selected_sites == TRUE) {
+#       cat("UPDATE FROM SIDEBAR IS TRUE\n")
+#         cat("line1622")
+#         leafletProxy("param_map") %>% # unselect all available sites
+#           addCircleMarkers(data = FuncParamAvailSites(input$sel_SummarizeBy), group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations"))
+#         cat("UNSELECTED ALL SITES\n")
+# 
+#     #   leafletProxy("param_map") %>% # highlight only the user-selected input sites
+#     # addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% isolate(rv_param_temp$param_map_highlight),], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_availableStations"))
+#     }
+#   cat("line1631")
+# })
 ```
 
 MAP TEST...
@@ -1648,12 +1670,7 @@ MAP TEST...
 
 Inputs {.sidebar data-width=330}
 -------------------------------------
-
-```{r summary_sidebar} 
-
-renderPrint({input$sel_ShowOneStation})
-renderPrint({input$sel_ShowStations})
-
+```{r summary_sidebar}  
 br()
 
 actionButton("button_refreshPlotData", "REFRESH PLOT DATA", style="border-color:black; background-color: lightgreen; width:100%; border:0px; margin:0px") # updates plots
@@ -1672,6 +1689,8 @@ renderUI({
                selected = "by_station")
   }),
 
+renderPrint({input$sel_ShowOneStation}),
+renderPrint({input$sel_ShowStations}),
 # Generate bold, red warning if characteristic sets with different measurement units are compared for a single characteristic
 tags$div(renderText({ 
   shiny::req(!is.null(rv_param_temp$finalPlot$plotly_page), !is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$showCharSets))
@@ -2006,7 +2025,7 @@ output$param_map <- renderLeaflet({
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE) # make sure data have been imported and filtered, and plot data have been generated
   # 
   shiny::req(!is.null(rv_param_temp$subDat), !is.null(rv$sitesPointsSub), !is.null(rv$unitPoly), !is.null(rv$userSelect), !is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$palOrg), !is.null(input$sel_ParamMapShow))
-
+cat("RENDERING ENTIRE MAP AGAIN\n")
   tags$style(type = "text/css", "#param_map {height: calc(100vh - 80px) !important;}") # expand map to fill screen
 
   iconGages = makeAwesomeIcon(
@@ -2052,11 +2071,12 @@ cat("line3026")
     avail_sites_data <- rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier),]
   }
   
-cat("line1985")
-
+cat("RENDERING AVAILABLE SITES IN FULL MAP\n")
   param_map %<>%
     addCircleMarkers(data = avail_sites_data, group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations")) # WQ stations for which data (for selected parameter) are available  
 cat("line1988")
+
+  
 
   # If UP-DOWN selection
   if(rv$userSelect$sel_SelectMethod=="methodDist") {
@@ -2117,29 +2137,29 @@ if(!is.null(rv$selectedGages)) {
   #
 
   cat("line3098")
-  
-  # if(input$sel_ParamMapShow == "show") {
-  #   rv_param_temp$update_from_sidebar = TRUE
-  # } else {
-  #     rv_param_temp$update_from_sidebar = FALSE
-  #   }
-  # 
   # Highlight selected stations
-  if(input$sel_ParamMapShow == "show") { # White outline on sites selected from left panel
-    
-    rv_param_temp$update_from_sidebar <- TRUE # so it's no longer NULL and can now be activated
-    
-    # Need to do this on first go-around because don't yet have a param_map to update with proxy
-    sel_sites <- switch((input$sel_SummarizeBy == "by_char") + 1, input$sel_ShowOneStation, input$sel_ShowStations)
-    param_map %<>%
-      addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% sel_sites,], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_availableStations")) # selected WQ stations are shown as larger, white-outlined points
-  } else {
-    rv_param_temp$update_from_sidebar <- FALSE
-  }
+  if(input$sel_ParamMapShow == "show")
+    {
+    # if(is.null(rv_param_temp$param_map_highlight)) { # White outline on sites selected from left panel
+      # rv_param_temp$update_from_sidebar <- TRUE # so it's no longer NULL and can now be activated
+    cat("RENDERING SELECTED SITES IN FULL MAP\n")
+    # Need to do this on first go-around because don't yet have a param_map to update with proxy. 
+      sel_sites <- switch((input$sel_SummarizeBy == "by_char") + 1, input$sel_ShowOneStation, input$sel_ShowStations)
+      if(length(sel_sites) > 0) {
+        param_map %<>%
+      addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% sel_sites,], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_availableStations"))
+      }
+      
+    # } # selected WQ stations are shown as larger, white-outlined points
+    } 
   
-cat("line2120")
-  
-  
+    # Highlight selected stations
+  # if(input$sel_ParamMapShow == "show" & !is.null(isolate(rv_param_temp$param_map_highlight))) { # White outline on sites selected from left panel
+  #   if(length(isolate(rv_param_temp$param_temp_highlight)) > 0) {
+  #           param_map %<>%
+  #     addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% isolate(rv_param_temp$param_map_highlight),], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_availableStations")) # selected WQ stations are shown as larger, white-outlined points
+      
+    # }
   #   
   #     if(input$sel_SummarizeBy == "by_char" & !is.null(input$sel_ShowStations)) { # if multiple sites per characteristic, then available sites are only those that actually have the selected characteristic
   #   # if(input$sel_SummarizeBy == "by_char") { 
