@@ -65,7 +65,7 @@ tags$style("#gif_modal .modal-body {padding:0px}
 # This expands initial map to fill screen
 tags$style("initial_map {
            height: calc(100vh - 80px) !important;
-           }") # IF THIS DOESN'T WORK, SEE...
+           }")
 
 # Call this to force an input value to reset to NULL
 tags$script("
@@ -3661,8 +3661,14 @@ Data for Import {.tabset .tabset-fade}
 
 ### Map
 ```{r initial_map}
-output$map <- renderLeaflet({
+output$initial_map <- renderLeaflet({
   shiny::req(!is.null(rv_param_temp$loadMap))
+
+  # >>>>>>>>>>>>>> PICK UP FROM HERE. JELA MAP DID NOT SHOW WHEN IMPORTED.
+  #       saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+  
   shiny::validate(
       need(rv_param_temp$loadMap == TRUE, message = "No data to show. From the left sidebar, please choose to load a data file or download data from web services and then click the green 'BEGIN DATA SEARCH' button"))
   
@@ -3686,6 +3692,9 @@ output$map <- renderLeaflet({
             options = layersControlOptions(collapsed = TRUE)) %>%
           setView(lng = switch((is.null(isolate(input$map_center$lng))+1), isolate(input$map_center$lng), mean(rv$unitPoly@bbox["x",])), lat = switch((is.null(isolate(input$map_center$lat))+1), isolate(input$map_center$lat), mean(rv$unitPoly@bbox["y",])), zoom = input$sel_MapZoom)
       }
+})
+
+leafletOutput("initial_map", width = "100%")
   
   # User selects HUCs by clicking (when new data imported) ----
 observeEvent(input$map_shape_click, {
@@ -3701,10 +3710,6 @@ observeEvent(input$map_shape_click, {
         leafletProxy("map") %>% addPolygons(data = rv[[rv$userSelect$sel_HUClevel]][rv[[rv$userSelect$sel_HUClevel]]$HUC==click$id,], group = rv$userSelect$sel_HUClevel, color = "blue", fillColor = "lightblue", fillOpacity = 0.7, opacity = 1, weight = 1.5, layerId = ~HUC, options = pathOptions(pane = "pane_HUC"))
       } # and change the polygon to selected color
   }, ignoreInit = TRUE) # end of observeEvent
-  })
-
-leafletOutput("map", height="100%", width = "100%")
-
 ```
 
 ### Selected Sites
@@ -4512,18 +4517,25 @@ Rightside Panel {data-width=400}
 ```{r categfile_categ_table}
 renderUI({
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE)
+  shiny::req(!is.null(rv$userSelect), !is.null(rv$sitesPointsSub))
   if(any(!rv$userSelect$sel_Organization %in% rv$sitesPointsSub@data$OrganizationFormalName))
     {rv_param_temp$categLevels <- tibble("CharacteristicName" = as.character(), "CategOrder" =as.character(), "CategColor" = as.character())} # initiate a blank categorical levels data frame if the data have not been updated
   })
 
-div(style="display:inline-block; width:100px; margin-right:10px;", actionButton("button_categAddRow", "Add a Row"))
-div(style="display:inline-block; width:180px;", actionButton("button_categDeleteRow", "Delete Selected Row(s)"))
+splitLayout(
+  cellWidths = c("35%", "35%", "30%"),
+actionButton("button_categAddRow", "Add a Row", width = "200px"),
+actionButton("button_categDeleteRow", "Delete Selected Row(s)", width = "200px")
+)
 
 br()
 
 br()
 
-output$categDT <- DT::renderDT({rv_param_temp$categLevelsPlot}, editable = TRUE)
+output$categDT <- DT::renderDT({
+  shiny::req(!is.null(rv_param_temp$categLevelsPlot))
+  rv_param_temp$categLevelsPlot}, 
+  editable = TRUE)
 proxyDT <- DT::dataTableProxy("categDT")
     
 dataTableOutput("categDT")
@@ -5462,10 +5474,6 @@ output$out_MKHeat <- renderPlotly({
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = TRUE, MK = TRUE)
 
   shiny::req(!is.null(input$sel_TrendType), !is.null(rv_param_temp$trendDat), !is.null(rv_param_temp$MK), !is.null(rv_param_temp$MKHeatPlots$plotly_page))
-#   
-#       saveRDS(isolate(reactiveValuesToList(rv)), "MAP_rv.RDS")
-# saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "MAP_rv_param_temp.RDS")
-# saveRDS(isolate(reactiveValuesToList(input)), "MAP_input.RDS")
 
   rv_param_temp$MKHeatPlots$plotly_page
 })

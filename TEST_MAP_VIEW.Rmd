@@ -1228,7 +1228,7 @@ cat("line1930")
     }
 
     plot_ht <- 340
-    total_plot_height <- plot_ht * (length(ts_plot[[1]]) + as.integer(input$sel_AddGagePrecip!="none")) # Final plot will take the layout of the first plot, so the first plot needs to have the height of final plot. Initially tried to account for x_axis height, but seems it was probably already adjusted for
+    total_plot_height <- 64 + plot_ht * (length(ts_plot[[1]]) + as.integer(input$sel_AddGagePrecip!="none")) # Final plot will take the layout of the first plot, so the first plot needs to have the height of final plot. Initially tried to account for x_axis height, but seems it was probably already adjusted for
 
     # First, the parameter plots
     param_plotly <- FuncPlotlyFormat(
@@ -1282,9 +1282,9 @@ if(input$sel_AddGagePrecip == "precipitation" & !is.null(precipDat) & "ggplot" %
               nrows = n_plots, # add 1 for precip plot
               shareX = TRUE, # if set to FALSE, the X-axis labels will appear but will be cut off unless margin is increased. If margin is increased, plot sizes will be uneven
               shareY = FALSE,
-              margin = 0.02,
               titleX = TRUE,
               titleY = TRUE,
+              margin = c(0, 0.0, 0.02/length(subplot_list), 0.14/length(subplot_list)),
               which_layout = 1)
       return_list <- list(plotly_page = plotly_page, shared_legend = shared_legend)
     # return(plotly_page)
@@ -1564,17 +1564,25 @@ rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to 
     #   prior_sites <- input$sel_ShowOneStation
     # }
     
-  #       saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+
  
     if(clicked_site %in% rv_param_temp$param_map_highlight) { # if the click is in a selected site
       cat("WAS ALREADY SELECTED\n")
-        rv_param_temp$param_map_highlight <- rv_param_temp$param_map_highlight[rv_param_temp$param_map_highlight != clicked_site] # then remove it from the list of selected sites
+            if(input$sel_SummarizeBy == "by_station" & clicked_site == rv_param_temp$param_map_highlight) {
+        showModal(modalDialog(
+          title = "Cannot de-select station",
+          "You must highlight at least one station to summarize."
+        ))
+            } else {
+              rv_param_temp$param_map_highlight <- rv_param_temp$param_map_highlight[rv_param_temp$param_map_highlight != clicked_site] # then remove it from the list of selected sites
         cat("REMOVED CLICKED SITE FROM VECTOR\n")
         leafletProxy("param_map") %>%
           addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier == clicked_site,], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_availableStations")) # and change the site to unselected on the map
         cat("REMOVED CLICKED SITE FROM MAP\n")
+              
+            }
+      
+        
         } else { # if the click is in an unselected site
           cat("CLICKED SITE IS NEW\n")
           if(input$sel_SummarizeBy == "by_station") { # if summarizing by station
@@ -1979,35 +1987,66 @@ Column
 ```{r map input}
 br()
 
-wellPanel(
-  id = "summarize_map_options",
-  p(strong("MAP OPTIONS")),
-    
-renderUI({ 
+splitLayout(
+  cellWidths = c("40%", "60%"),
+  renderUI({ 
   shiny::req(!is.null(input$sel_SummarizeBy))
   selectInput("sel_ParamMapShow",
               label = h6("Show on map: "),
               choices = switch((input$sel_SummarizeBy == "by_char")+1, c("SELECTABLE monitoring sites" = "show"), c("SELECTABLE monitoring sites" = "show", "Overall median value" = "overall_median", "Overall threshold levels" = "overall_thresh", "Annual median value" = "median", "Annual threshold levels" = "thresh", "Annual percentile levels" = "perc")),
               selected = "show") # <<<<<<<<< NEED TO CALC OVERALLS STILL
-}),
-  
-renderUI({
-  shiny::req(!is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$plotDat), !is.null(input$sel_ParamMapShow)) 
-  shiny::req(rv_param_temp$plotSummarizeBy == "by_char", length(unique(rv_param_temp$plotDat$Yr)) > 0)
-  sliderTextInput("sel_SurvYr", force_edges = TRUE, label = h6("Choose a survey year"), choices = sort(unique(rv_param_temp$plotDat$Yr)), selected = max(rv_param_temp$plotDat$Yr, na.rm = TRUE), dragRange = FALSE, animate = TRUE, width = "85%")
   }),
-
-renderUI({
+  verticalLayout(
+      renderUI({
   shiny::req(!is.null(rv$unitPoly))
   map_zoom <- min(RgoogleMaps::MaxZoom(lonrange = rv$unitPoly@bbox["x",], latrange = rv$unitPoly@bbox["y",]))
   sliderInput("sel_ParamMapZoom", label = h6("Set map zoom (smaller = wider view):"), min = max(1, map_zoom - 6), max = 15, value = map_zoom - 0.5, step = 0.5, ticks = FALSE, dragRange = FALSE, width = "95%")
-}),
-
-renderUI({
-  shiny::req(!is.null(rv$unitPoly))
-  sliderInput("sel_MapPointSize", label = "Resize map pie charts:", min = 10, max = 60, value = 30, step = 10, ticks = FALSE, dragRange = FALSE, width = "95%")
-}) # <<<<<<<<<<<<<<< THIS DOESN'T SEEM TO DO ANYTHING
+  }),
+    renderUI({
+  shiny::req(!is.null(rv$unitPoly), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$plotDat), !is.null(input$sel_ParamMapShow))
+      shiny::req(input$sel_ParamMapShow %in% c("thresh", "perc"))
+  shiny::req(rv_param_temp$plotSummarizeBy == "by_char", length(unique(rv_param_temp$plotDat$Yr)) > 0)
+  sliderTextInput("sel_SurvYr", force_edges = TRUE, label = h6("Choose a survey year"), choices = sort(unique(rv_param_temp$plotDat$Yr)), selected = max(rv_param_temp$plotDat$Yr, na.rm = TRUE), dragRange = FALSE, animate = TRUE, width = "85%")
+  }),
+  renderUI({
+  shiny::req(!is.null(rv$unitPoly), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$plotDat), !is.null(input$sel_ParamMapShow))
+  shiny::req(rv_param_temp$plotSummarizeBy == "by_char")
+    shiny::req(input$sel_ParamMapShow %in% c("thresh", "perc"))
+    sliderInput("sel_MapPointSize", label = "Resize map pie charts:", min = 10, max = 60, value = 30, step = 10, ticks = FALSE, dragRange = FALSE, width = "95%")
+    })
+  )
 )
+
+
+# wellPanel(
+#   id = "summarize_map_options",
+#   p(strong("MAP OPTIONS")),
+#     
+# renderUI({ 
+#   shiny::req(!is.null(input$sel_SummarizeBy))
+#   selectInput("sel_ParamMapShow",
+#               label = h6("Show on map: "),
+#               choices = switch((input$sel_SummarizeBy == "by_char")+1, c("SELECTABLE monitoring sites" = "show"), c("SELECTABLE monitoring sites" = "show", "Overall median value" = "overall_median", "Overall threshold levels" = "overall_thresh", "Annual median value" = "median", "Annual threshold levels" = "thresh", "Annual percentile levels" = "perc")),
+#               selected = "show") # <<<<<<<<< NEED TO CALC OVERALLS STILL
+# }),
+#   
+# renderUI({
+#   shiny::req(!is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$plotDat), !is.null(input$sel_ParamMapShow)) 
+#   shiny::req(rv_param_temp$plotSummarizeBy == "by_char", length(unique(rv_param_temp$plotDat$Yr)) > 0)
+#   sliderTextInput("sel_SurvYr", force_edges = TRUE, label = h6("Choose a survey year"), choices = sort(unique(rv_param_temp$plotDat$Yr)), selected = max(rv_param_temp$plotDat$Yr, na.rm = TRUE), dragRange = FALSE, animate = TRUE, width = "85%")
+#   }),
+# 
+# renderUI({
+#   shiny::req(!is.null(rv$unitPoly))
+#   map_zoom <- min(RgoogleMaps::MaxZoom(lonrange = rv$unitPoly@bbox["x",], latrange = rv$unitPoly@bbox["y",]))
+#   sliderInput("sel_ParamMapZoom", label = h6("Set map zoom (smaller = wider view):"), min = max(1, map_zoom - 6), max = 15, value = map_zoom - 0.5, step = 0.5, ticks = FALSE, dragRange = FALSE, width = "95%")
+# }),
+# 
+# renderUI({
+#   shiny::req(!is.null(rv$unitPoly))
+#   sliderInput("sel_MapPointSize", label = "Resize map pie charts:", min = 10, max = 60, value = 30, step = 10, ticks = FALSE, dragRange = FALSE, width = "95%")
+# }) # <<<<<<<<<<<<<<< THIS DOESN'T SEEM TO DO ANYTHING
+# )
 ```
 
 ```{r param_map}
