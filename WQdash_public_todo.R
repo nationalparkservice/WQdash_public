@@ -1,12 +1,27 @@
-### TODAY
-# Return plot legend
-# Move real-time map/plot inputs to top
-# Fix plot size issue
-# Move to full dashboard
-# For each map marker selection, add explanatory text at top
-
-
-
+### DO FIRST ON TEST MAPPAGE
+[Advanced tricks] (https://deanattali.com/blog/advanced-shiny-tips/)
+[New shiny](https://shiny.posit.co/blog/posts/announcing-new-r-shiny-ui-components/)
+[Using bslib](https://shiny.posit.co/blog/posts/announcing-new-r-shiny-ui-components/)
+[Cool value boxes](https://rstudio.github.io/bslib/articles/value-boxes/index.html)
+[General cool stuff](https://github.com/nanxstats/awesome-shiny-extensions/tree/main)
+[Dashboard design rules](https://www.datapine.com/blog/dashboard-design-principles-and-best-practices/#dashboard-design-best-practices)
+# Add streamflow/precip by clicking on map?
+# Accordion drop-downs (or put in well pages? Filter data section should be expanded by default)
+# On every page, provide summary of user selections (collapse accordion steps into summaries)
+# Tabset page hiding
+# Fix map title--it should not change with user selection
+# Plot sizes should be fixed in height (based on number of plots), and scrollable
+# Sparkline value boxes that pop-up to large size?
+# WHat KPI's to highlight?! Threshold KPI as pie charts across the top, if user enters thresholds. Perhaps this should update in real time??
+# Less-used user options (e.g., plot tweaking) should be in a "settings" icon that user clicks to open, but things like selecting plot type or parameter and site(s) should be highly visible
+# Allow pop-out and/or resizing of columns and expand size (bootstrap cards??)
+# Move all map- and plot-specific user options to the top of those. For seasonal, that tab also has additional user options
+# Fix the element to put multiple sites on one plot. Add plotly brushing so can select one line and see the site in input box.
+# Add heatplot
+# For multiple parameters per plot, each plot should have option for threshold.
+# Add NWIS streamlines on maps???
+# User can sort order of sites for plots
+# User can select range of years to show
 
 
 ### INSTALL REQUESTS
@@ -59,9 +74,14 @@ install.packages(c("sortable"), repos = "https://cloud.r-project.org", dep=TRUE)
 # Threshold and percentage lines should be labeled on plots.
 # The extensive text for time series plots, etc., should be moved to a pop-up user accesses by clicking on a page info icon
 # Trends in %--change order to below, good, above to match thresholds. On hover, level should say below WHAT VALUE, e.g.
+# Legend for boxplot quantiles
+# Don't connect points with large gaps! (e.g., LOESS--also consider how that treats non-detects and how all plots/summaries treat non-detects)
+# Need to deal with data quality flags!!!
+# https://doimspp.sharepoint.com/:v:/r/sites/nps-wetnet/Shared%20Documents/General/Recordings/Meeting%20in%20_General_-20230921_110013-Meeting%20Recording.mp4?csf=1&web=1&e=LbmAx7
 
 
 ### BUGS
+# When not in browser view, resizing param_map causes blitz
 # BITH crashes when something with threshold on pH... not sure if it has to do with fact there are two units?
 # TIMU Sample size matrix with week--Failed to create Cairo backend! This occurs when too large
 # >>> Fix summary tables issue
@@ -70,6 +90,7 @@ install.packages(c("sortable"), repos = "https://cloud.r-project.org", dep=TRUE)
 
 
 ### DEMO
+# Pop-out page to explain icons and color. Filter data is green and must click 'Update' button after. Blue ones are to format plots, and changes in real time.
 # Demo the select-by-location on stream, and with threshold map showing patterns along the stream. Preferably with discharge stations downloaded and selection is of a site by discharge station
 # Show censored data plots and also warning if using different char sets
 # Demo BITH
@@ -105,3 +126,40 @@ install.packages(c("sortable"), repos = "https://cloud.r-project.org", dep=TRUE)
 <div align="center">
   rchunk
 </div>
+  
+### NEED TO PUT THESE THINGS IN INFO BARS...
+  ### Time Series
+  
+  #### <font size="3">**Time series plots for selected site-characteristic combinations (see left sidebar)**</font>
+  
+  * <font size="2"> User-defined THRESHOLD LIMITS are shown as different colors in the plot background: GRAY = BELOW THRESHOLD, BLUE = BETWEEN, RED = ABOVE THRESHOLD</font>
+    
+    * <font size="2"> User-defined PERCENTILE LIMITS are shown as red horizontal lines (dashed  = lower limit, e.g., lowest 5% of values; solid = upper limit, e.g., highest 5% of values)</font>
+      
+      * <font size="2"> CENSORED DATA in Point Plots: Censored data (non-detects, present below/above quantification limits) are shown as open circles at their quantification limits--the vertical black dotted line shows the range of possible values</font>
+        
+        * <font size="2"> CENSORED DATA in Boxplots: Horizontal dotted lines are quantification limits: lower limit (LQL) = gray, upper limit (UQL) = black. If limits changed over time, only the highest LQL and lowest UQL are shown</font>
+          
+### Seasonal Patterns
+          
+#### <font size="3">**Seasonal patterns for data from time series plots **</font>
+          
+          * <font size="2"> These plots show how water quality changes over the course of a year. The x-axis variable is the user-selected 'SEASONAL PATTERNS time unit' (e.g., week, month, season; see left sidebar) </font>
+            
+            * <font size="2"> The same data selected for time series plots are also used for seasonal patterns plots </font>
+              
+              ### Annual Threshold Levels
+              
+              #### <font size="3">**Annual % data in each threshold category for data from time series plots**</font>
+              
+              * <font size="2"> Threshold limits can be defined in the left sidebar (see 'Define Threshold and Percentile Limits') or imported as a file (see 'Define & Filter Data' Page)</font>
+                
+                * <font size="2"> Currently, this display is available only when summarizing data for a single characteristic</font>
+
+                  ### Annual Percentile Levels
+                  
+                  #### <font size="3">**Annual % data in each percentile category for data from time series plots**</font>
+                  
+                  * <font size="2"> Use the left sidebar to set lower and upper percentile limits (default is lower = 5% and upper = 95%)</font>
+                    
+                    * <font size="2"> When summarizing data for a single characteristic at multiple sites (e.g., pH at four different sites), percentiles can be estimated separately for each site, or for all sites combined (see the left sidebar)</font>
