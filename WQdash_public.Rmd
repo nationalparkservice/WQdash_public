@@ -15,7 +15,6 @@ rm(list=ls())
 
 pkgs <- c("flexdashboard", "shiny", "knitr",  "here", "tidyverse", "janitor", "mgcv", "plyr", "scales", "rtf", "rmarkdown", "shinyWidgets", "leaflet", "RgoogleMaps", "plotrix", "GGally", "plotly", "httr", "jsonlite", "tidyverse", "readr", "sp", "rgdal", "sf", "rgeos", "magrittr", "leaflet.extras", "lubridate", "fontawesome", "viridisLite", "purrr",
           "stringr",
-          # "NADA2", # for MK
           "ggpubr", # for drawing separate legends
               "heatmaply", # for interactive heat plots
               "reactable", # for easy nested tables
@@ -33,8 +32,7 @@ pkgs <- c("flexdashboard", "shiny", "knitr",  "here", "tidyverse", "janitor", "m
               "RgoogleMaps", # for MaxZoom & MinZoom
               "geojsonio", # to test for presence of features
               "rnoaa", # to get NOAA climate data
-              "leaflet.minicharts",
-          "wql") # MK analysis
+              "leaflet.minicharts") 
        
            
 
@@ -223,7 +221,7 @@ FuncBreakDates <- function(dat_df) {
   return(dat_df2)
 }
 
-FuncOrderCheck <- function(import = FALSE, filter_internal = FALSE, filter_external = FALSE, plot = FALSE, MK = FALSE) {
+FuncOrderCheck <- function(import = FALSE, filter_internal = FALSE, filter_external = FALSE, plot = FALSE) {
 
   # Function to check if data have been imported, filtered, and plot data summarized
     if(import) {
@@ -238,9 +236,6 @@ FuncOrderCheck <- function(import = FALSE, filter_internal = FALSE, filter_exter
   if(plot) {
     shiny::validate(
     need(!is.null(rv_param_temp$plotDat), message = "On the 'Explore Data - Time Series' page, select characteristic set(s) and monitoring site(s) to plot and then click the green 'REFRESH PLOT DATA' button."))
- if(MK) {
-    shiny::validate(
-    need(!is.null(rv_param_temp$trendDat), message = "From the left sidebar, please choose a trend test and then click the green 'UPDATE MK RESULTS' button"))}
 
   }
 }
@@ -2014,7 +2009,7 @@ FuncPieDat <- function(limit_type) {
 FuncClearAll <- function() {
   rv <- reactiveValues(wqp_url = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, userSelect = list())
   
-  rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, seasonalTimeUnit = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
+  rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, seasonalTimeUnit = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
   
   # Hide filter wellPanels
   restart_panels_filter <- c("new_data_P1", "new_data_P2", "new_data_P3", "new_data_P4", "create_categfile_P1", "create_categfile_P2", "create_categfile_P3") # "wp_filter_yr_season", "wp_filter_sampling_chars", "wp_filter_org", "wp_filter_wqchar",
@@ -2048,7 +2043,7 @@ download_button <- function(outputId, label = "Download", class = NULL, ...)  {
 
 rv <- reactiveValues(wqp_url = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, userSelect = list())
   
-rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, seasonalTimeUnit = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, showDM = FALSE, trendDat = NULL, MK = NULL, MKHeatPlots = NULL, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
+rv_param_temp <- reactiveValues(loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectParam = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, plotSummarizeBy = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, seasonalTimeUnit = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshType = NULL, percCateg= NULL, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
 
 ### FOR TESTING PURPOSES ONLY <<<<<<<<<<<<<<<<<<<<<<<<<<< 
 out_file <- readRDS("C:/Users/echeng/Desktop/WQdash_public/test_data/WQdash_BITH_20230909.RDS")
@@ -3470,104 +3465,6 @@ rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to 
     })
     }, ignoreInit = TRUE) # end of observeEvent
 
-```
-
-```{r events_trends_page}
-# Action to update MK summaries ----
-observeEvent(eventExpr = input$button_updateMK, {
-  if(any(is.null(rv_param_temp$plotDat), is.null(rv_param_temp$plotSummarizeBy))) {
-    rv_param_temp$trendDat <- rv_param_temp$MK <- rv_param_temp$MKHeatPlots$plotly_page <- rv_param_temp$MKHeatPlots$shared_legend <- NULL
-
-  } else {
-    shiny::req(!is.null(input$sel_TrendType), !is.null(rv_param_temp$plotSummarizeBy))
-
-    withProgress(message = "Updating Mann-Kendall summaries...", value = 0, {
-
-    trendDat <- rv_param_temp$plotDat %>%
-      dplyr::mutate(Year = as.integer(Yr))
-    trendDat$Yr <- as.factor("Annual")
-    # trendDat$Mnth = lubridate::month(trendDat$ActivityStartDate, label = TRUE, abbr = TRUE)
-    # trendDat$Mnth = factor(trendDat$Mnth, levels = levels(trendDat$Mnth), ordered = FALSE)
-    
-
-    trendDat %<>% 
-      dplyr::rename("Interval" = switch(input$sel_TrendType, "MK" = "Yr", "MKS" = "Season", "MKM" = "Mnth")) %>%
-      dplyr::select(MonitoringLocationIdentifier, CharacteristicName, ResultMeasureValue_replaced, ResultDetectionConditionText, Year, Interval) %>%
-      dplyr::filter(!is.na(ResultMeasureValue_replaced)) %>%
-      group_by(MonitoringLocationIdentifier, CharacteristicName, Year, Interval) %>%
-      summarise(MedianValue = median(ResultMeasureValue_replaced, na.rm = TRUE), # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< ADD CAVEAT
-                N = n(),
-                PropDetect = round((sum(ResultDetectionConditionText=="Detected and Quantified")/N)*100)) %>%
-      ungroup() %>%
-      dplyr::mutate(LocChar = paste0(MonitoringLocationIdentifier, "_", CharacteristicName)) %>%
-      arrange(MonitoringLocationIdentifier, CharacteristicName, Year, Interval)
-
-    rv_param_temp$trendDat <- switch((nrow(trendDat) > 0)+1, NULL, trendDat)
- 
-    if(!is.null(rv_param_temp$trendDat)) {
-      mk_out_list <- list()
-      for(i in unique(trendDat$LocChar)) {
-        subdat <- subset(trendDat, LocChar== i)
-        MKsubdat <- subdat %>%
-          mutate_if(is.factor, as.character) %>%
-          right_join(expand.grid(Year = modelr::seq_range(subdat$Year, by = 1), Interval = levels(subdat$Interval)), by = c("Year", "Interval")) %>%
-          mutate(Interval = factor(Interval, levels = levels(subdat$Interval))) %>%
-          arrange(Year, Interval)
-        
-        if(input$sel_TrendType == "MK") {
-          MKtemp <- as.data.frame(mannKen(MKsubdat$MedianValue)) %>%
-            mutate(season = "Annual")
-        }
-        
-        if(input$sel_TrendType %in% c("MKS", "MKM")) {
-          ts_dat <- ts(MKsubdat$MedianValue, start = 1, end = length(unique(MKsubdat$Year)), frequency = length(levels(MKsubdat$Interval)))
-          MKtemp <- seasonTrend(ts_dat)
-          MKtemp$season <- dplyr::recode(as.numeric(MKtemp$season), .default = levels(MKsubdat$Interval))
-        }
-        
-        MKsummary <- MKtemp %>%
-          dplyr::mutate(
-            MonitoringLocationIdentifier = unique(subdat$MonitoringLocationIdentifier),
-            CharacteristicName = unique(subdat$CharacteristicName)) %>%
-          dplyr::mutate_if(is.numeric, round, digits=3) %>%
-          dplyr::mutate(miss = round(100*miss)) %>%
-          dplyr::select(MonitoringLocationIdentifier, CharacteristicName, Interval = season, SenSlope = sen.slope, RelativeSenSlope = sen.slope.rel, Pvalue = p.value, `%MissingEnds` = miss)
-        MKsummary$SenSlope[MKsummary$`%MissingEnds` > 50] <- NA
-        MKsummary$RelativeSenSlope[MKsummary$`%MissingEnds` > 50] <- NA
-        MKsummary$Pvalue[MKsummary$`%MissingEnds` > 50] <- NA
-        
-        if(input$sel_TrendType %in% c("MKS", "MKM")) {
-          MKsummary$Interval <- factor(MKsummary$Interval, levels = levels(trendDat$Interval))}
-        mk_out_list[[i]] <- MKsummary
-        
-      }
-      rv_param_temp$MK <- switch((length(mk_out_list) > 0) + 1, NULL, do.call("rbind", mk_out_list))
-      
-      MKHeatDat <- rv_param_temp$trendDat %>%
-        dplyr::mutate(FacetBy = get(switch((rv_param_temp$plotSummarizeBy == "by_char")+1, "CharacteristicName", "MonitoringLocationIdentifier"))) %>%
-        dplyr::rename(Yr = Year, Y = Interval, FillCol = MedianValue) %>%
-  dplyr::mutate(
-    FacetBy = factor(FacetBy),
-    HoverLabel = paste0(MonitoringLocationIdentifier, "<br>", CharacteristicName, "<br>", rv_param_temp$seasonType, ": ", Yr, "<br>MEDIAN for ", Y, ": ", FillCol))
-      
-      MKPlot <- FuncPlotlyHeatMap(dat = MKHeatDat, y_name = "Interval", facet_by_name = switch((rv_param_temp$plotSummarizeBy == "by_char")+1, "Characteristic Name", "Monitoring Site"), legend_name = "Median Value", is_discrete = FALSE, indiv_scale = switch((rv_param_temp$plotSummarizeBy == "by_char")+1, TRUE, FALSE))
-      
-  rv_param_temp$MKHeatPlots$shared_legend <- MKPlot$shared_legend
-  rv_param_temp$MKHeatPlots$plotly_page <- MKPlot$plotly_page
-  
-    } else {
-      rv_param_temp$MK <- NULL
-  rv_param_temp$MKHeatPlots$shared_legend <- NULL
-  rv_param_temp$MKHeatPlots$plotly_page <- NULL
-    }
-    })
-    
-  #   showModal(modalDialog(
-  #     title = "Done",
-  #     "You may now view results in the summary and analysis tabs"
-  # ))
-  }
-})
 ```
 
 
@@ -5532,133 +5429,6 @@ Plot Data Tables {.tabset .tabset-fade}
 # DTOutput("table_raw_plot")
 # tags$style("#table_raw_plot{height:100vh;overflow-x:scroll;overflow-y:scroll}")
 ```
-
-Trend Analysis
-====================================== 
-Inputs {.sidebar data-width=250}
--------------------------------------
-```{r trend_sidebar}  
-
-br()
-
-actionButton("button_updateMK", "UPDATE MK RESULTS", style="border-color:black; background-color: lightgreen; width:225px; border:0px; margin:0px") # refreshes the filter results
-
-br()
-
-wellPanel(
-  id = "MK_type",
-  p(strong("Choose a trend test")),
-selectInput("sel_TrendType",
-            label = "Type of trend test:",
-            choices = c("Mann-Kendall" = "MK", "Mann-Kendall by Season" = "MKS", "Mann-Kendall by Month" = "MKM"),
-            # choices = c("Mann-Kendall" = "MK", "Mann-Kendall by Season" = "MKS", "Mann-Kendall by Month" = "MKM", "Pettitt change point (year)" = "PCP"),
-            selected = "MKS")
-)
-```
-
-Mann-Kendall Trend Analysis {.tabset .tabset-fade}
--------------------------------------
-### MK Analysis Results
-#### <font size="3">**Analysis Considerations**</font>
-
-* Results are not calculated if >50% of data are missing or if >50% of 'ends' are missing (see Column Definitions)
-  
-* Serial correlation is ignored, so the interval between points should be long enough to avoid strong serial correlation.
-    
-    
-#### <font size="3">**Column Definitions (MK Analysis tab)**</font>
-    
-* Interval: Within-year interval for which trend is estimated. If multiple values are available within a season, the median is used for analyses.
-        
-* SenSlope: The median slope joining all pairs of observations, expressed by quantity per unit time. A positive value means values are increasing over time.
-          
-* RelativeSenSlope: The slope joining each pair of observations is divided by the first of the pair before the overall median is taken. Comparing relative slopes is useful when the water quality characteristics have different units. Relative slope is NOT valid for characteristics that allow negative values (e.g., temperature).
-            
-* Pvalue: Approximate p-value with corrections for ties and continuity if n > 10 or if there are any ties; otherwise, exact p-values based on Helsel and Hirsch (2002). Measures the significance of a monotonic time series. Commonly, p > 0.05 is considered a statistically significant trend.
-            
-* %MissingEnds: The proportion missing out of possible comparisons between the first and last 20% of the years. For Mann-Kendall by season or month, if >50% ends is missing for a time period, the estimate is considered unreliable  (Schertz et al 1991) and therefore is not calculated.
-
-####
-```{r MK_analysis_results}
-output$table_MKsummary <- DT::renderDT({
-
-  FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = TRUE, MK = TRUE) # make sure data have been imported and filtered, and plot data have been generated
-  shiny::req(!is.null(rv_param_temp$trendDat), !is.null(rv_param_temp$MK))
-  
-  DT::datatable(rv_param_temp$MK,
-                filter = "top",
-                rownames = FALSE,
-                selection = "none",
-                options = list(
-                  scrollCollapse = FALSE,
-                  pageLength = 10,
-      lengthMenu = c(5, 10, 15, 20),
-                  columnDefs = list(list(className = 'dt-center', targets = c(2:6))))) %>% 
-        formatStyle("Pvalue", target = "row", backgroundColor = styleInterval(0.05, c("yellow", "white")))
-})
-
-DTOutput("table_MKsummary")
-tags$style("#table_MKsummary{height:500px;overflow-x:scroll;overflow-y:scroll}")
-```
-
-### Matrix of Calculated Medians
-
-#### <font size="3">**Heat Map Notes**</font>
-
-* Colors represent the median value calculated for each combination of time interval and year (e.g., Spring 2019), scaled from light gray (lowest medians) to dark red (highest medians)
-
-* Colors are scaled to each water quality characteristic separately (e.g., the color scale used for pH is not the same as the color scale used for Specific Conductance)
-
-* Intervals with missing data are shown as blank (white) cells
-
-```{r MK_medians_legend}
-renderPlot({ # separate validation statements so they are checked in sequence
-  shiny::req(!is.null(input$sel_TrendType), !is.null(rv_param_temp$trendDat), !is.null(rv_param_temp$MK))
-
-  if(any(is.null(input$sel_TrendType), is.null(rv_param_temp$trendDat), is.null(rv_param_temp$MK), is.null(rv_param_temp$MKHeatPlots$shared_legend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
-    MK_heatplotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
-  } else {
-    MK_heatplotly_legend <- grid.arrange(rv_param_temp$MKHeatPlots$shared_legend)
-  }
-  MK_heatplotly_legend
-}, height = 40)
-
-```
-
-```{r MK_medians}
-output$out_MKHeat <- renderPlotly({
-  FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = TRUE, MK = TRUE)
-
-  shiny::req(!is.null(input$sel_TrendType), !is.null(rv_param_temp$trendDat), !is.null(rv_param_temp$MK), !is.null(rv_param_temp$MKHeatPlots$plotly_page))
-
-  rv_param_temp$MKHeatPlots$plotly_page
-})
-
-# tags$style("#out_MKHeat{height:100vh;overflow-x:scroll;overflow-y:scroll}")
-plotlyOutput('out_MKHeat', height="100%", width = "100%")
-``` 
-
-### MK Data
-
-```{r MK_data_summary}
-output$table_MKraw <- DT::renderDT({
-
-  shiny::req(!is.null(rv_param_temp$trendDat))
-
-  DT::datatable(subset(rv_param_temp$trendDat, select = -LocChar),
-                filter = "top",
-                rownames = FALSE,
-                selection = "none",
-                options = list(
-                  pageLength = 10,
-      lengthMenu = c(5, 10, 15, 20),
-                  columnDefs = list(list(className = 'dt-center', targets = c(2:6)))))
-  })
-
-DTOutput("table_MKraw")
-tags$style("#table_MKraw{height:100vh;overflow-x:scroll;overflow-y:scroll}")
-```
-
 
 Raw Data
 ======================================
