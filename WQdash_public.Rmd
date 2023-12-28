@@ -4013,75 +4013,6 @@ reactableOutput("table_selected_orgs")
 tags$style("#table_selected_orgs{height:100vh;overflow-x:scroll;overflow-y:scroll}")
 ```
 
-### Selected Gage Stations
-
-```{r summarize_gage_stations}
-output$table_gages <- DT::renderDT({
-  # shiny::validate(
-  #   need(!is.null(rv$dat), message = "No data available. Please first import or load water quality data."))
-  shiny::req(!is.null(rv$dat), !is.null(rv$gageStations), !is.null(rv$selectedGages))
-  shiny::req(all(rv$selectedGages$GageID %in% rv$gageStations$GageID))
-  
-  DT::datatable(
-    rv$selectedGages%>% dplyr::select(GageName, GageID, StartDate, EndDate, NumRecords),
-    filter = "top",
-    rownames = FALSE,
-    selection = "none",
-    options = list(
-      columnDefs = list(list(className = "dt-center", targets = "_all"))))
-})
-
-DTOutput("table_gages")
-tags$style("#table_gages{height:100vh;overflow-x:scroll;overflow-y:scroll}")
-```
-
-### Selected Weather Stations
-
-```{r summarize_weather_stations}
-output$table_weather <- DT::renderDT({
-  # shiny::validate(
-  #   need(!is.null(rv$dat), message = "No data available. Please first import or load water quality data."))
-  shiny::req(!is.null(rv$dat), !is.null(rv$meteoStations), !is.null(rv$selectedMeteo))
-  shiny::req(all(rv$selectedMeteo$MeteoID %in% rv$meteoStations$MeteoID))
-  
-  DT::datatable(
-    rv$selectedMeteo %>% dplyr::select(MeteoName, `Station ID` = MeteoShortID, Elevation_m = Elev, StartYr, EndYr, DataCoverage) %>%
-      mutate(StartYr = as.integer(StartYr),
-             EndYr = as.integer(EndYr),
-             `DataCoverage%` = 100 * DataCoverage) %>%
-      dplyr::select(-DataCoverage),
-    filter = "top",
-    rownames = FALSE,
-    selection = "none",
-    options = list(
-      columnDefs = list(list(className = "dt-center", targets = "_all"))))
-})
-
-DTOutput("table_weather")
-tags$style("#table_weather{height:100vh;overflow-x:scroll;overflow-y:scroll}")
-```
-
-### Discharge Facilities
-
-```{r summarize_discharge_facilities}
-output$table_discharge <- DT::renderDT({
-  # shiny::validate(
-  #   need(!is.null(rv$dat), message = "No data available. Please first import or load water quality data."))
-  shiny::req(!is.null(rv$dat), !is.null(rv$facilitiesPointsSub))
-  
-  DT::datatable(
-    rv$facilitiesPointsSub@data %>%
-      dplyr::select(CWPName, `Facility ID` = SourceID, Street = CWPStreet, City = CWPCity, State = CWPState, County = CWPCounty, FacilityType = CWPFacilityTypeIndicator),
-    filter = "top",
-    rownames = FALSE,
-    selection = "none",
-    options = list(columnDefs = list(list(className = "dt-center", targets = "_all"))))
-})
-
-DTOutput("table_discharge")
-tags$style("#table_discharge{height:100vh;overflow-x:scroll;overflow-y:scroll}")
-```
-
 Filter WQP Data
 ======================================
 
@@ -4096,6 +4027,7 @@ strong("Data Filter Options")
 br()
 
 renderUI({
+  shiny::req(!is.null(rv$dat))
   checkboxInput("sel_FilterYrSeason",
                 label = "Show options to filter by year & season",
                 value = switch(is.null(input$sel_FilterYrSeason)+1,
@@ -4399,20 +4331,6 @@ renderUI({
                choices = c("Month" = "Mnth", "Season" = "Season"),
                selected = switch(is.null(input$sel_TimeSubunit)+1, input$sel_TimeSubunit, "Season"))
     })
-
-br()
-
-strong("Raw Data Fields for Filtered Data")
-
-# Raw data columns to display
-em(tags$a(href="https://www.waterqualitydata.us/portal_userguide/#WQPUserGuide-Table5", target="_blank", "Click for Variable Definitions"))
-    renderUI({
-      checkboxGroupInput("sel_RawFilteredDataCols",
-                       label = h6("Raw data fields (columns) to display: "),
-                       choices = sort(names(rv$dat)),
-                       selected = c("OrganizationFormalName", "MonitoringLocationIdentifier", "CharacteristicName", "ActivityTypeCode", "ActivityStartDate", "ResultDetectionConditionText", "ResultMeasureValue", "ResultStatusIdentifier", "ResultCommentText")
-                     )
-      })
 ```
 
 
@@ -4554,31 +4472,6 @@ output$out_SamplePlots <- renderPlot({
 )
 tags$style("#out_SamplePlots{height:100vh;overflow-x:scroll;overflow-y:scroll}")
 plotOutput("out_SamplePlots", height="100%", width = "100%")
-```
-
-### Raw Data
-
-<center>*Raw data fields from Water Quality Portal, for selected characteristics (see left sidebar for characteristics to choose from)*</center>
-
-```{r filter_raw_data}
-output$table_raw_filtered <- DT::renderDT({
-  # FuncOrderCheck(import = TRUE, filter_internal = TRUE, filter_external = FALSE, plot = FALSE)
-  shiny::req(!is.null(rv$dat), !is.null(rv_param_temp$subDat), !is.null(rv_param_temp$subDatTypes))
-
-  DT::datatable(
-    rv_param_temp$subDat %>%
-      {if(!is.null(input$sel_RawFilteredDataCols)) dplyr::select(., input$sel_RawFilteredDataCols) else dplyr::select(., OrganizationFormalName, MonitoringLocationIdentifier, CharacteristicName, ActivityTypeCode, ActivityStartDate, ResultDetectionConditionText, ResultMeasureValue, ResultStatusIdentifier, ResultCommentText)},
-    filter = "top",
-    rownames = FALSE,
-    selection = "none",
-    options = list(
-      pageLength = 10,
-      lengthMenu = c(5, 10, 15, 20),
-      columnDefs = list(list(className = "dt-center", targets = "_all"))))
-})
-
-DTOutput("table_raw_filtered")
-tags$style("#table_raw_filtered{height:100vh;overflow-x:scroll;overflow-y:scroll}")
 ```
 
 <!-- Define Categorical Characters {.hidden} -->
@@ -5059,7 +4952,7 @@ br()
 
 splitLayout(
   cellWidths = c("40%", "60%"),
-  renderUI({ 
+  renderUI({
   shiny::req(!is.null(input$sel_SummarizeBy))
   selectInput("sel_ParamMapShow",
               label = h6("Show on map: "),
@@ -5764,6 +5657,54 @@ output$table_MKraw <- DT::renderDT({
 
 DTOutput("table_MKraw")
 tags$style("#table_MKraw{height:100vh;overflow-x:scroll;overflow-y:scroll}")
+```
+
+
+Raw Data
+======================================
+
+Inputs {.sidebar data-width=320}
+-------------------------------------
+```{r raw_data_input}
+strong("Raw Data Fields for Filtered Data")
+
+# Raw data columns to display
+em(tags$a(href="https://www.waterqualitydata.us/portal_userguide/#WQPUserGuide-Table5", target="_blank", "Click for Variable Definitions"))
+    renderUI({
+      checkboxGroupInput("sel_RawFilteredDataCols",
+                       label = h6("Raw data fields (columns) to display: "),
+                       choices = sort(names(rv$dat)),
+                       selected = c("OrganizationFormalName", "MonitoringLocationIdentifier", "CharacteristicName", "ActivityTypeCode", "ActivityStartDate", "ResultDetectionConditionText", "ResultMeasureValue", "ResultStatusIdentifier", "ResultCommentText")
+                     )
+      })
+```
+
+Raw Data
+-------------------------------------
+
+### Raw Data
+
+<center>*Raw data fields from Water Quality Portal, for selected characteristics (see left sidebar for characteristics to choose from)*</center>
+
+```{r raw_data}
+output$table_raw_filtered <- DT::renderDT({
+  # FuncOrderCheck(import = TRUE, filter_internal = TRUE, filter_external = FALSE, plot = FALSE)
+  shiny::req(!is.null(rv$dat), !is.null(rv_param_temp$subDat), !is.null(rv_param_temp$subDatTypes))
+
+  DT::datatable(
+    rv_param_temp$subDat %>%
+      {if(!is.null(input$sel_RawFilteredDataCols)) dplyr::select(., input$sel_RawFilteredDataCols) else dplyr::select(., OrganizationFormalName, MonitoringLocationIdentifier, CharacteristicName, ActivityTypeCode, ActivityStartDate, ResultDetectionConditionText, ResultMeasureValue, ResultStatusIdentifier, ResultCommentText)},
+    filter = "top",
+    rownames = FALSE,
+    selection = "none",
+    options = list(
+      pageLength = 10,
+      lengthMenu = c(5, 10, 15, 20),
+      columnDefs = list(list(className = "dt-center", targets = "_all"))))
+})
+
+DTOutput("table_raw_filtered")
+tags$style("#table_raw_filtered{height:100vh;overflow-x:scroll;overflow-y:scroll}")
 ```
 
 Troubleshooting & FAQ's
