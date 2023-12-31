@@ -231,49 +231,49 @@ FuncOrderCheck <- function(import = FALSE, filter_internal = FALSE, filter_exter
   }
 }
 
-FuncUpdateTSPlots <- function() {
-  if(is.null(input$sel_ShowThresholds)) {
-    updateSelectInput(session,
-                    "sel_ShowThresholds",
-                    selected = "showthresh_none")
-    }
-  
-  if(is.null(input$sel_AddGagePrecip)) {
-    updateSelectInput(session,
-                    "sel_AddGagePrecip",
-                    selected = "none")
-  }
-  
-  if(is.null(input$sel_YScale)) {
-    updateSelectInput(session,
-                    "sel_YScale",
-                    selected = "identity")
-  }
-  
-  if(is.null(input$sel_Categ)) {
-    updateSelectInput(session,
-                    "sel_Categ",
-                    selected = "none")
-  }
-  
-  if(is.null(input$sel_FreeY)) {
-    updateCheckboxInput(session,
-                        "sel_FreeY",
-                      value = FALSE)
-  }
-  
-  if(is.null(input$sel_AddQuantile)) {
-    updateCheckboxInput(session,
-                      "sel_AddQuantile",
-                      value = TRUE)
-  }
-  
-  if(is.null(input$sel_PlotByStation)) {
-    updateCheckboxInput(session,
-                      "sel__PlotByStation",
-                      value = TRUE)
-  }
-}
+# FuncUpdateTSPlots <- function() {
+#   if(is.null(input$sel_ShowThresholds)) {
+#     updateSelectInput(session,
+#                     "sel_ShowThresholds",
+#                     selected = "showthresh_none")
+#     }
+#   
+#   if(is.null(input$sel_AddGagePrecip)) {
+#     updateSelectInput(session,
+#                     "sel_AddGagePrecip",
+#                     selected = "none")
+#   }
+#   
+#   if(is.null(input$sel_YScale)) {
+#     updateSelectInput(session,
+#                     "sel_YScale",
+#                     selected = "identity")
+#   }
+#   
+#   if(is.null(input$sel_Categ)) {
+#     updateSelectInput(session,
+#                     "sel_Categ",
+#                     selected = "none")
+#   }
+#   
+#   if(is.null(input$sel_FreeY)) {
+#     updateCheckboxInput(session,
+#                         "sel_FreeY",
+#                       value = FALSE)
+#   }
+#   
+#   if(is.null(input$sel_AddQuantile)) {
+#     updateCheckboxInput(session,
+#                       "sel_AddQuantile",
+#                       value = TRUE)
+#   }
+#   
+#   if(is.null(input$sel_PlotByStation)) {
+#     updateCheckboxInput(session,
+#                       "sel__PlotByStation",
+#                       value = TRUE)
+#   }
+# }
 
 FuncUpdateUserSelect <- function(inputs_to_update) {
   shiny::req(!is.null(rv$dat))
@@ -619,7 +619,7 @@ FuncAddThresh <- function(v_char, thresh, p, xlow_temp = NULL, xhigh_temp = NULL
   return(p)
 }
 
-FuncPlotScatter <- function(plot_dat, quant_df = NULL, categ_df = NULL, x_nam = "ActivityStartDate", combine_stations = FALSE, fixed_free_y = "fixed", trans_y = "identity", trans_gage_y = "identity", trans_precip_y = "identity", add_loess = TRUE, incl_cens = FALSE, thresh_list = NULL, rotate_x = FALSE, gage_dat = NULL, precip_dat = NULL, month_summary = FALSE, sel_add_gage_precip = switch(is.null(rv_param_temp$sel_add_gage_precip)+1, rv_param_temp$sel_add_gage_precip, "none")) {
+FuncPlotScatter <- function(plot_dat, quant_df = NULL, categ_df = NULL, x_nam = "ActivityStartDate", combine_stations, fixed_free_y = "fixed", trans_y = "identity", trans_gage_y = "identity", trans_precip_y = "identity", add_loess = TRUE, incl_cens = FALSE, thresh_list = NULL, rotate_x = FALSE, gage_dat = NULL, precip_dat = NULL, month_summary = FALSE, sel_add_gage_precip = switch(is.null(rv_param_temp$sel_add_gage_precip)+1, rv_param_temp$sel_add_gage_precip, "none"), sel_categ) {
   # Function to generate scatterplot of data, with censored values shown as dotted intervals
   #
   # Args:
@@ -642,11 +642,7 @@ FuncPlotScatter <- function(plot_dat, quant_df = NULL, categ_df = NULL, x_nam = 
   # 
 
   shiny::req(sum(!is.na(plot_dat$y)) > 0) # make sure there are data
-  
-  saveRDS(isolate(reactiveValuesToList(rv)), "TEMP2_rv.RDS")
-  saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP2_rv_param_temp.RDS")
-  saveRDS(isolate(reactiveValuesToList(input)), "TEMP2_input.RDS")
-  
+
   # All plots share a single x-axis. Don't need to do this for other x_nam because those are factors with specified levels.
 if(x_nam == "ActivityStartDate") {
   xaxes_min = min(plot_dat$x, na.rm = TRUE)
@@ -700,23 +696,23 @@ if(x_nam == "ActivityStartDate") {
   }
     cat("line623")
     # ...if coloring by a categorical characteristic, set up the data...
-  if(input$sel_Categ != "none" & !is.null(categ_df)) {
-    levs <- unlist(base::strsplit(str_replace_all(categ_df$CategOrder[categ_df$CharacteristicName == input$sel_Categ], "[()]", ""), split="//")) # these are the categorical levels from the category import file--pull from there rather than from data to ensure no levels are omitted just because they were not in the data
-    levels_ok <- all(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == input$sel_Categ])) %in% levs)
+  if(sel_categ != "none" & !is.null(categ_df)) {
+    levs <- unlist(base::strsplit(str_replace_all(categ_df$CategOrder[categ_df$CharacteristicName == sel_categ], "[()]", ""), split="//")) # these are the categorical levels from the category import file--pull from there rather than from data to ensure no levels are omitted just because they were not in the data
+    levels_ok <- all(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == sel_categ])) %in% levs)
     shiny::req(!is.null(levels_ok))
      if(!levels_ok) { # Discontinue if category levels in data don't match levels in imported category file
         showModal(modalDialog(
           title = "Categorical levels mismatch",
-          paste0("At least one categorical level found in the data (", paste(sort(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == input$sel_Categ]))), collapse = ", "), ") is not included in the levels imported from the  category file (", paste(sort(levs), collapse = ", "), "). Please amend the category file to match the data."))
+          paste0("At least one categorical level found in the data (", paste(sort(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == sel_categ]))), collapse = ", "), ") is not included in the levels imported from the  category file (", paste(sort(levs), collapse = ", "), "). Please amend the category file to match the data."))
         )}
     dat_df$CategResultMeasureValue <- factor(dat_df$CategResultMeasureValue, levels = levs)
-    cols <- unlist(base::strsplit(str_replace_all(categ_df$CategColor[categ_df$CharacteristicName == input$sel_Categ], "[()]", ""), split="//"))
+    cols <- unlist(base::strsplit(str_replace_all(categ_df$CategColor[categ_df$CharacteristicName == sel_categ], "[()]", ""), split="//"))
     names(cols) <- levs # create a named color vector to use as palette
  cat("line1488")
     p_points <- p_points +
       suppressWarnings(geom_point(aes(shape = pointShape, color = CategResultMeasureValue, fill = CategResultMeasureValue, text = paste0("Characteristic Set: ", CharacteristicSet, "<br>Monitoring Site: ", MonitoringLocationIdentifier, "<br>Survey Date: ", ActivityStartDate, "<br><br>X-value: ", x, "<br>Parameter Value: ", y, "<br>Detection Level: ", ResultDetectionConditionText, "<br>Categorical Level: ", CategResultMeasureValue)), size = 2, show.legend = c(fill = FALSE, color = TRUE, shape = FALSE))) + # aesthetic text is for ggplotly tooltip. Gives warning that it's not recognized but it still works and it's the only way to also allow geom_smooth (weird)
       scale_fill_manual(values = cols, na.value = "black", drop = FALSE) +
-      scale_color_manual(name = paste0(input$sel_Categ, "     "), limits = levs, values = cols, na.value = "black", drop = FALSE) # specifying all possible values in limits is required to make sure they are not dropped from legend when not in data
+      scale_color_manual(name = paste0(sel_categ, "     "), limits = levs, values = cols, na.value = "black", drop = FALSE) # specifying all possible values in limits is required to make sure they are not dropped from legend when not in data
   } else {
 
       # ..if combining sites for a single characteristic, so coloring by monitoring site...
@@ -1221,8 +1217,8 @@ FuncCustomSeasons <- function(dat_df, seas) {
   return(dat_df)
 }
 
-FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, y_scale, categLevelsPlot = rv_param_temp$categLevelsPlot, sel_add_gage_precip = switch(is.null(rv_param_temp$sel_add_gage_precip)+1, rv_param_temp$sel_add_gage_precip, "none")) {
-  shiny::req(!is.null(input$sel_Categ))
+FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, y_scale, categLevelsPlot = rv_param_temp$categLevelsPlot, sel_add_gage_precip = switch(is.null(rv_param_temp$sel_add_gage_precip)+1, rv_param_temp$sel_add_gage_precip, "none"), sel_plot_by_station) {
+  sel_categ = switch(is.null(input$sel_Categ)+1, input$sel_Categ, "none")
  
   plot_dat <- isolate(plot_dat)
 # Includes censored data
@@ -1288,10 +1284,10 @@ FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, y_sc
   cat("line1921")
     if(plot_type %in% c("points", "points_smooth")) {
 
-      ts_plot <- FuncPlotScatter(plot_dat = plot_dat, quant_df = quant_dat, categ_df = categLevelsPlot, x_nam = time_unit, combine_stations = ifelse(length(unique(plot_dat$CharacteristicName)) == 1, ifelse(input$sel_PlotByStation, FALSE, TRUE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), trans_y = y_scale, trans_gage_y = gage_YScale, trans_precip_y = precip_YScale, add_loess = ifelse(plot_type == "points_smooth", TRUE, FALSE), incl_cens = incl_cens, thresh_list = thresh_list, rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat, month_summary = month_summary)}
+      ts_plot <- FuncPlotScatter(plot_dat = plot_dat, quant_df = quant_dat, categ_df = categLevelsPlot, x_nam = time_unit, combine_stations = ifelse(length(unique(plot_dat$CharacteristicName)) == 1, ifelse(sel_plot_by_station, FALSE, TRUE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), trans_y = y_scale, trans_gage_y = gage_YScale, trans_precip_y = precip_YScale, add_loess = ifelse(plot_type == "points_smooth", TRUE, FALSE), incl_cens = incl_cens, thresh_list = thresh_list, rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat, month_summary = month_summary, sel_categ = sel_categ)}
 
     if(plot_type == "box") {
-      ts_plot <- FuncPlotBox(plot_dat = plot_dat, quant_df = quant_dat, x_nam = time_unit, combine_stations = ifelse(length(unique(plot_dat$CharacteristicName)) == 1, ifelse(input$sel_PlotByStation, FALSE, TRUE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), trans_y = y_scale, trans_gage_y = gage_YScale, trans_precip_y = precip_YScale, incl_cens = incl_cens, thresh_list = thresh_list, rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat)}
+      ts_plot <- FuncPlotBox(plot_dat = plot_dat, quant_df = quant_dat, x_nam = time_unit, combine_stations = ifelse(length(unique(plot_dat$CharacteristicName)) == 1, ifelse(sel_plot_by_station, FALSE, TRUE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), trans_y = y_scale, trans_gage_y = gage_YScale, trans_precip_y = precip_YScale, incl_cens = incl_cens, thresh_list = thresh_list, rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat)}
 
     # PUT THE PLOTS TOGETHER
 cat("line1930")
@@ -1314,7 +1310,7 @@ cat("line1930")
       xlab = switch(time_unit, ActivityStartDate = "Survey Date (time series)", DayOfYr = "Day", Wk = "Week", Mnth = "Month", Season = "Season"),
       ylab_vec = ts_plot[[2]],
       total_height = total_plot_height,
-      is_grouped_boxplots = (plot_type == "box" & length(unique(plot_dat$CharacteristicName)) == 1 & length(unique(plot_dat$MonitoringLocationIdentifier)) > 1 & input$sel_PlotByStation == FALSE) # boxplots for multiple stations, all combined in a single plot
+      is_grouped_boxplots = (plot_type == "box" & length(unique(plot_dat$CharacteristicName)) == 1 & length(unique(plot_dat$MonitoringLocationIdentifier)) > 1 & sel_plot_by_station == FALSE) # boxplots for multiple stations, all combined in a single plot
     ) 
       
     # If there is a streamflow plot, add that in
@@ -1571,7 +1567,7 @@ observeEvent(eventExpr = input$button_noStationCharSets, {
 # Action to update data summaries with current user inputs----
 
 observeEvent(eventExpr = input$button_refreshPlotData, { 
-  FuncUpdateTSPlots()
+  # FuncUpdateTSPlots()
   
   shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_SummarizeBy))
   
@@ -1613,7 +1609,7 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
       rv_param_temp$finalPlot <- rv_param_temp$seasonalPlot <- list(plotly_page = NULL, shared_legend = NULL)
 
 # Format plot data for time series plot tab
-  if(any(is.null(rv_param_temp$subDat),  is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharSets), is.null(rv_param_temp$sel_summarize_by), is.null(input$sel_AddQuantile), is.null(input$sel_Categ), is.null(input$sel_AddGagePrecip), is.null(rv_param_temp$sel_show_thresholds))) { 
+  if(any(is.null(rv_param_temp$subDat),  is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharSets), is.null(rv_param_temp$sel_summarize_by), is.null(input$sel_AddQuantile), is.null(input$sel_AddGagePrecip), is.null(rv_param_temp$sel_show_thresholds))) { 
    
     rv_param_temp$plotDat <- NULL
 
@@ -1700,7 +1696,7 @@ rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to 
 ```
 
 ```{r map_card}
-output$param_map <- renderLeaflet({ # <<<<< ALLOW FULL SCREEN
+output$param_map <- renderLeaflet({
 
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE) # make sure data have been imported and filtered, and plot data have been generated
   cat("LINE2095")
@@ -1815,7 +1811,9 @@ cat("line1988")
   cat("line3098")
   
 # Highlight selected stations
-  if(all(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"), any(isolate(is.null(rv_param_temp$update_from_sidebar)), isolate(rv_param_temp$update_from_sidebar != FALSE)))) # may be TRUE or NULL
+cat("START OF HIGHLIGHT SELECTED")
+    if(all(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"), any(isolate(is.null(rv_param_temp$update_from_sidebar)), isolate(rv_param_temp$update_from_sidebar != FALSE)))) # may be TRUE or NULL
+      cat("START UPDATE")
     {
     # isolate({
     # if(is.null(rv_param_temp$param_map_highlight)) { # White outline on sites selected from left panel
@@ -1830,7 +1828,7 @@ cat("line1988")
         }
         )
       })
-      
+      cat("START CHANGING MAP")
       if(length(sel_sites) > 0) {
         param_map %<>%
       addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub@data$MonitoringLocationIdentifier %in% sel_sites,], group = "Available monitoring sites", lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_availableStations"))
@@ -1869,7 +1867,9 @@ cat("line2095")
         addCircleMarkers(data = temp_median_plot, lat = ~LatitudeMeasure, lng = ~LongitudeMeasure, label = ~SITELAB, popup = ~SITEPOP, radius = 12, fillColor = ~palNumeric(median_val), fillOpacity = 1, color = ~palNumeric(median_val), stroke = FALSE, opacity = 1, options = pathOptions(pane = "pane_param_selectedStations")) %>%
         addLegend(pal = palNumeric, values = temp_median$median_val, position = "topleft", title = input$sel_ShowChar) %>%
         hideGroup("Available monitoring sites") %>%
-        hideGroup("Selected monitoring sites")
+        hideGroup("Selected monitoring sites") %>%
+        hideGroup("Selected gage stations") %>%
+        hideGroup("Selected weather stations")
     }
 
     # If map choice is 'thresh'
@@ -1907,7 +1907,9 @@ cat("line2095")
           colorPalette = thresh_list[[1]]$cut_colors,
           opacity = 1) %>%
         hideGroup("Available monitoring sites")%>%
-        hideGroup("Selected monitoring sites")
+        hideGroup("Selected monitoring sites") %>%
+        hideGroup("Selected gage stations") %>%
+        hideGroup("Selected weather stations")
     }
     
     # If map choice is 'perc'
@@ -1936,13 +1938,15 @@ cat("line2095")
           colorPalette = c("lightgray", "#56B4E9", "orange"),
           opacity = 1) %>%
         hideGroup("Available monitoring sites") %>%
-        hideGroup("Selected monitoring sites")
+        hideGroup("Selected monitoring sites") %>%
+        hideGroup("Selected gage stations") %>%
+        hideGroup("Selected weather stations")
     }
   }
 
   param_map %<>%
-    hideGroup("Selected gage stations") %>%
-    hideGroup("Selected weather stations") %>%
+    # hideGroup("Selected gage stations") %>%
+    # hideGroup("Selected weather stations") %>%
     hideGroup("Discharge facilities") %>%
     addLayersControl(
       baseGroups = c("Street", "Satellite"),
@@ -1962,20 +1966,26 @@ output$out_ts_plots <- renderPlotly({ # separate validation statements so they a
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE)
 cat("line5039")
 
+  
+  saveRDS(isolate(reactiveValuesToList(rv)), "TEMP2_rv.RDS")
+  saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP2_rv_param_temp.RDS")
+  saveRDS(isolate(reactiveValuesToList(input)), "TEMP2_input.RDS")
+  
+
   shiny::validate(
     need(!is.null(rv_param_temp$showCharSets) & !is.null(rv_param_temp$showStations), message = "From the left sidebar, please select characteristic(s), characteristic set(s) and monitoring site(s) to plot, then click the green 'REFRESH PLOT DATA' button"))
 
   shiny::validate(
     need(length(unique(na.omit(rv_param_temp$subDat$ResultSampleFractionText[rv_param_temp$subDat$CharacteristicSet %in% rv_param_temp$showCharSets]))) < 2 | rv_param_temp$sel_summarize_by == "by_station", message = "Cannot combine characteristic sets with different sample fractions (e.g., dissolved vs. total)"))
 
-    if(!is.null(input$sel_PlotByStation) & !is.null(rv_param_temp$showStations)) {
+    if(all(!is.null(input$sel_PlotByStation), !is.null(rv_param_temp$showStations))) {
       shiny::validate(need(length(rv_param_temp$showStations) < 6 | input$sel_PlotByStation == TRUE, message = "The maximum number of monitoring sites to display in a single plot is FIVE. From the left sidebar, please either select 'Show one monitoring site per plot' or reduce the number of sites to display."))
     }
 cat("line2220")
   # shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$quantDat))
   cat("line2222")
-  if(!is.null(rv_param_temp$plotDat) &!is.null(rv_param_temp$quantDat)) {
-    rv_param_temp$finalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = "ActivityStartDate", free_y = input$sel_FreeY, y_scale = input$sel_YScale)
+  if(all(!is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$quantDat))) {
+    rv_param_temp$finalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = "ActivityStartDate", free_y = switch(is.null(input$sel_FreeY)+1, input$sel_FreeY, FALSE), y_scale = switch(is.null(input$sel_YScale)+1, input$sel_YScale, "identity"), sel_plot_by_station = switch(is.null(input$sel_PlotByStation)+1, input$sel_PlotByStation, TRUE))
     cat("line2224")
   }
     
@@ -2005,7 +2015,7 @@ output$out_season_plots <- renderPlotly({
     
   shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$quantDat))
   
-    rv_param_temp$seasonalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = input$sel_SeasonalTimeUnit, free_y = input$sel_FreeY, y_scale = input$sel_YScale)
+    rv_param_temp$seasonalPlot <- FuncPlotPage(plot_type = input$sel_PlotType, plot_dat = rv_param_temp$plotDat, quant_dat = rv_param_temp$quantDat, time_unit = switch(is.null(input$sel_SeasonalTimeUnit)+1, input$sel_SeasonalTimeUnit, "Wk"), free_y = switch(is.null(input$sel_FreeY)+1, input$sel_FreeY, FALSE), y_scale = switch(is.null(input$sel_YScale)+1, input$sel_YScale, "identity"), sel_plot_by_station = switch(is.null(input$sel_PlotByStation)+1, input$sel_PlotByStation, TRUE))
 
   shiny::req(!is.null(rv_param_temp$seasonalPlot$plotly_page))
   rv_param_temp$seasonalPlot$plotly_page
@@ -2494,7 +2504,7 @@ card(
 radioGroupButtons("sel_SeasonalTimeUnit",
               label = h6("SEASONAL patterns time unit:"),
               choices = c("Day of Year" = "DayOfYr", "Week of Year" = "Wk", "Month of Year" = "Mnth", "Season of Year" = "Season"),
-              selected = "Mnth",
+              selected = "Wk",
               size = "sm")
 ```
 
