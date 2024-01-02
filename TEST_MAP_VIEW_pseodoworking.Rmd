@@ -656,13 +656,25 @@ if(x_nam == "ActivityStartDate") {
   # Create the water quality plot(s)
   p1_points_list <- list()
   cat("line1434")
-  unique_df <- plot_dat %>% expand(CharacteristicName, MonitoringLocationIdentifier) %>% arrange(CharacteristicName, MonitoringLocationIdentifier) # data frame of unique characteristic-sites
+  
+  if(rv_param_temp$sel_summarize_by == "by_char" & combine_stations==TRUE) {
+    unique_df <- plot_dat %>% dplyr::select(CharacteristicName) %>% dplyr::distinct()
+  } else {
+    unique_df <- plot_dat %>% expand(CharacteristicName, MonitoringLocationIdentifier) %>% arrange(CharacteristicName, MonitoringLocationIdentifier) # data frame of unique characteristic-sites
   cat("line586")
+  }
+  
   char_vec <- unique_df$CharacteristicName
   cat("line588")
   for (v in 1:nrow(unique_df)) { # for each characteristic-site
     dat_df <- plot_dat %>%
-      dplyr::filter(CharacteristicName == unique_df$CharacteristicName[v] & MonitoringLocationIdentifier == unique_df$MonitoringLocationIdentifier[v]) 
+      dplyr::filter(CharacteristicName == unique_df$CharacteristicName[v])
+    
+    if("MonitoringLocationIdentifier" %in% names(unique_df)) {
+      dat_df %<>% 
+        dplyr::filter(MonitoringLocationIdentifier == unique_df$MonitoringLocationIdentifier[v])
+    }
+               
     cat("line592")
     # Shared y-axes range
     yaxes_min_temp = switch(all(fixed_free_y=="fixed", length(unique(unique_df$CharacteristicName)) < 2)+1, min(dat_df$y, dat_df$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE), min(plot_dat$y, plot_dat$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE)) # y axis limits. If only one characteristic name and free_fixed_y=="fixed", calculate y-axis limits from the full plot_dat
@@ -934,13 +946,22 @@ FuncPlotBox <- function(plot_dat, quant_df = NULL, x_nam = "Yr", combine_station
   # Create the water quality plot(s)
   p1_box_list <- list()
   
-  unique_df <- plot_dat %>% expand(CharacteristicName, MonitoringLocationIdentifier) %>% arrange(CharacteristicName, MonitoringLocationIdentifier) # data frame of unique characteristic-sites
+  if(rv_param_temp$sel_summarize_by == "by_char" & combine_stations==TRUE) {
+    unique_df <- plot_dat %>% dplyr::select(CharacteristicName) %>% dplyr::distinct()
+  } else {
+    unique_df <- plot_dat %>% expand(CharacteristicName, MonitoringLocationIdentifier) %>% arrange(CharacteristicName, MonitoringLocationIdentifier) # data frame of unique characteristic-sites
+  }
   
   char_vec <- unique_df$CharacteristicName
   
   for (v in 1:nrow(unique_df)) { # for each characteristic-site
-  dat_df <- plot_dat %>%
-      dplyr::filter(CharacteristicName == unique_df$CharacteristicName[v] & MonitoringLocationIdentifier == unique_df$MonitoringLocationIdentifier[v])
+    dat_df <- plot_dat %>%
+      dplyr::filter(CharacteristicName == unique_df$CharacteristicName[v])
+    
+    if("MonitoringLocationIdentifier" %in% names(unique_df)) {
+      dat_df %<>% 
+        dplyr::filter(MonitoringLocationIdentifier == unique_df$MonitoringLocationIdentifier[v])
+    }
   
   # Thresholds for detection limits--draw these lines on plot, if within the range of y axes
   y_upperQL <- ifelse(any(!is.na(dat_df$DetectionQuantitationLimitMeasure.MeasureValue[dat_df$ResultDetectionConditionText == "Present Above Quantification Limit"])),  min(dat_df$DetectionQuantitationLimitMeasure.MeasureValue[dat_df$ResultDetectionConditionText == "Present Above Quantification Limit"], na.rm = TRUE), NA) # lowest upper quantification limit -- These may change through time, and we are only going to show the most conservative value 
@@ -1967,9 +1988,9 @@ output$out_ts_plots <- renderPlotly({ # separate validation statements so they a
 cat("line5039")
 
   
-  saveRDS(isolate(reactiveValuesToList(rv)), "TEMP2_rv.RDS")
-  saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP2_rv_param_temp.RDS")
-  saveRDS(isolate(reactiveValuesToList(input)), "TEMP2_input.RDS")
+  # saveRDS(isolate(reactiveValuesToList(rv)), "TEMP2_rv.RDS")
+  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP2_rv_param_temp.RDS")
+  # saveRDS(isolate(reactiveValuesToList(input)), "TEMP2_input.RDS")
   
 
   shiny::validate(
