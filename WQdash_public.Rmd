@@ -12,7 +12,6 @@ runtime: shiny
 ### HIGHEST PRIORITY STILL TO DO:
 # > Hydro-linked data pull no longer working. Check again in mid-March after USGS updates WQP API's
 # > Test that package for web service pull
-# > Watershed boundaries are clipping to parks, and should not
 # > Add characteristic sets and water types >>> I really broadened the filter on line 2500 so user options need to be expanded too
 # > Yellowstone's requested hydrograph
 # > Documentation, links to data sources, 503 compliance, troubleshooting/FAQs page
@@ -22,22 +21,21 @@ runtime: shiny
 # > Add categorical color page back in and allow import of categ levels
 # > Allow option to save filter settings with RDS and to update RDS data only
 # > Add extensive error check page allowing user to omit site-parameters with issues
+# > Sample size matrix and Explore data should NOT require data filter page. Retry plotly for sample size matrix, or yr on each facet
 # > Test polite::bow() and rip()
 
 # Overall
 # -	There is a limit to how much data can be downloaded
 # Home
-# -	Sample size matrix doesn’t work [B]UG
 # -	One character vector error messages
 # 
 # Time series
 # -Map zoom slider should be much wider
-# -	When season-of-year, it plots as two cols and is squished
+# - Title and legend somteimtes don't fit
+# - Add something to highlight current and other seletected years
 # -	Dismiss button for view table should be on top
 # -	Pie charts the expand card option disappears
 # -	There is unnecessary x-andy-scroll for all these
-# -	[BUG] MANY CHAR FOR ONE SITE IS PBORKEN
-# -	Map goes half lost
 
 
 ### UPCOMING CHANGES:
@@ -520,17 +518,6 @@ FuncBaseMap <- function(maptype) {
   return(map)
 }
 
-FuncRefreshFilterShowOptions <- function(set_value) {
-  
-  updateCheckboxInput(session,
-                      "sel_FilterSamplingChars",
-                      value = set_value)
-  
-  updateCheckboxInput(session,
-                      "sel_FilterOrg",
-                      value = set_value)
-}
-
 FuncUpdateHome <- function() {
   updateTextInput(session,
                   "sel_UnitCode",
@@ -606,11 +593,11 @@ FuncUpdateFilter <- function() {
   
   updateNumericInput(session,
                      "sel_MinYrs",
-                     value = 5)
+                     value = 3)
   
   updateNumericInput(session,
                      "sel_MinStations",
-                     value = 3)
+                     value = 1)
   
   updateCheckboxGroupInput(session,
                            "sel_ActivityType",
@@ -620,22 +607,30 @@ FuncUpdateFilter <- function() {
                            "sel_ResultStatus",
                            selected = NULL)
   
-  updateCheckboxInput(session,
-                      "sel_LimitDepths",
-                      value = FALSE)
-  
-  updateRadioButtons(session,
-                     "sel_DepthUnit",
-                     choices = sort(unique(rv$dat$ActivityDepthHeightMeasure.MeasureUnitCode)),
-                     selected = sort(unique(rv$dat$ActivityDepthHeightMeasure.MeasureUnitCode))[1])
   
   updateCheckboxGroupInput(session,
                            "sel_SummaryOrg",
                            selected = sort(unique(rv$dat$OrganizationFormalName)))
-  
-  updateNumericInput(session,
-                     "sel_MinStations",
-                     value = 3)
+}
+
+
+FuncUpdateInputsOther <- function() {
+    FuncUpdateFilter()
+    
+    updateSelectInput(session,
+                    "sel_ShowChar",
+                    choices = NULL,
+                    selected = NULL)
+    
+    updateCheckboxGroupInput(session,
+                           "sel_ShowStations",
+                           choices = NULL,
+                           selected = NULL)
+    
+    updateRadioButtons(session,
+                       "sel_Categ",
+                       choices = "none",
+                       selected = "none")
 }
 
 # FuncUpdateTSMap <- function() {
@@ -656,61 +651,39 @@ FuncUpdateFilter <- function() {
 #   updateSelectInput(session,
 #                     "sel_ShowThresholds",
 #                     selected = "showthresh_none")
-#   
+# 
 #   updateSelectInput(session,
 #                     "sel_AddGagePrecip",
 #                     selected = "none")
-#   
+# 
 #   updateSelectInput(session,
 #                     "sel_YScale",
 #                     selected = "identity")
-#   
+# 
 #   updateSelectInput(session,
 #                     "sel_Categ",
 #                     selected = "none")
-#   
+# 
 #   updateSelectInput(session,
 #                     "sel_ParamMapShow",
 #                     selected = "show")
-#   
+# 
 #   updateCheckboxInput(session,
 #                       "sel_FreeY",
 #                       selected = FALSE)
-#   
+# 
 #   updateCheckboxInput(session,
 #                       "sel_AddQuantile",
 #                       selected = TRUE)
-#   
+# 
 #   updateCheckboxInput(session,
 #                       "sel__PlotByStation",
 #                       selected = TRUE)
-#   
+# 
 #   updateSliderInput(session,
 #                     "sel_MapPointSize",
 #                     selected = 0)
 # }
-
-
-FuncUpdateInputsOther <- function() {
-    FuncUpdateFilter()
-    FuncRefreshFilterShowOptions(set_value = TRUE)
-    
-    updateSelectInput(session,
-                    "sel_ShowChar",
-                    choices = NULL,
-                    selected = NULL)
-    
-    updateCheckboxGroupInput(session,
-                           "sel_ShowStations",
-                           choices = NULL,
-                           selected = NULL)
-    
-    updateRadioButtons(session,
-                       "sel_Categ",
-                       choices = "none",
-                       selected = "none")
-}
-
 FuncUpdateUserSelect <- function(inputs_to_update) {
   shiny::req(!is.null(rv$dat))
   input_list <- isolate(reactiveValuesToList(input)) # difficulties indexing reactive list, so convert to unreactive list first
@@ -831,124 +804,124 @@ FuncFilterDat <- function() {
       }
 }
 
-FuncPlotlyHeatMap <- function(dat, y_name, facet_by_name, legend_name, is_discrete = FALSE, indiv_scale = FALSE) {
-  # Function to create plotly heatmaps. X-axis is always year. Using plot_ly because ggplotly can be slow for interactive heat plots b/c it doesn't recognize the input as a heatmap and creates a scatterplot where each rectangle is drawn separately with all the necessary attributes.
-  #
-  # Args:
-  #   dat: Data frame with these columns: Yr (for x-axis), Y, FillCol, FacetBy, HoverLabel. Both 'X' and 'FacetBy' should be factor class with levels specified.
-  #   y_name, facet_by_name, legend_name: Axis labels and facet and legend titles
-  #   is_discrete: TRUE if legend should be discrete (for counts), not continuous
-  #   indiv_scale: TRUE if each plot gets its own scale because the plots represent different water quality characteristics
-  #
-  # Returns:
-  #   Legend and heat map
-  #
+# FuncPlotlyHeatMap <- function(dat, y_name, facet_by_name, legend_name, is_discrete = FALSE, indiv_scale = FALSE) {
+#   # Function to create plotly heatmaps. X-axis is always year. Using plot_ly because ggplotly can be slow for interactive heat plots b/c it doesn't recognize the input as a heatmap and creates a scatterplot where each rectangle is drawn separately with all the necessary attributes.
+#   #
+#   # Args:
+#   #   dat: Data frame with these columns: Yr (for x-axis), Y, FillCol, FacetBy, HoverLabel. Both 'X' and 'FacetBy' should be factor class with levels specified.
+#   #   y_name, facet_by_name, legend_name: Axis labels and facet and legend titles
+#   #   is_discrete: TRUE if legend should be discrete (for counts), not continuous
+#   #   indiv_scale: TRUE if each plot gets its own scale because the plots represent different water quality characteristics
+#   #
+#   # Returns:
+#   #   Legend and heat map
+#   #
+# 
+#   # Fill missing values
+#   template <-
+#     expand_grid(FacetBy = factor(levels(dat$FacetBy), levels = levels(dat$FacetBy)), Y = factor(levels(dat$Y), levels = levels(dat$Y)), Yr = min(dat$Yr, na.rm = TRUE):max(dat$Yr, na.rm = TRUE)) %>%
+#     left_join(dat[c("FacetBy", "Y", "Yr", "FillCol", "HoverLabel")], by = c("FacetBy", "Y", "Yr")) %>%
+#     dplyr::arrange(FacetBy, Y, Yr)
+# 
+#   # Calculate total and relative heights
+#   total_page_ht <- max(2000, 60 + (30 * length(levels(dat$FacetBy)) * length(levels(dat$Y)))+15 + 30 * length(levels(dat$FacetBy)))
+#   # total_page_ht <- 5000
+# 
+#   # Create color scale
+#   min_colorval <- min(template$FillCol, na.rm = TRUE)
+#   max_colorval <- max(template$FillCol, na.rm = TRUE) # make sure the range of color values is the same across all subplots
+#   template_cols <- viridis(n = max_colorval - min_colorval + 1, alpha = 1, begin = 0, end = 1, direction = -1)
+# 
+#   # Create separate legend - hacky legend because plotly heatmaps can't generate horizontal colorbars
+#   shared_legend <- grid.arrange(ggpubr::as_ggplot(
+#     get_legend(
+#       ggplot(template, aes(x = Yr, y = Y, fill = FillCol)) +
+#         geom_tile() +
+#         scale_fill_viridis_c(name = legend_name, direction=-1, begin = 0, end = 1) +
+#         theme(legend.position = "top",
+#               legend.key.width = unit(1, "cm"),
+#               legend.text = element_text(size = 16, margin = margin(r = 2, unit = "cm")),
+#               legend.title = element_text(size = 16)
+#         )
+#       )
+#     )
+#   )
+# 
+#   heatplot_list <- lapply(levels(template$FacetBy), function(i) {
+#     # Data for this plot
+#     subdat <- subset(template, FacetBy == i)
+#     mat_values <- matrix(dplyr::pull(subdat, FillCol),
+#                          nrow=length(unique(subdat$Y)),
+#                          byrow = TRUE,
+#                          dimnames = list(
+#                            levels(template$Y),
+#                            min(template$Yr, na.rm = TRUE):max(template$Yr, na.rm = TRUE)
+#                            )
+#     )
+#     mat_hover <- matrix(dplyr::pull(subdat, HoverLabel), nrow=length(unique(subdat$Y)), byrow = TRUE)
+#  shiny::req(!is.null(subdat), !is.null(mat_hover))
+#   # Create heatmap
+#     # none of the margin arguments are helpful
+#     if(sum(!is.na(subdat$FillCol)) > 0) {
+#       heat_subplot <- heatmaply(
+#         mat_values,
+#         column_text_angle = 0,
+#         grid_gap = 1,
+#         colors = template_cols,
+#         limits = c(min_colorval, max_colorval),
+#         dendrogram = "none",
+#         # main = paste0("# of Survey Events, by Year and ", y_name, " for each ", facet_by_name),
+#         subplot_margin = 15,
+#         margins = c(15, 15, 15, 15),
+#         ylab = y_name,
+#         xlab = rv_param_temp$seasonType,
+#         xaxis_font_size = "22pt",
+#         yaxis_font_size = "22pt",
+#         height = total_page_ht,
+#         hide_colorbar = TRUE,
+#         custom_hovertext = mat_hover,
+#         key.title = "# of Survey Events",
+#         plot_method = "plotly") %>%
+#         add_annotations( # add plot subtitle
+#           text = paste0(facet_by_name, ":  ", i),
+#           xref = "paper",
+#           yref = "paper",
+#           x = -0.02,
+#           y = 1,
+#           xanchor = "left",
+#           yanchor = "bottom", # y anchor uses 'middle', x anchor uses 'center'
+#           showarrow = FALSE,
+#           font=list(size=16, family = "Arial")
+#         )
+#       }
+#     }) %>% purrr::discard(is.null) # remove null list elements
+# 
+#   shiny::req(!is.null(heatplot_list))
+# 
+#   # Format heatmap page
+#   plotly_heatmap <-
+#      plotly::subplot(
+#       heatplot_list,
+#       nrows = length(heatplot_list),
+#       shareX = TRUE, # if set to FALSE, x-axis labels will overlap subplot title
+#       shareY = FALSE,
+#       titleX = TRUE,
+#       titleY = FALSE,
+#       heights = rep(1/length(heatplot_list), length(heatplot_list)),
+#       which_layout = 1
+#     ) %>%
+#       layout(
+#           margin = list(
+#           t=45,
+#           b=15,
+#           l= 80,
+#           r=40)
+#           )
+#   return_list <- list(shared_legend = shared_legend, plotly_page = plotly_heatmap)
+#   return(return_list)
+# }
 
-  # Fill missing values
-  template <-
-    expand_grid(FacetBy = factor(levels(dat$FacetBy), levels = levels(dat$FacetBy)), Y = factor(levels(dat$Y), levels = levels(dat$Y)), Yr = min(dat$Yr, na.rm = TRUE):max(dat$Yr, na.rm = TRUE)) %>%
-    left_join(dat[c("FacetBy", "Y", "Yr", "FillCol", "HoverLabel")], by = c("FacetBy", "Y", "Yr")) %>%
-    dplyr::arrange(FacetBy, Y, Yr)
-
-  # Calculate total and relative heights
-  total_page_ht <- max(2000, 60 + (30 * length(levels(dat$FacetBy)) * length(levels(dat$Y)))+15 + 30 * length(levels(dat$FacetBy)))
-  # total_page_ht <- 5000
-
-  # Create color scale
-  min_colorval <- min(template$FillCol, na.rm = TRUE)
-  max_colorval <- max(template$FillCol, na.rm = TRUE) # make sure the range of color values is the same across all subplots
-  template_cols <- viridis(n = max_colorval - min_colorval + 1, alpha = 1, begin = 0, end = 1, direction = -1)
-
-  # Create separate legend - hacky legend because plotly heatmaps can't generate horizontal colorbars
-  shared_legend <- grid.arrange(ggpubr::as_ggplot(
-    get_legend(
-      ggplot(template, aes(x = Yr, y = Y, fill = FillCol)) +
-        geom_tile() +
-        scale_fill_viridis_c(name = legend_name, direction=-1, begin = 0, end = 1) +
-        theme(legend.position = "top",
-              legend.key.width = unit(1, "cm"),
-              legend.text = element_text(size = 16, margin = margin(r = 2, unit = "cm")),
-              legend.title = element_text(size = 16)
-        )
-      )
-    )
-  )
-
-  heatplot_list <- lapply(levels(template$FacetBy), function(i) {
-    # Data for this plot
-    subdat <- subset(template, FacetBy == i)
-    mat_values <- matrix(dplyr::pull(subdat, FillCol),
-                         nrow=length(unique(subdat$Y)),
-                         byrow = TRUE,
-                         dimnames = list(
-                           levels(template$Y),
-                           min(template$Yr, na.rm = TRUE):max(template$Yr, na.rm = TRUE)
-                           )
-    )
-    mat_hover <- matrix(dplyr::pull(subdat, HoverLabel), nrow=length(unique(subdat$Y)), byrow = TRUE)
- shiny::req(!is.null(subdat), !is.null(mat_hover))
-  # Create heatmap
-    # none of the margin arguments are helpful
-    if(sum(!is.na(subdat$FillCol)) > 0) {
-      heat_subplot <- heatmaply(
-        mat_values,
-        column_text_angle = 0,
-        grid_gap = 1,
-        colors = template_cols,
-        limits = c(min_colorval, max_colorval),
-        dendrogram = "none",
-        # main = paste0("# of Survey Events, by Year and ", y_name, " for each ", facet_by_name),
-        subplot_margin = 15,
-        margins = c(15, 15, 15, 15),
-        ylab = y_name,
-        xlab = rv_param_temp$seasonType,
-        xaxis_font_size = "22pt",
-        yaxis_font_size = "22pt",
-        height = total_page_ht,
-        hide_colorbar = TRUE,
-        custom_hovertext = mat_hover,
-        key.title = "# of Survey Events",
-        plot_method = "plotly") %>%
-        add_annotations( # add plot subtitle
-          text = paste0(facet_by_name, ":  ", i),
-          xref = "paper",
-          yref = "paper",
-          x = -0.02,
-          y = 1,
-          xanchor = "left",
-          yanchor = "bottom", # y anchor uses 'middle', x anchor uses 'center'
-          showarrow = FALSE,
-          font=list(size=16, family = "Arial")
-        )
-      }
-    }) %>% purrr::discard(is.null) # remove null list elements
-
-  shiny::req(!is.null(heatplot_list))
-
-  # Format heatmap page
-  plotly_heatmap <-
-     plotly::subplot(
-      heatplot_list,
-      nrows = length(heatplot_list),
-      shareX = TRUE, # if set to FALSE, x-axis labels will overlap subplot title
-      shareY = FALSE,
-      titleX = TRUE,
-      titleY = FALSE,
-      heights = rep(1/length(heatplot_list), length(heatplot_list)),
-      which_layout = 1
-    ) %>%
-      layout(
-          margin = list(
-          t=45,
-          b=15,
-          l= 80,
-          r=40)
-          )
-  return_list <- list(shared_legend = shared_legend, plotly_page = plotly_heatmap)
-  return(return_list)
-}
-
-FuncPlotHeatMap <- function(dat, y_name, legend_name) {
+FuncPlotHeatMap <- function(dat, y_name, legend_range, legend_name) {
   # Function to create static heatmaps. X-axis is always year.
   #
   # Args:
@@ -960,28 +933,30 @@ FuncPlotHeatMap <- function(dat, y_name, legend_name) {
   #
 
   # Create color scale
-    min_colorval <- min(dat$FillCol, na.rm = TRUE)
-    max_colorval <- max(dat$FillCol, na.rm = TRUE) # make sure the range of color values is the same across all plots
-    template_cols <- viridisLite::viridis(n = max_colorval - min_colorval + 1, alpha = 1, begin = 0, end = 1, direction = -1)
+    # min_colorval <- legend_range[1]
+    max_colorval <- legend_range[2] # make sure the range of color values is the same across all plots
+    template_cols <- viridisLite::viridis(n = max_colorval, alpha = 1, begin = 0, end = 1, direction = -1)
   
-    # Calculate relative heights
-    sites_per_char <- dat %>% dplyr::arrange(CharacteristicName) %>% dplyr::distinct(CharacteristicName, MonitoringLocationIdentifier) %>% dplyr::count(CharacteristicName) %>% dplyr::ungroup() 
-    sites_per_char <- sites_per_char[order(sites_per_char$CharacteristicName),] %>% dplyr::pull(n) # For some absurd reason, dplyr::arrange() is not competent in sorting so using base R to sort
+    # # Calculate relative heights--This is generic to allow switching back to format where all characteristics are shown in a single page
+    # sites_per_char <- dat %>% dplyr::arrange(CharacteristicName) %>% dplyr::distinct(CharacteristicName, MonitoringLocationIdentifier) %>% dplyr::count(CharacteristicName) %>% dplyr::ungroup() 
+    # sites_per_char <- sites_per_char[order(sites_per_char$CharacteristicName),] %>% dplyr::pull(n) # For some absurd reason, dplyr::arrange() is not competent in sorting so using base R to sort
     
-    temp_distinct <- dat %>%
-      dplyr::select(CharacteristicName, MonitoringLocationIdentifier, TimeUnit) %>% dplyr::distinct()
-    rel_char_hts <- prop.table(sites_per_char) ### YES!!! This gets the heights correct. No need to try to account for title or x-axis labels, etc.--it's already adjusted for
+    # temp_distinct <- dat %>%
+      # dplyr::select(CharacteristicName, MonitoringLocationIdentifier, TimeUnit) %>% dplyr::distinct()
+    # rel_char_hts <- prop.table(sites_per_char) ### YES!!! This gets the heights correct. No need to try to account for title or x-axis labels, etc.--it's already adjusted for
 
   # A ggplot object with NO data.  Omit the characteristic from the facet_grid call
-  p <- ggplot() +
+  p <- ggplot(dat) +
     aes(x = Yr, y = TimeUnit, fill = FillCol) +
     geom_tile(color = "gray") +
     geom_text(aes(label = FillCol, colour = ifelse(FillCol > 5, "white", "black"))) +
     scale_colour_manual(values=c("white"="white", "black"="black"), guide = "none") +
     xlab(rv_param_temp$seasonType) +
+    ggtitle(paste0(unique(dat$CharacteristicName), " (# of surveys per ", input$sel_TimeSubunit, ")")) +
     scale_x_continuous(expand=c(0, 0), breaks = min(dat$Yr, na.rm = TRUE):max(dat$Yr, na.rm = TRUE), limits = c(min(dat$Yr, na.rm = TRUE)-1, max(dat$Yr, na.rm = TRUE)+1)) + # Need to make limits wider b/c otherwise the fill color will be missing from the end columns. Setting the expand cuts out the empty space at beginning and end columns
     scale_y_discrete(limits = rev) +
-    scale_fill_viridis_c(direction = -1, na.value = "white", limits=c(1, 12), oob=scales::squish, breaks = seq(1, 12, by = 2), name = legend_name) +
+        scale_fill_viridis_c(direction = -1, na.value = "white", limits=c(1, max_colorval), name = legend_name) +
+    # scale_fill_viridis_c(direction = -1, na.value = "white", limits=c(1, 12), oob=scales::squish, breaks = seq(1, 12, by = 2), name = legend_name) +
     theme_bw(base_size = 14) +
     facet_wrap(~MonitoringLocationIdentifier, ncol =1) +
     theme(legend.position="top",
@@ -989,19 +964,21 @@ FuncPlotHeatMap <- function(dat, y_name, legend_name) {
           axis.text.x = element_text(angle = 90, hjust = 1)) +
     theme(plot.margin=unit(c(3,3,1,2),"lines"))
 cat("779")
-  # Build a separate graphic for each Characteristic
-  char_list <- lapply(sort(unique(dat$CharacteristicName)), function(i) {
-    p %+% 
-      dplyr::filter(dat, ~ CharacteristicName == i) + ggtitle(paste0(i, " (# of surveys per ", input$sel_TimeSubunit, ")"))
-    })
-  cat("785")
-  # Build as Grobs and plot via gridExtra::grid.arrange
-  final_heat_plots <- char_list %>%
-    lapply(ggplotGrob) %>%
-    arrangeGrob(grobs = ., heights = rel_char_hts) %>%
-    grid.arrange(., ncol = 1)
-cat("791")
-  return(final_heat_plots)
+#   # Build a separate graphic for each Characteristic
+#   char_list <- lapply(sort(unique(dat$CharacteristicName)), function(i) {
+#     p %+% 
+#       subset(dat, CharacteristicName == i) + ggtitle(paste0(i, " (# of surveys per ", input$sel_TimeSubunit, ")"))
+#     })
+#   names(char_list) <-sort(unique(dat$CharacteristicName))
+#   cat("785")
+#   # Build as Grobs and plot via gridExtra::grid.arrange
+#   final_heat_plots <- char_list %>%
+#     lapply(ggplotGrob) %>%
+#     arrangeGrob(grobs = ., heights = rel_char_hts) %>%
+#     grid.arrange(., ncol = 1)
+# cat("791")
+#   return(final_heat_plots)
+return(p)
 }
 
 FuncParamAvailSites <- function(sel) {
@@ -1363,7 +1340,8 @@ FuncPlotlyFormat <- function(plotly_list, plotly_title, subplot_titles_vec = NUL
       layout(
         title = list( # this is the title for the page
           font = list(size = 20), 
-          text = plotly_title), 
+          text = plotly_title,
+          margin = list( l = 10, r = 10, b = 80, t = 20, pad = 4 )), 
         margin = list(
           t=top_margin,
           b=bottom_margin,
@@ -3110,11 +3088,6 @@ renderUI({
 
 ```{r events_filter_page}
 # Show or hide the well panels based on checkbox selection, but enable them as soon as rv$dat is available ----
-renderUI({
-  FuncShowWellPanel(input$sel_FilterYrSeason, "wp_filter_yr_season")
-  FuncShowWellPanel(input$sel_FilterSamplingChars, "wp_filter_sampling_chars")
-  FuncShowWellPanel(input$sel_FilterOrg, "wp_filter_org")
-})
 
 # Action to attach a thresholds file ----
 observeEvent(eventExpr = input$button_getThreshFile, { 
@@ -3495,11 +3468,9 @@ observeEvent(eventExpr = input$button_noStationCharSets, {
 # User selects stations by CLICKING MAP (to show data plots)
 observeEvent(input$param_map_marker_click, {
   isolate({
-  # local({
+
   shiny::req(!is.null(input$sel_SummarizeBy), !is.null(input$param_map_marker_click$id))# the last one keeps the map from aborting when user clicks on a marker that is not a site marker
 shiny::req(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"))  
-  
-# rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to this
 
     clicked_site <- input$param_map_marker_click$id
     cat("GRABBED CLICKED SITE\n")
@@ -3515,10 +3486,6 @@ shiny::req(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"
             } else {
               isolate(rv_param_temp$param_map_highlight <- rv_param_temp$param_map_highlight[rv_param_temp$param_map_highlight != clicked_site]) # then remove it from the list of selected sites
         cat("REMOVED CLICKED SITE FROM VECTOR\n")
-        # leafletProxy("param_map") %>%
-          # addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations")) # and change the site to unselected on the map
-        cat("REMOVED CLICKED SITE FROM MAP\n")
-              
             }
       
         
@@ -3527,20 +3494,12 @@ shiny::req(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"
           if(input$sel_SummarizeBy == "by_station") { # if summarizing by station
             rv_param_temp$param_map_highlight <- clicked_site
             cat("UPDATED VECTOR WITH ONLY CLICKED SITE\n")
-             # leafletProxy("param_map") %>%
-          # addCircleMarkers(data = FuncParamAvailSites("by_station"), group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations"))
-             cat("CLEARED MAP OF ALL SELECTIONS\n")
-            
-            
-            
           } 
           if(input$sel_SummarizeBy == "by_char") {# if summarizing by characteristic
             rv_param_temp$param_map_highlight <- c(rv_param_temp$param_map_highlight, clicked_site) # append the ID of clicked site
             cat("UPDATED VECTOR BY APPENDING CLICKED SITE\n")
           }
-          
-           # leafletProxy("param_map") %>% # and highlight the site on the map
-            # addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Selected monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations"))
+
            cat("ADDED CLICKED SITE ON MAP\n")
       }
     
@@ -3595,6 +3554,9 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
     rv_param_temp$showCharSets <- isolate(input$sel_ShowStationCharSets)
    }
   
+    saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
   #   # These are the user inputs that should only update when plots are refreshed.
   # rv_param_temp$sel_summarize_by <- input$sel_SummarizeBy
   # rv_param_temp$sel_show_thresholds <- input$sel_ShowThresholds # save the input setting so plots don't change unless the plot data has been refreshed
@@ -3646,81 +3608,6 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
       })
   }
 })
-```
-
-```{r update_map_click}          
-
-# # User selects stations by clicking map (to show data plots)
-# observeEvent(input$param_map_marker_click, {
-# #     saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-# # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-# # saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
-#   isolate({ 
-#     cat("MARKER CLICK//")
-#     # local({ # This may be unnecessary
-#   shiny::req(!is.null(input$sel_SummarizeBy), !is.null(input$param_map_marker_click$id)) # the last one keeps the map from aborting when user clicks on a marker that is not a site marker
-# shiny::req(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"))  
-#   
-# # rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to this
-# 
-#     clicked_site <- input$param_map_marker_click$id
-#     cat("GRABBED CLICKED SITE\n")
-#  
-#     if(clicked_site %in% rv_param_temp$param_map_highlight) { # if the click is in a selected site
-#       cat("SITE WAS ALREADY SELECTED\n")
-#             if(all(input$sel_SummarizeBy == "by_station", length(rv_param_temp$param_map_highlight) == 1, identical(clicked_site, rv_param_temp$param_map_highlight))) {
-#         showModal(modalDialog(
-#           title = "Cannot de-select station",
-#           "You must highlight at least one station to summarize."
-#         ))
-#             } else {
-#               rv_param_temp$param_map_highlight <- rv_param_temp$param_map_highlight[rv_param_temp$param_map_highlight != clicked_site] # then remove it from the list of selected sites
-#         cat("REMOVED CLICKED SITE FROM VECTOR\n")
-#         leafletProxy("param_map") %>%
-#           addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations")) # and change the site to unselected on the map
-#         cat("REMOVED CLICKED SITE FROM MAP\n")
-#             }
-#       
-#         
-#         } else { # if the click is in an unselected site
-#           cat("CLICKED SITE IS NEW\n")
-#           if(input$sel_SummarizeBy == "by_station") { # if summarizing by station
-#             rv_param_temp$param_map_highlight <- clicked_site
-#             cat("UPDATED VECTOR WITH ONLY CLICKED SITE\n")
-#              leafletProxy("param_map") %>%
-#           addCircleMarkers(data = FuncParamAvailSites("by_station"), group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations"))
-#              cat("CLEARED MAP OF ALL SELECTIONS\n")
-#             
-#           } else { # if summarizing by characteristic
-#             rv_param_temp$param_map_highlight <- c(rv_param_temp$param_map_highlight, clicked_site) # append the ID of clicked site
-#             cat("UPDATED VECTOR BY APPENDING CLICKED SITE\n")
-#           }
-#           
-#            leafletProxy("param_map") %>% # and highlight the site on the map
-#             addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_importedStations"))
-#            cat("ADDED CLICKED SITE ON MAP\n")
-#       }
-#     
-#     # Also update the user select in left side panel
-# 
-#     if(input$sel_SummarizeBy == "by_char") {
-#       updateCheckboxGroupInput(session,
-#                                "sel_ShowStations",
-#                                selected = rv_param_temp$param_map_highlight)
-#     }
-# 
-#     if(input$sel_SummarizeBy == "by_station") {
-#       updateSelectInput(session,
-#                         "sel_ShowOneStation",
-#                         selected = rv_param_temp$param_map_highlight)
-# 
-#     }
-#     
-#     # rv_param_temp$update_from_sidebar <- TRUE 
-#     # }) # end local
-#     }) # end isolate
-#     }, ignoreInit = TRUE) # end of observeEvent
-
 ```
 
 ```{r map_card}
@@ -4592,15 +4479,6 @@ strong("Data Filter Options")
 
 br()
 
-renderUI({
-  shiny::req(!is.null(rv$dat))
-  checkboxInput("sel_FilterYrSeason",
-                label = "Show options to filter by year & season",
-                value = switch(is.null(input$sel_FilterYrSeason)+1,
-                               input$sel_FilterYrSeason, TRUE))
-  })
-
-shinyjs::hidden( # initially hide this well panel
   wellPanel(
     id = "wp_filter_yr_season",
         
@@ -4622,7 +4500,7 @@ shinyjs::hidden( # initially hide this well panel
                  h6("Only show site-characteristic combinations with number of survey years exceeding: "), 
                  min = 0, 
                  step = 1, 
-                 value = 1)
+                 value = 3)
     }),
         
     renderUI({
@@ -4738,9 +4616,19 @@ shinyjs::hidden( # initially hide this well panel
                   value = c(input$sel_Season3Range[2] + 1, input$sel_SeasonsStart + 364), 
                   timeFormat = "%b-%d")
     })
-    )
 )  # end of 'wp_filter_yr_season'
 
+  wellPanel(
+    id = "wp_filter_org",
+    
+    renderUI({
+      checkboxGroupInput("sel_SummaryOrg",
+                         label = h6("Organizations to summarize: "),
+                         choices = sort(unique(rv$dat$OrganizationFormalName)),
+                         selected = switch(is.null(input$sel_SummaryOrg)+1, input$sel_SummaryOrg, sort(unique(rv$dat$OrganizationFormalName))))
+    })
+    )
+  
 # shinyjs::hidden( # initially hide this well panel
   wellPanel(
     id = "wp_filter_wqchar",
@@ -4789,34 +4677,7 @@ renderUI({
 )
 # ) # end of 'wp_filter_wqchar'
 
-# Filter data by organization
-renderUI({
-  checkboxInput("sel_FilterOrg",
-                label = "Show options to filter by organization",
-                value = switch(is.null(input$sel_FilterOrg)+1, input$sel_FilterOrg, TRUE))
-  })
-
-shinyjs::hidden( # initially hide this well panel
-  wellPanel(
-    id = "wp_filter_org",
-    
-    renderUI({
-      checkboxGroupInput("sel_SummaryOrg",
-                         label = h6("Organizations to summarize: "),
-                         choices = sort(unique(rv$dat$OrganizationFormalName)),
-                         selected = switch(is.null(input$sel_SummaryOrg)+1, input$sel_SummaryOrg, sort(unique(rv$dat$OrganizationFormalName))))
-    })
-    )
-  ) # end of 'wp_filter_org'
-
 # Filter data by sampling characteristics
-renderUI({
-  checkboxInput("sel_FilterSamplingChars",
-                label = "Show options to filter by sampling characteristics",
-                value = switch(is.null(input$sel_FilterSamplingChars)+1, input$sel_FilterSamplingChars, TRUE))
-  })
-  
-shinyjs::hidden( # initially hide this well panel
   wellPanel(
     id = "wp_filter_sampling_chars",
     
@@ -4833,41 +4694,8 @@ shinyjs::hidden( # initially hide this well panel
                          choices = sort(unique(rv$dat$ResultStatusIdentifier)),
                          selected = sort(intersect(unique(rv$dat$ResultStatusIdentifier), c("Accepted", "Final", "Historical"))))
       })
-    
-    # renderUI({
-    #   shiny::req(any(!is.na(rv$dat$ActivityBottomDepthHeightMeasure.MeasureValue)))
-    #   shiny::req(length(sort(unique(rv$dat$ActivityBottomDepthHeightMeasure.MeasureValue))) > 1)
-    #   
-    #   checkboxInput("sel_LimitDepths",
-    #                 label = h6("Limit the range of sampling depth"),
-    #                 value = FALSE)
-    #   }),
-    # 
-    # renderUI({
-    #   shiny::req(!is.null(input$sel_LimitDepths))
-    #   shiny::req(
-    #     any(!is.na(rv$dat$ActivityBottomDepthHeightMeasure.MeasureValue)),
-    #     length(sort(unique(rv$dat$ActivityBottomDepthHeightMeasure.MeasureValue))) > 1,
-    #     input$sel_LimitDepths == TRUE)
-    #   conditionalPanel(
-    #     condition = "input.sel_LimitDepths==true",
-    #     em("Only data with recorded sampling depth and measurement unit will be included"),
-    #     radioButtons("sel_DepthUnit",
-    #                  label = "Recorded measurement unit: ",
-    #                  choices = sort(unique(rv$dat$ActivityDepthHeightMeasure.MeasureUnitCode)),
-    #                  selected = switch(is.null(input$sel_DepthUnit)+1, input$sel_DepthUnit, sort(unique(rv$dat$ActivityDepthHeightMeasure.MeasureUnitCode))[1])),
-    #     
-    #     numericInput("sel_MinDepth",
-    #                  label = "Minimum depth to include: ",
-    #                  value = switch(is.null(input$sel_MinDepth)+1, input$sel_MinDepth, min(rv$dat$ActivityBottomDepthHeightMeasure.MeasureValue, na.rm = TRUE))),
-    #     
-    #     numericInput("sel_MaxDepth",
-    #                  label = "Maximum depth to include: ",
-    #                  value = switch(is.null(input$sel_MaxDepth)+1, input$sel_MaxDepth, max(rv$dat$ActivityBottomDepthHeightMeasure.MeasureValue, na.rm = TRUE)))
-    #     )
-    #   }) # end of limit depths conditional panel
   )
-) # end of 'wp_filter_sampling_chars'
+
 
 br()
 
@@ -4880,15 +4708,7 @@ br()
 # 
 # br()
   
-strong("Sample Size Matrix Options")
 
-renderUI({
-      shiny::req(!is.null(rv_param_temp$subDat))
-      radioButtons("sel_TimeSubunit",
-               label = h6("Time unit for 'Sample Size Matrix'"),
-               choices = c("Month" = "Mnth", "Season" = "Season"),
-               selected = switch(is.null(input$sel_TimeSubunit)+1, input$sel_TimeSubunit, "Season"))
-    })
 ```
 
 
@@ -4995,20 +4815,52 @@ reactableOutput("table_filtered_chars")
 
 ### Sample Size Matrix
 
+####
+```{r sample_size_input}
+
+renderUI({
+      shiny::req(!is.null(rv_param_temp$subDat))
+      awesomeRadio("sel_TimeSubunit",
+               label = strong("Time unit for 'Sample Size Matrix'"),
+               choices = c("Month" = "Mnth", "Season" = "Season"),
+               selected = switch(is.null(input$sel_TimeSubunit)+1, input$sel_TimeSubunit, "Season"))
+    })
+
+renderUI({
+  shiny::req(!is.null(rv_param_temp$subDat))
+  
+  char_choices <- sort(unique(rv_param_temp$subDat$CharacteristicName))
+
+  shinyWidgets::radioGroupButtons("sel_SampleSizeChar",
+              label = strong("Select a water characteristic to display:"),
+              choices = char_choices,
+              selected = char_choices[1],
+              individual = TRUE,
+              status = "primary",
+              size = "xs"
+              )
+})
+```
+
+####
 ```{r sample_sizes}
 output$out_SamplePlots <- renderPlot({ 
-  shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_TimeSubunit))
+  shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_TimeSubunit), !is.null(input$sel_SampleSizeChar))
   
   withProgress(message = "Generating plots", detail = "...calculating sample sizes", value = 0, {
-  # Create sample size matrix
+  # Create sample size matrix for the selected char, but use a consistent color legend across all chars
   
-    # >>>>> ERROR - One or both dimensions exceed the maximum (50000px).
           N_dat <- rv_param_temp$subDat %>%
             dplyr::rename(TimeUnit = input$sel_TimeSubunit) %>%
 
             dplyr::group_by(CharacteristicName, MonitoringLocationIdentifier, TimeUnit, Yr) %>%
             dplyr::summarise(FillCol = n()) %>%
             dplyr::ungroup()
+          
+          legend_range <- range(N_dat$FillCol, na.rm = FALSE) # make sure all plots use same legend range
+          
+          N_dat %<>% 
+            dplyr::filter(CharacteristicName == input$sel_SampleSizeChar)
           
           # Fill missing values
           heatmap_dat <- merge(
@@ -5020,16 +4872,16 @@ output$out_SamplePlots <- renderPlot({
             dplyr::arrange(CharacteristicName, MonitoringLocationIdentifier, TimeUnit, Yr)
           shiny::req(!is.null(heatmap_dat)) 
           
-          rv_param_temp$filterNPlot <- FuncPlotHeatMap(dat = heatmap_dat, y_name = input$sel_TimeSubunit,  legend_name = "# of Survey Events")
-          FuncRefreshFilterShowOptions(set_value = FALSE)
+          rv_param_temp$filterNPlot <- FuncPlotHeatMap(dat = heatmap_dat, y_name = input$sel_TimeSubunit,  legend_range = legend_range, legend_name = "# of Survey Events")
+          
   })
           rv_param_temp$filterNPlot
   },
-  height = reactive({switch(is.null(rv_param_temp$filterNPlot)+1, (250*nrow(rv_param_temp$filterNPlot$grobs[[1]]))+30*nrow(rv_param_temp$subDat %>% dplyr::select(CharacteristicName, MonitoringLocationIdentifier) %>% dplyr::distinct())*(1+length(levels(rv_param_temp$subDat[[input$sel_TimeSubunit]]))), 400)}),
-                    width = reactive({switch(is.null(rv_param_temp$filterNPlot)+1, max(800, 25*(max(rv_param_temp$subDat$Yr, na.rm = TRUE)-min(rv_param_temp$subDat$Yr, na.rm = TRUE)+1)+100), 800)})
+  height = reactive({switch(is.null(rv_param_temp$filterNPlot)+1, 250+30*nrow(rv_param_temp$subDat %>% dplyr::filter(CharacteristicName == input$sel_SampleSizeChar) %>% dplyr::select(CharacteristicName, MonitoringLocationIdentifier) %>% dplyr::distinct())*(1+length(levels(rv_param_temp$subDat[[input$sel_TimeSubunit]]))), 400)}),
+                    width = reactive({switch(is.null(rv_param_temp$filterNPlot)+1, max(800, 25*(max(subset(rv_param_temp$subDat, CharacteristicName == input$sel_SampleSizeChar)$Yr, na.rm = TRUE)-min(subset(rv_param_temp$subDat, CharacteristicName == input$sel_SampleSizeChar)$Yr, na.rm = TRUE)+1)+100), 800)})
 )
 tags$style("#out_SamplePlots{height:100vh;overflow-x:scroll;overflow-y:scroll}")
-plotOutput("out_SamplePlots", height="100%", width = "100%")
+plotOutput("out_SamplePlots", height="100%", width = "90%")
 ```
 
 Explore Data
@@ -5322,7 +5174,7 @@ div(style="display:flex; flex-direction:row; max-width:100%; justify-content:spa
   
         renderUI({ 
   shiny::req(!is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$plotDat))
-        shiny::req(identical(unique(rv_param_temp$plotDat$MonitoringLocationIdentifier), rv_param_temp$param_map_highlight)) # make sure the plots have been updated  
+        # shiny::req(identical(unique(rv_param_temp$plotDat$MonitoringLocationIdentifier), rv_param_temp$param_map_highlight)) # make sure the plots have been updated  
         shiny::req(identical(input$sel_SummarizeBy, rv_param_temp$sel_summarize_by))
   shinyWidgets::radioGroupButtons("sel_ParamMapShow",
               label = h6("Show on map: "),
