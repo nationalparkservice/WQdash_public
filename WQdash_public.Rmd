@@ -22,6 +22,7 @@ runtime: shiny
 # > Add categorical color page back in and allow import of categ levels
 # > Allow option to save filter settings with RDS and to update RDS data only
 # > Add extensive error check page allowing user to omit site-parameters with issues
+# > Test polite::bow() and rip()
 
 # Overall
 # -	There is a limit to how much data can be downloaded
@@ -2521,7 +2522,8 @@ cat("line2489")
     }
     
     shiny::req(http_status(polite_GET(sitesURL))$category=="Success") # if not a valid service call, abort
-    
+    # polite::bow(sitesURL) %>% rip(destfile = "tempSites.csv", mode = "w")
+
     download.file(sitesURL, "tempSites.csv", mode = "w")
     sites <- read_csv("tempSites.csv", trim_ws = TRUE)
     sites$HUCEightDigitCode <- gsub(pattern="-", replacement = "", x= as.character(sites$HUCEightDigitCode)) # Weird issue with BLRI
@@ -3490,31 +3492,31 @@ observeEvent(eventExpr = input$button_noStationCharSets, {
 
 ```{r action_button_update_param_map}
 # Action to update data parameter map ----
-# User selects stations by clicking map (to show data plots)
+# User selects stations by CLICKING MAP (to show data plots)
 observeEvent(input$param_map_marker_click, {
   isolate({
   # local({
-  shiny::req(!is.null(input$sel_SummarizeBy), !is.null(input$sel_ParamMapShow), !is.null(input$param_map_marker_click$id))# the last one keeps the map from aborting when user clicks on a marker that is not a site marker
+  shiny::req(!is.null(input$sel_SummarizeBy), !is.null(input$param_map_marker_click$id))# the last one keeps the map from aborting when user clicks on a marker that is not a site marker
 shiny::req(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"))  
   
-rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to this
+# rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to this
 
     clicked_site <- input$param_map_marker_click$id
     cat("GRABBED CLICKED SITE\n")
 
-    if(clicked_site %in% rv_param_temp$param_map_highlight) { # if the click is in a selected site
+    if(clicked_site %in% isolate(rv_param_temp$param_map_highlight)) { # if the click is in a selected site
       cat("WAS ALREADY SELECTED\n")
 
-      if(all(input$sel_SummarizeBy == "by_station", length(rv_param_temp$param_map_highlight) == 1, identical(clicked_site, rv_param_temp$param_map_highlight))) {
+      if(all(input$sel_SummarizeBy == "by_station", length(isolate(rv_param_temp$param_map_highlight)) == 1, identical(clicked_site, isolate(rv_param_temp$param_map_highlight)))) {
         showModal(modalDialog(
           title = "Cannot de-select station",
           "You must highlight at least one station to summarize."
         ))
             } else {
-              rv_param_temp$param_map_highlight <- rv_param_temp$param_map_highlight[rv_param_temp$param_map_highlight != clicked_site] # then remove it from the list of selected sites
+              isolate(rv_param_temp$param_map_highlight <- rv_param_temp$param_map_highlight[rv_param_temp$param_map_highlight != clicked_site]) # then remove it from the list of selected sites
         cat("REMOVED CLICKED SITE FROM VECTOR\n")
-        leafletProxy("param_map") %>%
-          addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations")) # and change the site to unselected on the map
+        # leafletProxy("param_map") %>%
+          # addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations")) # and change the site to unselected on the map
         cat("REMOVED CLICKED SITE FROM MAP\n")
               
             }
@@ -3525,19 +3527,20 @@ rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to 
           if(input$sel_SummarizeBy == "by_station") { # if summarizing by station
             rv_param_temp$param_map_highlight <- clicked_site
             cat("UPDATED VECTOR WITH ONLY CLICKED SITE\n")
-             leafletProxy("param_map") %>%
-          addCircleMarkers(data = FuncParamAvailSites("by_station"), group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations"))
+             # leafletProxy("param_map") %>%
+          # addCircleMarkers(data = FuncParamAvailSites("by_station"), group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations"))
              cat("CLEARED MAP OF ALL SELECTIONS\n")
             
             
             
-          } else { # if summarizing by characteristic
+          } 
+          if(input$sel_SummarizeBy == "by_char") {# if summarizing by characteristic
             rv_param_temp$param_map_highlight <- c(rv_param_temp$param_map_highlight, clicked_site) # append the ID of clicked site
             cat("UPDATED VECTOR BY APPENDING CLICKED SITE\n")
           }
           
-           leafletProxy("param_map") %>% # and highlight the site on the map
-            addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_importedStations"))
+           # leafletProxy("param_map") %>% # and highlight the site on the map
+            # addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Selected monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations"))
            cat("ADDED CLICKED SITE ON MAP\n")
       }
     
@@ -3556,7 +3559,7 @@ rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to 
 
     }
       
-    rv_param_temp$update_from_sidebar <- TRUE 
+    # rv_param_temp$update_from_sidebar <- TRUE 
 }) # end isolate
 
 
@@ -3631,7 +3634,7 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
       rv_param_temp$finalPlot <- rv_param_temp$seasonalPlot <- list(plotly_page = NULL, shared_legend = NULL)
 
 # Format plot data for time series plot tab
-  if(any(is.null(rv_param_temp$subDat),  is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharSets), is.null(rv_param_temp$sel_summarize_by), is.null(input$sel_AddQuantile), is.null(input$sel_AddGagePrecip), is.null(rv_param_temp$sel_show_thresholds))) { 
+  if(any(is.null(rv_param_temp$subDat),  is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharSets), is.null(rv_param_temp$sel_summarize_by), is.null(input$sel_AddQuantile), is.null(rv_param_temp$sel_add_gage_precip), is.null(rv_param_temp$sel_show_thresholds))) { 
    
     rv_param_temp$plotDat <- NULL
 
@@ -3647,76 +3650,76 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
 
 ```{r update_map_click}          
 
-# User selects stations by clicking map (to show data plots)
-observeEvent(input$param_map_marker_click, {
-#     saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-# saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
-  isolate({ 
-    cat("MARKER CLICK//")
-    local({ # This may be unnecessary
-  shiny::req(!is.null(input$sel_SummarizeBy), !is.null(input$param_map_marker_click$id)) # the last one keeps the map from aborting when user clicks on a marker that is not a site marker
-shiny::req(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"))  
-  
-rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to this
-
-    clicked_site <- input$param_map_marker_click$id
-    cat("GRABBED CLICKED SITE\n")
- 
-    if(clicked_site %in% rv_param_temp$param_map_highlight) { # if the click is in a selected site
-      cat("SITE WAS ALREADY SELECTED\n")
-            if(all(input$sel_SummarizeBy == "by_station", length(rv_param_temp$param_map_highlight) == 1, identical(clicked_site, rv_param_temp$param_map_highlight))) {
-        showModal(modalDialog(
-          title = "Cannot de-select station",
-          "You must highlight at least one station to summarize."
-        ))
-            } else {
-              rv_param_temp$param_map_highlight <- rv_param_temp$param_map_highlight[rv_param_temp$param_map_highlight != clicked_site] # then remove it from the list of selected sites
-        cat("REMOVED CLICKED SITE FROM VECTOR\n")
-        leafletProxy("param_map") %>%
-          addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations")) # and change the site to unselected on the map
-        cat("REMOVED CLICKED SITE FROM MAP\n")
-            }
-      
-        
-        } else { # if the click is in an unselected site
-          cat("CLICKED SITE IS NEW\n")
-          if(input$sel_SummarizeBy == "by_station") { # if summarizing by station
-            rv_param_temp$param_map_highlight <- clicked_site
-            cat("UPDATED VECTOR WITH ONLY CLICKED SITE\n")
-             leafletProxy("param_map") %>%
-          addCircleMarkers(data = FuncParamAvailSites("by_station"), group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations"))
-             cat("CLEARED MAP OF ALL SELECTIONS\n")
-            
-          } else { # if summarizing by characteristic
-            rv_param_temp$param_map_highlight <- c(rv_param_temp$param_map_highlight, clicked_site) # append the ID of clicked site
-            cat("UPDATED VECTOR BY APPENDING CLICKED SITE\n")
-          }
-          
-           leafletProxy("param_map") %>% # and highlight the site on the map
-            addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_importedStations"))
-           cat("ADDED CLICKED SITE ON MAP\n")
-      }
-    
-    # Also update the user select in left side panel
-
-    if(input$sel_SummarizeBy == "by_char") {
-      updateCheckboxGroupInput(session,
-                               "sel_ShowStations",
-                               selected = rv_param_temp$param_map_highlight)
-    }
-
-    if(input$sel_SummarizeBy == "by_station") {
-      updateSelectInput(session,
-                        "sel_ShowOneStation",
-                        selected = rv_param_temp$param_map_highlight)
-
-    }
-    
-    rv_param_temp$update_from_sidebar <- TRUE 
-    }) # end local
-    }) # end isolate
-    }, ignoreInit = TRUE) # end of observeEvent
+# # User selects stations by clicking map (to show data plots)
+# observeEvent(input$param_map_marker_click, {
+# #     saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+# # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+# # saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+#   isolate({ 
+#     cat("MARKER CLICK//")
+#     # local({ # This may be unnecessary
+#   shiny::req(!is.null(input$sel_SummarizeBy), !is.null(input$param_map_marker_click$id)) # the last one keeps the map from aborting when user clicks on a marker that is not a site marker
+# shiny::req(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"))  
+#   
+# # rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to this
+# 
+#     clicked_site <- input$param_map_marker_click$id
+#     cat("GRABBED CLICKED SITE\n")
+#  
+#     if(clicked_site %in% rv_param_temp$param_map_highlight) { # if the click is in a selected site
+#       cat("SITE WAS ALREADY SELECTED\n")
+#             if(all(input$sel_SummarizeBy == "by_station", length(rv_param_temp$param_map_highlight) == 1, identical(clicked_site, rv_param_temp$param_map_highlight))) {
+#         showModal(modalDialog(
+#           title = "Cannot de-select station",
+#           "You must highlight at least one station to summarize."
+#         ))
+#             } else {
+#               rv_param_temp$param_map_highlight <- rv_param_temp$param_map_highlight[rv_param_temp$param_map_highlight != clicked_site] # then remove it from the list of selected sites
+#         cat("REMOVED CLICKED SITE FROM VECTOR\n")
+#         leafletProxy("param_map") %>%
+#           addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations")) # and change the site to unselected on the map
+#         cat("REMOVED CLICKED SITE FROM MAP\n")
+#             }
+#       
+#         
+#         } else { # if the click is in an unselected site
+#           cat("CLICKED SITE IS NEW\n")
+#           if(input$sel_SummarizeBy == "by_station") { # if summarizing by station
+#             rv_param_temp$param_map_highlight <- clicked_site
+#             cat("UPDATED VECTOR WITH ONLY CLICKED SITE\n")
+#              leafletProxy("param_map") %>%
+#           addCircleMarkers(data = FuncParamAvailSites("by_station"), group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = FALSE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations"))
+#              cat("CLEARED MAP OF ALL SELECTIONS\n")
+#             
+#           } else { # if summarizing by characteristic
+#             rv_param_temp$param_map_highlight <- c(rv_param_temp$param_map_highlight, clicked_site) # append the ID of clicked site
+#             cat("UPDATED VECTOR BY APPENDING CLICKED SITE\n")
+#           }
+#           
+#            leafletProxy("param_map") %>% # and highlight the site on the map
+#             addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == clicked_site,], group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_importedStations"))
+#            cat("ADDED CLICKED SITE ON MAP\n")
+#       }
+#     
+#     # Also update the user select in left side panel
+# 
+#     if(input$sel_SummarizeBy == "by_char") {
+#       updateCheckboxGroupInput(session,
+#                                "sel_ShowStations",
+#                                selected = rv_param_temp$param_map_highlight)
+#     }
+# 
+#     if(input$sel_SummarizeBy == "by_station") {
+#       updateSelectInput(session,
+#                         "sel_ShowOneStation",
+#                         selected = rv_param_temp$param_map_highlight)
+# 
+#     }
+#     
+#     # rv_param_temp$update_from_sidebar <- TRUE 
+#     # }) # end local
+#     }) # end isolate
+#     }, ignoreInit = TRUE) # end of observeEvent
 
 ```
 
@@ -3724,7 +3727,7 @@ rv_param_temp$update_from_sidebar <- FALSE # during this process, put a halt to 
 output$param_map <- renderLeaflet({
 
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE) # make sure data have been imported and filtered, and plot data have been generated
-  cat("LINE2095")
+  cat("line3730")
     shiny::req(!is.null(rv_param_temp$subDat), !is.null(rv$sitesPointsSub), !is.null(rv$unitPoly), !is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$palOrg))
   
 cat("RENDERING ENTIRE MAP AGAIN\n") 
@@ -3844,9 +3847,11 @@ cat("line1988")
   
 # Highlight selected stations
 cat("START OF HIGHLIGHT SELECTED")
+# if(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show")) {
+if(sel_param_map_show == "show") {
     # if(all(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"), any(isolate(is.null(rv_param_temp$update_from_sidebar)), isolate(rv_param_temp$update_from_sidebar != FALSE)))) # may be TRUE or NULL
-if(all(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"), isolate(is.null(rv_param_temp$update_from_sidebar))))
-      {
+# if(all(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"), isolate(is.null(rv_param_temp$update_from_sidebar))))
+      # {
             cat("START UPDATE ON FIRST GO AROUND ONLY")
     # isolate({
     # if(is.null(rv_param_temp$param_map_highlight)) { # White outline on sites selected from left panel
@@ -3854,28 +3859,31 @@ if(all(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"), i
     # Need to do this on first go-around because don't yet have a param_map to update with proxy.
       sel_sites <- switch((input$sel_SummarizeBy == "by_char") + 1, input$sel_ShowOneStation, input$sel_ShowStations)
 
-      isolate({ # THIS isolate(local()) is the key to keeping the dashboard from blitzing out
-        local(
-          if(all(any(is.null(rv_param_temp$update_from_sidebar), rv_param_temp$update_from_sidebar==TRUE), !identical(rv_param_temp$param_map_highlight, sel_sites))) {
+
+          # if(all(any(is.null(rv_param_temp$update_from_sidebar), rv_param_temp$update_from_sidebar==TRUE), !identical(rv_param_temp$param_map_highlight, sel_sites))) {
+          # if(!identical(rv_param_temp$param_map_highlight, sel_sites)) {
+                  # isolate({ # THIS isolate(local()) is the key to keeping the dashboard from blitzing out
+        # local(
         rv_param_temp$param_map_highlight <- sel_sites
-        }
-        )
-      })
+        
+        # )
+      # })
       cat("START CHANGING MAP")
       if(length(sel_sites) > 0) {
         # Add white border on selected stations
         param_map %<>%
-      addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier %in% sel_sites,], group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_importedStations"))
+      addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier %in% sel_sites,], group = "Selected monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations"))
       }
 
     # } # selected WQ stations are shown as larger, white-outlined points
     # })
 
-      rv_param_temp$update_from_sidebar <- TRUE # so it's no longer NULL and can now be activated
+      # rv_param_temp$update_from_sidebar <- TRUE # so it's no longer NULL and can now be activated
     cat("RENDERING SELECTED SITES IN FULL MAP\n")
-    }
+          # }
+}
   
-cat("line2095")
+cat("line3881")
   # If summarizing by characteristic, then additional summary options are available
   if(input$sel_SummarizeBy == "by_char" & !is.null(input$sel_SurvYr)){
 
@@ -5314,6 +5322,8 @@ div(style="display:flex; flex-direction:row; max-width:100%; justify-content:spa
   
         renderUI({ 
   shiny::req(!is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$plotDat))
+        shiny::req(identical(unique(rv_param_temp$plotDat$MonitoringLocationIdentifier), rv_param_temp$param_map_highlight)) # make sure the plots have been updated  
+        shiny::req(identical(input$sel_SummarizeBy, rv_param_temp$sel_summarize_by))
   shinyWidgets::radioGroupButtons("sel_ParamMapShow",
               label = h6("Show on map: "),
               choices = switch((input$sel_SummarizeBy == "by_char")+1, c("Sites" = "show"), c("Sites" = "show", "Median" = "median", "Thresholds" = "thresh", "Percentiles" = "perc")),
