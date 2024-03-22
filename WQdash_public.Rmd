@@ -23,6 +23,7 @@ runtime: shiny
 # > Add extensive error check page allowing user to omit site-parameters with issues
 # > Sample size matrix and Explore data should NOT require data filter page. Retry plotly for sample size matrix, or yr on each facet
 # > Test polite::bow() and rip()
+# > Save RDS should be more default and obvious
 
 # Overall
 # -	There is a limit to how much data can be downloaded
@@ -955,8 +956,8 @@ FuncPlotHeatMap <- function(dat, y_name, legend_range, legend_name) {
     ggtitle(paste0(unique(dat$CharacteristicName), " (# of surveys per ", input$sel_TimeSubunit, ")")) +
     scale_x_continuous(expand=c(0, 0), breaks = min(dat$Yr, na.rm = TRUE):max(dat$Yr, na.rm = TRUE), limits = c(min(dat$Yr, na.rm = TRUE)-1, max(dat$Yr, na.rm = TRUE)+1)) + # Need to make limits wider b/c otherwise the fill color will be missing from the end columns. Setting the expand cuts out the empty space at beginning and end columns
     scale_y_discrete(limits = rev) +
-        scale_fill_viridis_c(direction = -1, na.value = "white", limits=c(1, max_colorval), name = legend_name) +
-    # scale_fill_viridis_c(direction = -1, na.value = "white", limits=c(1, 12), oob=scales::squish, breaks = seq(1, 12, by = 2), name = legend_name) +
+        # scale_fill_viridis_c(direction = -1, na.value = "white", limits=c(1, max_colorval), name = legend_name) +
+    scale_fill_viridis_c(direction = -1, na.value = "white", limits=c(1, 12), oob=scales::squish, breaks = seq(1, 12, by = 2), name = legend_name) +
     theme_bw(base_size = 14) +
     facet_wrap(~MonitoringLocationIdentifier, ncol =1) +
     theme(legend.position="top",
@@ -2851,7 +2852,7 @@ observeEvent(eventExpr = input$button_downloadData, {
   shiny::req(!is.null(rv$selectedStations), !is.null(rv$sitesPointsSub))
   shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0)
 
-    withProgress(message = "Processing data request...", detail = "Importing data from Water Quality Portal, 10 sites at a time", value = 0, { # >>>>>>>>>>>>>> PICK UP FROM HERE--BREAK IT UP https://community.openai.com/t/parallelise-calls-to-the-api-is-it-possible-and-how/35498/10
+    withProgress(message = "Processing data request...", detail = "Importing data from Water Quality Portal", value = 0, { # >>>>>>>>>>>>>> PICK UP FROM HERE--BREAK IT UP https://community.openai.com/t/parallelise-calls-to-the-api-is-it-possible-and-how/35498/10
       
       showModal(tags$div(id = "gif_modal", modalDialog(
         HTML('<img src="https://media.giphy.com/media/33zX3zllJBGY8/source.gif"><br><center>I am just your entertainment.<br><center>The progress bar is below.'), # custom loading gif--running elephant
@@ -4264,11 +4265,8 @@ shinyjs::hidden( # initially hide this well panel
   
     actionButton("button_downloadData", "DOWNLOAD SELECTED DATA", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px"),
     
-    ) # end filter-import panel
-  ) # end hide for filter-import panel
-
-# Download RDS to user location ----
-renderUI({
+    br(),
+    renderUI({
   shiny::req(!is.null(rv))
   
   shiny::req(rv_param_temp$newImport == TRUE)
@@ -4277,6 +4275,12 @@ renderUI({
   outputId = "download_RDS", 
   label = "Download Formatted RDS File")
 })
+    
+    ) # end filter-import panel
+  ) # end hide for filter-import panel
+
+# Download RDS to user location ----
+
 
 output$download_RDS <- downloadHandler(
   shiny::req(!is.null(rv)),
