@@ -94,8 +94,7 @@ pkgs <- c("flexdashboard",
           "RgoogleMaps", # for MaxZoom & MinZoom
           "geojsonio", # to test for presence of features
           "rnoaa", # to get NOAA climate data <<<<< THIS PACKAGE WILL RETIRE SOON. KEEP AN EYE ON THIS.
-          "leaflet.minicharts",
-          "polite") # for web etiquette with APIs
+          "leaflet.minicharts") # for web etiquette with APIs
 
 installed_pkgs <- pkgs %in% installed.packages()
 if (length(pkgs[!installed_pkgs]) > 0) install.packages(pkgs[!installed_pkgs], repos = "https://cloud.r-project.org", dep=TRUE) 
@@ -234,7 +233,7 @@ observeEvent(eventExpr = input$button_cancelModal, {
 ### FUNCTIONS ----
 
 # Web etiquette
-polite_GET <- politely(httr::GET, verbose=TRUE) 
+# polite_GET <- politely(httr::GET, verbose=TRUE) 
 
 FuncAboutButton <- function(nam) {
   actionButton(nam, "   PAGE INSTRUCTIONS", icon = icon("question-sign", lib = "glyphicon"), width = "100%")
@@ -2444,13 +2443,13 @@ observeEvent(eventExpr = input$button_showStations, {
       cat(hucURL)
       # saveRDS(hucURL, "hucURL.RDS")
 
-    if(http_status(polite_GET(hucURL))$category!="Success") { # make sure the service call is valid
+    if(http_status(GET(hucURL))$category!="Success") { # make sure the service call is valid
       showModal(
          urlModal(hucURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving ", hucName, " boundary data from the National Watershed Boundary Dataset. The message from the web service is: `", http_status(polite_GET(hucURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
        )
       }
    
-    shiny::req(http_status(polite_GET(hucURL))$category=="Success") # if not a valid service call, abort
+    shiny::req(http_status(GET(hucURL))$category=="Success") # if not a valid service call, abort
     
     hucPoly <- tryCatch(sf::st_read(hucURL), error=function(e) cat("Error retrieving ", hucName, " data"))
 
@@ -2494,13 +2493,13 @@ observeEvent(eventExpr = input$button_showStations, {
   sitesURL <- paste0("https://www.waterqualitydata.us/data/Station/search?siteType=Aggregate%20surface-water-use&siteType=Estuary&siteType=Lake%2C%20Reservoir%2C%20Impoundment&siteType=Spring&siteType=Stream&siteType=Well&siteType=Wetland&siteType=Aggregate%20groundwater%20use&siteType=Aggregate%20groundwater%20use%20&siteType=Aggregate%20water-use%20establishment&siteType=Subsurface&bBox=", paste(huc10_bbox, collapse ="%2C"), "&characteristicType=Toxicity&characteristicType=Physical&characteristicType=Organics%2C%20PFAS&characteristicType=Organics%2C%20Pesticide&characteristicType=Organics%2C%20PCBs&characteristicType=Nutrient&characteristicType=Microbiological&characteristicType=Cyanotoxins%2C%20Phytotoxins&characteristicType=Inorganics%2C%20Major%2C%20Metals&characteristicType=Inorganics%2C%20Major%2C%20Non-metals&minactivities=1&startDateLo=01-01-", lubridate::year(Sys.Date())-as.integer(input$sel_ActiveWithinYrs), "&sampleMedia=Water&sampleMedia=water&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
    
 cat("line2489")
-    if(http_status(polite_GET(sitesURL))$category!="Success") { # make sure the service call is valid
+    if(http_status(GET(sitesURL))$category!="Success") { # make sure the service call is valid
       showModal(
-        urlModal(sitesURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving monitoring sites information from the Water Quality Portal. The message from the web service is: `", http_status(polite_GET(sitesURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
+        urlModal(sitesURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving monitoring sites information from the Water Quality Portal. The message from the web service is: `", http_status(GET(sitesURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
       )
     }
     
-    shiny::req(http_status(polite_GET(sitesURL))$category=="Success") # if not a valid service call, abort
+    shiny::req(http_status(GET(sitesURL))$category=="Success") # if not a valid service call, abort
     # polite::bow(sitesURL) %>% rip(destfile = "tempSites.csv", mode = "w")
 
     download.file(sitesURL, "tempSites.csv", mode = "w")
@@ -2610,7 +2609,7 @@ cat("line2336")
   
  facilitiesURL <- paste0("https://ofmpub.epa.gov/echo/cwa_rest_services.get_facility_info?output=GEOJSON&p_maj=Y&p_wbd=", paste(rv$HUC10$HUC, collapse = ",")) # major facilities only, falls within the HUC10 boundaries
 cat("line2614")
-  if(http_status(polite_GET(facilitiesURL))$category!="Success") { # make sure the service call is valid
+  if(http_status(GET(facilitiesURL))$category!="Success") { # make sure the service call is valid
     showModal(modalDialog(
       title = "No Discharge Facilities Data",
       "Error retrieving discharge facilities locations data from EPA ECHO. These data are not necessary for visualizing water quality data on the dashboard.",
@@ -2621,8 +2620,8 @@ cat("line2614")
       )
       ) # Require user to click 'Got it!' button for the modal to close
     } else {
-      if(length(str_detect(content(polite_GET(facilitiesURL))$message, "invalid:")) > 0) { # if the http is valid, but some HUCs are not found, remove those HUCs from the search
-        lostHUCS <- unlist(str_extract_all(content(polite_GET(facilitiesURL))$message, "[[:digit:]]{10}")) # extract the HUC10's
+      if(length(str_detect(content(GET(facilitiesURL))$message, "invalid:")) > 0) { # if the http is valid, but some HUCs are not found, remove those HUCs from the search
+        lostHUCS <- unlist(str_extract_all(content(GET(facilitiesURL))$message, "[[:digit:]]{10}")) # extract the HUC10's
         subsetHUC <- setdiff(rv$HUC10$HUC, lostHUCS) # remove those HUC's from the list, and try again
         facilitiesURL <- paste0("https://ofmpub.epa.gov/echo/cwa_rest_services.get_facility_info?output=GEOJSON&p_maj=Y&p_wbd=", paste(subsetHUC, collapse = ",")) # major facilities only, falls within the HUC10 boundaries
       }
@@ -2773,13 +2772,13 @@ observeEvent(eventExpr = input$button_highlightStations, {
       if(!is.na(nldiURLS[[n]])) { # if URL is specified
         tempURL <- nldiURLS[[n]]
       
-        if(http_status(polite_GET(tempURL))$category!="Success") { # make sure the service call is valid
+        if(http_status(GET(tempURL))$category!="Success") { # make sure the service call is valid
           showModal(
-            urlModal(tempURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving data from the Hydro Network-Linked Data Index for the `", n, "` query. The message from the web service is: `", http_status(polite_GET(tempURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
+            urlModal(tempURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving data from the Hydro Network-Linked Data Index for the `", n, "` query. The message from the web service is: `", http_status(GET(tempURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
             )
           }
    
-        shiny::validate(need(http_status(polite_GET(tempURL))$category=="Success", message = FALSE)) # if not a valid service call, abort
+        shiny::validate(need(http_status(GET(tempURL))$category=="Success", message = FALSE)) # if not a valid service call, abort
         
         checkhydro <- tryCatch(rgdal::readOGR(dsn = tempURL[[1]], verbose = FALSE), error=function(e) NULL)
     
@@ -2883,13 +2882,13 @@ observeEvent(eventExpr = input$button_downloadData, {
   rv$wqp_url <- datURL
   cat(datURL)
 
-  if(http_status(polite_GET(datURL))$category!="Success") { # make sure the service call is valid
+  if(http_status(GET(datURL))$category!="Success") { # make sure the service call is valid
       showModal(
-        urlModal(datURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving data from the Water Quality Portal for the requested query. The message from the web service is: `", http_status(polite_GET(datURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads. If an error results, email WQP support (wqx@epa.gov) for assistance."))
+        urlModal(datURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving data from the Water Quality Portal for the requested query. The message from the web service is: `", http_status(GET(datURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads. If an error results, email WQP support (wqx@epa.gov) for assistance."))
         )
       }
 
-  shiny::validate(need(http_status(polite_GET(datURL))$category=="Success", message = FALSE)) # if not a valid service call, abort
+  shiny::validate(need(http_status(GET(datURL))$category=="Success", message = FALSE)) # if not a valid service call, abort
   
   setProgress(1/4, detail = "Formatting data")
 
@@ -2936,13 +2935,13 @@ observeEvent(eventExpr = input$button_downloadData, {
   allOrgs <- paste(paste0("organization=", unique(rv$dat$OrganizationIdentifier)), collapse = "&")
     orgURL <- paste0("https://www.waterqualitydata.us/data/Organization/search?", allOrgs, "&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
 
-  if(http_status(polite_GET(orgURL))$category!="Success") { # make sure the service call is valid
+  if(http_status(GET(orgURL))$category!="Success") { # make sure the service call is valid
     showModal(
-      urlModal(orgURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving organization information from the Water Quality Portal. The message from the web service is: `", http_status(polite_GET(orgURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
+      urlModal(orgURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving organization information from the Water Quality Portal. The message from the web service is: `", http_status(GET(orgURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
       )
   }
     
-  shiny::req(http_status(polite_GET(orgURL))$category=="Success") # if not a valid service call, abort
+  shiny::req(http_status(GET(orgURL))$category=="Success") # if not a valid service call, abort
 
     download.file(orgURL, "tempOrg.csv", mode = "w")
   
@@ -2967,7 +2966,7 @@ observeEvent(eventExpr = input$button_downloadData, {
   
   gagesDatURL <- paste0("https://waterservices.usgs.gov/nwis/dv/?format=rdb,1.0&sites=", paste(rv$selectedGages$GageID, collapse = ","), "&startDT=",range(rv$dat$ActivityStartDate)[1], "&endDT=", range(rv$dat$ActivityStartDate)[2], "&siteStatus=all") # <<<< GOT RID OF START STOP AND END DATE OPTION HERE
   
-  if(http_status(polite_GET(gagesDatURL))$category!="Success") { # make sure the service call is valid
+  if(http_status(GET(gagesDatURL))$category!="Success") { # make sure the service call is valid
     rv$gagesDat <- NULL
     showModal(modalDialog(
       title = "No Streamflow Data",
