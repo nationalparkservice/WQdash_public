@@ -9,9 +9,9 @@ runtime: shiny
 ---
 
 ```{r global, include=FALSE}
-### PICK UP FROM HERE:
+### PICK UP FROM HERE:  >>>>>>>>>>>>>> THRESHOLD FILE NEEDS TO BE REMOVED ON NEW DATA IMPORT. ALSO IT DOESN'T WORK.
 # >>>>> hover box text size should be smaller
-# >>>>> Page to create thresholds and save file that can later be imported
+# >>>>> Page to create thresholds and save file that can later be imported >>>>>>>>>>>>>> SKIP
 # > plot title gets cut off when combine sites in one plot
 # > BITH vertice error
 # > Text to be written must be a length-one character vector
@@ -789,9 +789,11 @@ FuncInitFilter <- function() {
     sel_MinYrs = rv_param_temp$defaultInputs$sel_MinYrs)
   
   # Set initial plot input values
+  cat("SETTING INITIAL THRESHOLD VALUES")
   rv_param_temp$currentInputs$sel_SummaryParam <- rv_param_temp$selectCharSampleType
   rv_param_temp$currentInputs$sel_ThreshLower <- NA
   rv_param_temp$currentInputs$sel_ThreshUpper <- NA
+  rv_param_temp$currentInputs$sel_ThreshCateg1 <- rv_param_temp$currentInputs$sel_ThreshCateg2 <- rv_param_temp$currentInputs$sel_ThreshCateg3 <- "good"
   
   # cat("ABOUT TO RESET VALUE")
   # session$sendCustomMessage(type = "resetValue", message = list("sel_SummaryParam", sort(rv_param_temp$selectCharSampleType)))
@@ -1234,49 +1236,32 @@ FuncPlotDat <- function() {
         cat("line1034")
       }
     
-    # Assign custom threshold limits
-    if(all(!is.null(rv_param_temp$sel_show_thresholds), !is.null(input$sel_ThreshUnit),  !is.null(input$sel_ThreshLower), !is.null(input$sel_ThreshUpper), !is.null(plotDat))) {
-    if(all(rv_param_temp$sel_show_thresholds == "showthresh_custom", rv_param_temp$sel_summarize_by == "by_chartype")) {
-
-      plotDat$ThreshCateg <- NA
-      rv_param_temp$threshCustom <- list()
+    # If assigning custom threshold limits
+    if(all(!is.null(rv_param_temp$sel_show_thresholds), !is.null(input$sel_ThreshLower), !is.na(input$sel_ThreshLower), !is.null(input$sel_ThreshCateg1), !is.null(input$sel_ThreshCateg2), !is.null(input$sel_NumThresh), !is.null(plotDat))) {
+    if(all(rv_param_temp$sel_show_thresholds == "showthresh_custom", rv_param_temp$sel_summarize_by == "by_chartype", identical(unique(plotDat$CharSampleType), rv_param_temp$showCharTypes), input$sel_NumThresh > 0)) {
       
-    if(input$sel_ThreshLower != -9999 | input$sel_ThreshUpper != 9999) { # if a lower or upper threshold has been entered
-      thresh_ID <- paste0(unique(na.omit(rv_param_temp$plotDat$CharacteristicName)), " (", input$sel_ThreshUnit, ")")
-      if(input$sel_ThreshLower == -9999) { # no lower limit
-        temp_cut <- c(-Inf, input$sel_ThreshUpper, Inf)
-        temp_categ <- c("good", "above")
-        temp_colors <- c("#56B4E9", "#E69F00")
+      if(input$sel_NumThresh == 1) {
+        cut_breaks <- c(-Inf, input$sel_ThreshLower, Inf)
+        cut_categ <- c(input$sel_ThreshCateg1, input$sel_ThreshCateg2)
       }
       
-      if(input$sel_ThreshUpper == 9999) { # no upper limit
-        temp_cut <- c(-Inf, input$sel_ThreshLower, Inf)
-        temp_categ <- c("below", "good")
-        temp_colors <- c("lightgray", "#56B4E9")
+      if(all(input$sel_NumThresh == 2, !is.null(input$sel_ThreshUpper), !is.na(input$sel_ThreshUpper))) {
+        cut_breaks <- c(-Inf, input$sel_ThreshLower, input$sel_ThreshUpper, Inf)
+        cut_categ <- c(input$sel_ThreshCateg1, input$sel_ThreshCateg2, input$sel_ThreshCateg3)
       }
       
-      if(input$sel_ThreshLower != -9999 & input$sel_ThreshUpper != 9999) { # has lower and upper limit
-        temp_cut <- c(-Inf, input$sel_ThreshLower, input$sel_ThreshUpper, Inf)
-        temp_categ <- c("below", "good", "above")
-        temp_colors <- c("lightgray", "#56B4E9", "#E69F00")
-      }
+      rv_param_temp$threshCustom <- list() # this is for plot backgrounds
+      rv_param_temp$threshCustom[[unique(plotDat$CharSampleType)]] <- list(
+        CharacteristicName = unique(plotDat$CharacteristicName), 
+        ResultSampleFractionText = unique(plotDat$ResultSampleFractionText), 
+        ResultMeasure.MeasureUnitCode = unique(plotDat$ResultMeasure.MeasureUnitCode), 
+        Notes = NA, 
+        cut_breaks = cut_breaks, 
+        cut_categ = cut_categ)
       
-    temp_thresh_custom <- list(
-      "CharacteristicName" = unique(na.omit(plotDat$CharacteristicName)),
-      "ResultMeasure.MeasureUnitCode" = input$sel_ThreshUnit,
-      "cut_breaks" = temp_cut,
-      "cut_categ" = temp_categ) # removed "cut_colors" = temp_colors
-     
-    rv_param_temp$threshCustom[[thresh_ID]] <- temp_thresh_custom
-    
-    # Fill ThreshCateg column in plotDat
-    shiny::req(!is.null(rv_param_temp$threshCustom))
-    which_rows <- which(plotDat$CharacteristicName == rv_param_temp$threshCustom[[1]]$CharacteristicName & plotDat$ResultMeasure.MeasureUnitCode == rv_param_temp$threshCustom[[1]]$ResultMeasure.MeasureUnitCode)
-    if(length(which_rows) > 0) {
-      plotDat$ThreshCateg[which_rows] <- as.character(cut(as.numeric(plotDat$ResultMeasureValue_replaced[which_rows]), breaks = rv_param_temp$threshCustom[[1]]$cut_breaks, labels = rv_param_temp$threshCustom[[1]]$cut_categ))
+      plotDat$ThreshCateg <- NA # this is for calculating pie charts
+      plotDat$ThreshCateg <- as.character(cut(as.numeric(plotDat$ResultMeasureValue_replaced), breaks = cut_breaks, labels = cut_categ))
         }
-      }
-    }
       }# end assign custom threshold limits
 
     # Determine quantiles for plots
@@ -1517,58 +1502,31 @@ FuncQuantLines <- function(quant_df, combine_sites, dat_df, p) {
   return(p)
   }
 
-# FuncAddThresh <- function(v_char, thresh, p, xlow_temp = NULL, xhigh_temp = NULL, ylow_temp, yhigh_temp) {
-#   # Function to add threshold background color
-#   #
-#   # Args:
-#   #   v_char:  Characteristic Name
-#   #   thresh: NULL or the list for threshold background colors for this site-char
-#   #   p: Base plot
-#   #   xlow_temp, xhigh_temp, ylow_temp, yhigh_temp: lower/upper x/y limits for threshold box
-#   #
-#   # Returns:
-#   #   Plot with threshold background
-#   #
-#     for (i in 1:length(thresh$cut_categ)) {
-#       ylow = max(thresh$cut_breaks[i], ylow_temp)
-#       yhigh = min(thresh$cut_breaks[i+1], yhigh_temp)
-#       if(ylow <= yhigh) {
-#         fill_col = thresh$cut_colors[i]
-#         p <- p +
-#           geom_rect(data = data.frame(ylow, yhigh), aes(xmin = xlow_temp, xmax = xhigh_temp, ymin = ylow, ymax = yhigh), fill = fill_col, alpha = 0.15, show.legend = FALSE, inherit.aes = FALSE)
-#       }
-#     } # threshold background boxes
-#   return(p)
-# }
-
-FuncAddThresh <- function(v_char, all_thresh, p, xlow_temp = NULL, xhigh_temp = NULL, ylow_temp, yhigh_temp) {
+FuncAddThresh <- function(v_char, thresh, p, xlow_temp = NULL, xhigh_temp = NULL, ylow_temp, yhigh_temp) {
   # Function to add threshold background color
   #
   # Args:
   #   v_char:  Characteristic Name
-  #   all_thresh: NULL or the list for threshold background colors
+  #   thresh: NULL or the list for threshold background colors for this site-char
   #   p: Base plot
   #   xlow_temp, xhigh_temp, ylow_temp, yhigh_temp: lower/upper x/y limits for threshold box
   #
   # Returns:
   #   Plot with threshold background
   #
-  if(v_char %in% as.character(sapply(all_thresh, FUN = function(x) x[1]))) {
-    thresh <- all_thresh[[which(sapply(all_thresh, FUN = function(x) x[1])==v_char)]]
     for (i in 1:length(thresh$cut_categ)) {
       ylow = max(thresh$cut_breaks[i], ylow_temp)
       yhigh = min(thresh$cut_breaks[i+1], yhigh_temp)
       if(ylow <= yhigh) {
-        fill_col = switch(categ, "good" = "#009E73", "poor" = "#E69F00", "caution" = "#F0E442")
+        fill_col = switch(thresh$cut_categ[i], "good" = rv_param_temp$threshColors[1], "caution" = rv_param_temp$threshColors[2], "poor" = rv_param_temp$threshColors[3])
         p <- p +
           geom_rect(data = data.frame(ylow, yhigh), aes(xmin = xlow_temp, xmax = xhigh_temp, ymin = ylow, ymax = yhigh), fill = fill_col, alpha = 0.15, show.legend = FALSE, inherit.aes = FALSE)
       }
-    }
-  } # threshold background boxes
+    } # threshold background boxes
   return(p)
 }
 
-FuncPlotScatter <- function(plot_dat, quant_df = NULL, categ_df = NULL, x_nam = "ActivityStartDate", combine_sites, fixed_free_y = "fixed", add_loess = TRUE, incl_cens = FALSE, all_thresh = NULL, rotate_x = FALSE, gage_dat = NULL, precip_dat = NULL, month_summary = FALSE, sel_add_gage_precip = NULL, sel_categ, trans_log_y, highlight_yr) {
+FuncPlotScatter <- function(plot_dat, quant_df = NULL, categ_df = NULL, x_nam = "ActivityStartDate", combine_sites, fixed_free_y = "fixed", add_loess = TRUE, incl_cens = FALSE, thresh_list = NULL, rotate_x = FALSE, gage_dat = NULL, precip_dat = NULL, month_summary = FALSE, sel_add_gage_precip = NULL, sel_categ, trans_log_y, highlight_yr) {
   # Function to generate scatterplot of data, with censored values shown as dotted intervals
   #
   # Args:
@@ -1579,8 +1537,8 @@ FuncPlotScatter <- function(plot_dat, quant_df = NULL, categ_df = NULL, x_nam = 
   #   combine_sites:  TRUE to combine multiple stations in a single plot of a characteristic
   #   fixed_free_y:  Are scales fixed or free across all plots?
   #   add_loess:  Add loess smooth? (will be biased by censored data)
-  #   incl_cens: Should censored data be plot as intervals?
   #   thresh_list: NULL or the list for threshold background colors
+  #   incl_cens: Should censored data be plot as intervals?
   #   rotate_x: should x-axis labels be rotated?
   #   gage_dat: USGS gage station data, if streamflow plot should be included: otherwise, NULL
   #   precip_dat: weather station data, if precipitation plot should be included; otherwise, NULL
@@ -1606,31 +1564,34 @@ if(x_nam == "ActivityStartDate") {
   cat("line1434")
   
   if(rv_param_temp$sel_summarize_by == "by_chartype" & combine_sites==TRUE) {
-    unique_df <- plot_dat %>% dplyr::select(CharacteristicName) %>% dplyr::distinct()
+    unique_df <- plot_dat %>% dplyr::select(CharSampleType) %>% dplyr::distinct() # If combining sites, then data frame has only column of CharSampleType
   } else {
-    unique_df <- plot_dat %>% expand(CharacteristicName, MonitoringLocationIdentifier) %>% arrange(CharacteristicName, MonitoringLocationIdentifier) # data frame of unique characteristic-sites
+    unique_df <- plot_dat %>% expand(CharSampleType, MonitoringLocationIdentifier) %>% arrange(CharSampleType, MonitoringLocationIdentifier) # If sites are separate plots, data frame of unique CharSampleType-sites
   cat("line586")
   }
   
-  char_vec <- unique_df$CharacteristicName
+  char_vec <- unique_df$CharSampleType # vector of the CharSampleTypes, including duplicates
   cat("line588")
-  for (v in 1:nrow(unique_df)) { # for each characteristic-site
-    dat_df <- plot_dat %>%
-      dplyr::filter(CharacteristicName == unique_df$CharacteristicName[v])
+  for (v in 1:nrow(unique_df)) { # for each df row
     
-    trans_y <- ifelse(all(!is.null(trans_log_y), unique_df$CharacteristicName[v] %in% trans_log_y), "log", "identity")
+    current_chartype <- unique_df$CharSampleType[v]
+    dat_df <- plot_dat %>%
+      dplyr::filter(CharSampleType == current_chartype) # subset the data frame to the CharSampleTypes of interest
     
     if("MonitoringLocationIdentifier" %in% names(unique_df)) {
       dat_df %<>% 
         dplyr::filter(MonitoringLocationIdentifier == unique_df$MonitoringLocationIdentifier[v])
     }
+    
+    trans_y <- ifelse(all(!is.null(trans_log_y), current_chartype %in% trans_log_y), "log", "identity")
                
     cat("line592")
+    
     # Shared y-axes range
-    yaxes_min_temp = switch(all(fixed_free_y=="fixed", length(unique(unique_df$CharacteristicName)) < 2)+1, min(dat_df$y, dat_df$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE), min(plot_dat$y, plot_dat$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE)) # y axis limits. If only one characteristic name and free_fixed_y=="fixed", calculate y-axis limits from the full plot_dat
+    yaxes_min_temp = switch(all(fixed_free_y=="fixed", length(unique(char_vec)) < 2)+1, min(dat_df$y, dat_df$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE), min(plot_dat$y, plot_dat$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE)) # y axis limits. If only one characteristic name and free_fixed_y=="fixed", calculate y-axis limits from the full plot_dat
     shiny::req(!is.null(yaxes_min_temp))
     yaxes_min = switch((yaxes_min_temp <= 0)+1, 0.9*yaxes_min_temp, yaxes_min_temp - 0.1)
-    yaxes_max = switch(all(fixed_free_y=="fixed", length(unique(unique_df$CharacteristicName)) < 2)+1, 1.1*max(dat_df$y, dat_df$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE), 1.1*max(plot_dat$y, plot_dat$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE))
+    yaxes_max = switch(all(fixed_free_y=="fixed", length(unique(char_vec)) < 2)+1, 1.1*max(dat_df$y, dat_df$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE), 1.1*max(plot_dat$y, plot_dat$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE))
     cat("line1448")
     
     # Set up the plot...
@@ -1651,38 +1612,38 @@ if(x_nam == "ActivityStartDate") {
         }
     
    cat("line1465") 
-    # If adding threshold background...
-  if(!is.null(thresh_list)) {
-
-    thresh_ID <- paste0(unique_df$CharacteristicName[v], " (", unique(na.omit(dat_df$ResultMeasure.MeasureUnitCode)), ")")
-    if(!is.null(thresh_list[[thresh_ID]])) {
-    p_points <- FuncAddThresh(v_char = unique_df$CharacteristicName[v], thresh = thresh_list[[thresh_ID]], p = p_points, xlow_temp = switch((x_nam=="ActivityStartDate")+1, 0.5, xaxes_min), xhigh_temp = switch((x_nam=="ActivityStartDate")+1, length(levels(plot_dat$x)) + 0.5, xaxes_max), ylow_temp = yaxes_min, yhigh_temp = yaxes_max)}
-  }
+   
+     # If adding threshold background...
+   names(thresh_list) <- tolower(names(thresh_list))
+   
+      if(!is.null(thresh_list[[tolower(current_chartype)]])) {
+        p_points <- FuncAddThresh(v_char = current_chartype, thresh = thresh_list[[tolower(current_chartype)]], p = p_points, xlow_temp = switch((x_nam=="ActivityStartDate")+1, 0.5, xaxes_min), xhigh_temp = switch((x_nam=="ActivityStartDate")+1, length(levels(plot_dat$x)) + 0.5, xaxes_max), ylow_temp = yaxes_min, yhigh_temp = yaxes_max)}
+    
     cat("line623")
     # ...if coloring by a categorical characteristic, set up the data...
-  if(sel_categ != "none" & !is.null(categ_df)) {
-    levs <- unlist(base::strsplit(str_replace_all(categ_df$CategOrder[categ_df$CharacteristicName == sel_categ], "[()]", ""), split="//")) # these are the categorical levels from the category import file--pull from there rather than from data to ensure no levels are omitted just because they were not in the data
-    levels_ok <- all(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == sel_categ])) %in% levs)
-    shiny::req(!is.null(levels_ok))
-     if(!levels_ok) { # Discontinue if category levels in data don't match levels in imported category file
+    if(sel_categ != "none" & !is.null(categ_df)) {
+      levs <- unlist(base::strsplit(str_replace_all(categ_df$CategOrder[categ_df$CharacteristicName == sel_categ], "[()]", ""), split="//")) # these are the categorical levels from the category import file--pull from there rather than from data to ensure no levels are omitted just because they were not in the data
+      levels_ok <- all(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == sel_categ])) %in% levs)
+      shiny::req(!is.null(levels_ok))
+      if(!levels_ok) { # Discontinue if category levels in data don't match levels in imported category file
         showModal(modalDialog(
           title = "Categorical levels mismatch",
           paste0("At least one categorical level found in the data (", paste(sort(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == sel_categ]))), collapse = ", "), ") is not included in the levels imported from the  category file (", paste(sort(levs), collapse = ", "), "). Please amend the category file to match the data."))
         )}
-    dat_df$CategResultMeasureValue <- factor(dat_df$CategResultMeasureValue, levels = levs)
-    cols <- unlist(base::strsplit(str_replace_all(categ_df$CategColor[categ_df$CharacteristicName == sel_categ], "[()]", ""), split="//"))
-    names(cols) <- levs # create a named color vector to use as palette
- cat("line1488")
-    p_points <- p_points +
-      suppressWarnings(geom_point(aes(shape = pointShape, color = CategResultMeasureValue, fill = CategResultMeasureValue, text = paste0("<span style='font-size:12px; font-weight:bold;'>", MonitoringLocationIdentifier, "<br>", CharSampleType, "<br>Date: ", ActivityStartDate, "<br>Value: ", y, "</span><br>Characteristic Set: ", CharacteristicSet, "<br>Detection Level: ", ResultDetectionConditionText, "<br>Categorical Level: ", CategResultMeasureValue)), size = 2, show.legend = c(fill = FALSE, color = TRUE, shape = FALSE))) + # aesthetic text is for ggplotly tooltip. Gives warning that it's not recognized but it still works and it's the only way to also allow geom_smooth (weird)
-      scale_fill_manual(values = cols, na.value = "black", drop = FALSE) +
-      scale_color_manual(name = paste0(sel_categ, "     "), limits = levs, values = cols, na.value = "black", drop = FALSE) # specifying all possible values in limits is required to make sure they are not dropped from legend when not in data
+      dat_df$CategResultMeasureValue <- factor(dat_df$CategResultMeasureValue, levels = levs)
+      cols <- unlist(base::strsplit(str_replace_all(categ_df$CategColor[categ_df$CharacteristicName == sel_categ], "[()]", ""), split="//"))
+      names(cols) <- levs # create a named color vector to use as palette
+      cat("line1488")
+      p_points <- p_points +
+        suppressWarnings(geom_point(aes(shape = pointShape, color = CategResultMeasureValue, fill = CategResultMeasureValue, text = paste0("<span style='font-size:12px; font-weight:bold;'>", MonitoringLocationIdentifier, "<br>", CharSampleType, "<br>Date: ", ActivityStartDate, "<br>Value: ", y, "<br>Detection Level: ", ResultDetectionConditionText, "<br>Categorical Level: ", CategResultMeasureValue, "</span>")), size = 2, show.legend = c(fill = FALSE, color = TRUE, shape = FALSE))) + # aesthetic text is for ggplotly tooltip. Gives warning that it's not recognized but it still works and it's the only way to also allow geom_smooth (weird)
+        scale_fill_manual(values = cols, na.value = "black", drop = FALSE) +
+        scale_color_manual(name = paste0(sel_categ, "     "), limits = levs, values = cols, na.value = "black", drop = FALSE) # specifying all possible values in limits is required to make sure they are not dropped from legend when not in data
   } else {
 
       # ..if combining sites for a single characteristic, so coloring by monitoring site...
       if(rv_param_temp$sel_summarize_by == "by_chartype" & combine_sites==TRUE) { # if coloring by monitoring site, use viridis color scale
         p_points <- p_points +
-          suppressWarnings(geom_point(aes(shape = pointShape, color = MonitoringLocationIdentifier, fill = MonitoringLocationIdentifier, text = paste0("<span style='font-size:12px; font-weight:bold;'>", MonitoringLocationIdentifier, "<br>", CharSampleType, "<br>Date: ", ActivityStartDate, "<br>Value: ", y, "</span><br>Characteristic Set: ", CharacteristicSet, "<br>Detection Level: ", ResultDetectionConditionText)), size = 2, show.legend = c(fill = FALSE, color = TRUE, shape = FALSE))) + # this will give a false unknown aesthetics warning for 'text'
+          suppressWarnings(geom_point(aes(shape = pointShape, color = MonitoringLocationIdentifier, fill = MonitoringLocationIdentifier, text = paste0("<span style='font-size:12px; font-weight:bold;'>", MonitoringLocationIdentifier, "<br>", CharSampleType, "<br>Date: ", ActivityStartDate, "<br>Value: ", y, "<br>Detection Level: ", ResultDetectionConditionText, "</span>")), size = 2, show.legend = c(fill = FALSE, color = TRUE, shape = FALSE))) + # this will give a false unknown aesthetics warning for 'text'
           scale_fill_viridis_d() +
           scale_color_viridis_d(name = "Site")
       } else { # ...if not coloring the points...
@@ -1918,23 +1879,25 @@ FuncPlotBox <- function(plot_dat, quant_df = NULL, x_nam = "Yr", combine_sites =
   p1_box_list <- list()
   
   if(rv_param_temp$sel_summarize_by == "by_chartype" & combine_sites==TRUE) {
-    unique_df <- plot_dat %>% dplyr::select(CharacteristicName) %>% dplyr::distinct()
+    unique_df <- plot_dat %>% dplyr::select(CharSampleType) %>% dplyr::distinct()
   } else {
-    unique_df <- plot_dat %>% expand(CharacteristicName, MonitoringLocationIdentifier) %>% arrange(CharacteristicName, MonitoringLocationIdentifier) # data frame of unique characteristic-sites
+    unique_df <- plot_dat %>% expand(CharSampleType, MonitoringLocationIdentifier) %>% arrange(CharSampleType, MonitoringLocationIdentifier) # data frame of unique characteristic-sites
   }
   
-  char_vec <- unique_df$CharacteristicName
+  char_vec <- unique_df$CharSampleType
   
   for (v in 1:nrow(unique_df)) { # for each characteristic-site
+     current_chartype <- unique_df$CharSampleType[v]
+     
     dat_df <- plot_dat %>%
-      dplyr::filter(CharacteristicName == unique_df$CharacteristicName[v])
-    
-    trans_y <- ifelse(all(!is.null(trans_log_y), unique_df$CharacteristicName[v] %in% trans_log_y), "log", "identity")
+      dplyr::filter(CharSampleType == current_chartype)
     
     if("MonitoringLocationIdentifier" %in% names(unique_df)) {
       dat_df %<>% 
         dplyr::filter(MonitoringLocationIdentifier == unique_df$MonitoringLocationIdentifier[v])
     }
+    
+    trans_y <- ifelse(all(!is.null(trans_log_y), current_chartype %in% trans_log_y), "log", "identity")
   
   # Thresholds for detection limits--draw these lines on plot, if within the range of y axes
   y_upperQL <- ifelse(any(!is.na(dat_df$DetectionQuantitationLimitMeasure.MeasureValue[dat_df$ResultDetectionConditionText == "Present Above Quantification Limit"])),  min(dat_df$DetectionQuantitationLimitMeasure.MeasureValue[dat_df$ResultDetectionConditionText == "Present Above Quantification Limit"], na.rm = TRUE), NA) # lowest upper quantification limit -- These may change through time, and we are only going to show the most conservative value 
@@ -1942,9 +1905,9 @@ FuncPlotBox <- function(plot_dat, quant_df = NULL, x_nam = "Yr", combine_sites =
   y_lowerQL <- ifelse(any(!is.na(dat_df$DetectionQuantitationLimitMeasure.MeasureValue[dat_df$ResultDetectionConditionText %in% c("Not Detected", "Present Below Quantification Limit")])), max(dat_df$DetectionQuantitationLimitMeasure.MeasureValue[dat_df$ResultDetectionConditionText %in% c("Not Detected", "Present Below Quantification Limit")], na.rm = TRUE), NA) # highest lower quantification limit
 
   # Shared y-axes range
-  yaxes_min_temp = switch((fixed_free_y=="fixed" & length(unique(unique_df$CharacteristicName)) < 2)+1, min(dat_df$y, dat_df$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE), min(plot_dat$y, plot_dat$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE)) # y axis limits. If only one characteristic name and free_fixed_y=="fixed", calculate y-axis limits from the full plot_dat
+  yaxes_min_temp = switch((fixed_free_y=="fixed" & length(unique(char_vec)) < 2)+1, min(dat_df$y, dat_df$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE), min(plot_dat$y, plot_dat$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE)) # y axis limits. If only one characteristic name and free_fixed_y=="fixed", calculate y-axis limits from the full plot_dat
   yaxes_min = ifelse(yaxes_min_temp <= 0, yaxes_min_temp - 0.1, 0.9*yaxes_min_temp)
-  yaxes_max = switch((fixed_free_y=="fixed" & length(unique(unique_df$CharacteristicName)) < 2)+1, 1.1*max(dat_df$y, dat_df$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE), 1.1*max(plot_dat$y, plot_dat$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE))
+  yaxes_max = switch((fixed_free_y=="fixed" & length(unique(char_vec)) < 2)+1, 1.1*max(dat_df$y, dat_df$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE), 1.1*max(plot_dat$y, plot_dat$DetectionQuantitationLimitMeasure.MeasureValue, na.rm=TRUE))
   
   # Set up the plot..
   p_box <- ggplot(data = dat_df, aes(x = x, y = y)) 
@@ -1960,13 +1923,10 @@ FuncPlotBox <- function(plot_dat, quant_df = NULL, x_nam = "Yr", combine_sites =
   }
   
   # If adding threshold background...
-  if(!is.null(thresh_list)) {
-    
-    thresh_ID <- paste0(unique_df$CharacteristicName[v], " (", unique(na.omit(dat_df$ResultMeasure.MeasureUnitCode)), ")")
-    if(!is.null(thresh_list[[thresh_ID]])) {
+  names(thresh_list) <- tolower(names(thresh_list))
+  if(!is.null(thresh_list[[current_chartype]])) {
       
-    p_box <- FuncAddThresh(v_char = unique_df$CharacteristicName[v], thresh = thresh_list[[thresh_ID]], p = p_box, xlow_temp = 0.5, xhigh_temp = length(levels(plot_dat$x)) + 0.5, ylow_temp = yaxes_min, yhigh_temp = yaxes_max)
-    }
+    p_box <- FuncAddThresh(v_char = current_chartype, thresh = thresh_list[[tolower(current_chartype)]], p = p_box, xlow_temp = 0.5, xhigh_temp = length(levels(plot_dat$x)) + 0.5, ylow_temp = yaxes_min, yhigh_temp = yaxes_max)
     }
     
   # If combining sites for a single characteristic, so coloring by monitoring site...
@@ -2183,6 +2143,8 @@ FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, cate
   
     if(time_unit == "ActivityStartDate" & plot_type == "box") {time_unit <- "Yr"} # Box plots for time series are grouped by year
     
+    # Thresholds
+    
     thresh_list <- switch(rv_param_temp$sel_show_thresholds,
                           showthresh_file = rv_param_temp$threshList,
                           showthresh_custom = rv_param_temp$threshCustom,
@@ -2242,10 +2204,10 @@ FuncPlotPage <- function(plot_type, plot_dat, quant_dat, time_unit, free_y, cate
   cat("line1921")
     if(plot_type %in% c("points", "points_smooth")) {
 
-      ts_plot <- FuncPlotScatter(plot_dat = plot_dat, quant_df = quant_dat, categ_df = categLevelsPlot, x_nam = time_unit, combine_sites = ifelse(length(unique(plot_dat$CharacteristicName)) == 1, ifelse(sel_combine_sites, TRUE, FALSE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), add_loess = ifelse(plot_type == "points_smooth", TRUE, FALSE), incl_cens = incl_cens, all_thresh = switch(is.null(rv_param_temp$threshList[input$sel_Thresholds]) + 1, rv_param_temp$threshList[input$sel_Thresholds], NULL), rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat, month_summary = month_summary, sel_add_gage_precip = sel_add_gage_precip, sel_categ = sel_categ, trans_log_y = trans_log_y, highlight_yr = input$sel_HighlightSurvYr %>% debounce(1000))}
+      ts_plot <- FuncPlotScatter(plot_dat = plot_dat, quant_df = quant_dat, categ_df = categLevelsPlot, x_nam = time_unit, combine_sites = ifelse(length(unique(plot_dat$CharacteristicName)) == 1, ifelse(sel_combine_sites, TRUE, FALSE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), add_loess = ifelse(plot_type == "points_smooth", TRUE, FALSE), incl_cens = incl_cens, thresh_list = thresh_list, rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat, month_summary = month_summary, sel_add_gage_precip = sel_add_gage_precip, sel_categ = sel_categ, trans_log_y = trans_log_y, highlight_yr = input$sel_HighlightSurvYr)}
 
     if(plot_type == "box") {
-      ts_plot <- FuncPlotBox(plot_dat = plot_dat, quant_df = quant_dat, x_nam = time_unit, combine_sites = ifelse(length(unique(plot_dat$CharacteristicName)) == 1, ifelse(sel_combine_sites, TRUE, FALSE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), incl_cens = incl_cens, all_thresh = switch(is.null(rv_param_temp$threshList[input$sel_Thresholds]) + 1, rv_param_temp$threshList[input$sel_Thresholds], NULL), rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat, sel_add_gage_precip = sel_add_gage_precip, trans_log_y = trans_log_y)}
+      ts_plot <- FuncPlotBox(plot_dat = plot_dat, quant_df = quant_dat, x_nam = time_unit, combine_sites = ifelse(length(unique(plot_dat$CharacteristicName)) == 1, ifelse(sel_combine_sites, TRUE, FALSE), FALSE), fixed_free_y = ifelse(free_y, "free_y", "fixed"), incl_cens = incl_cens, thresh_list = thresh_list, rotate_x = TRUE, gage_dat = gageDat, precip_dat = precipDat, sel_add_gage_precip = sel_add_gage_precip, trans_log_y = trans_log_y)}
 
     # PUT THE PLOTS TOGETHER
 cat("line1930")
@@ -2323,27 +2285,22 @@ if(sel_add_gage_precip == "precipitation" & !is.null(precipDat) & "ggplot" %in% 
 FuncPieDat <- function(limit_type) {
   shiny::req(sum(!is.na(rv_param_temp$plotDat[limit_type])) > 0)
     
-    if(rv_param_temp$sel_summarize_by=="by_chartype") {
+    # if(rv_param_temp$sel_summarize_by=="by_chartype") {
       temp_pie_dat <- rv_param_temp$plotDat %>%
         dplyr::filter(!is.na(get(limit_type))) %>%
-        group_by(MonitoringLocationIdentifier, Yr) %>%
+        group_by(MonitoringLocationIdentifier, CharSampleType, Yr) %>%
         summarise(N = n()) %>%
         left_join(rv_param_temp$plotDat %>%
                     dplyr::rename("CategVar" = limit_type) %>%
-                    group_by(MonitoringLocationIdentifier, Yr) %>%
-                    dplyr::count(CategVar), by = c("MonitoringLocationIdentifier", "Yr")) %>%
-        dplyr::rename(RowLev = MonitoringLocationIdentifier) 
-    } else {
-      temp_pie_dat <- rv_param_temp$plotDat %>%
-        dplyr::filter(!is.na(get(limit_type))) %>%
-        group_by(CharacteristicName, Yr) %>%
-        summarise(N = n()) %>%
-        left_join(rv_param_temp$plotDat %>%
-                    dplyr::rename("CategVar" = limit_type) %>%
-                    group_by(CharacteristicName, Yr) %>%
-                    dplyr::count(CategVar), by = c("CharacteristicName", "Yr")) %>%
-        dplyr::rename(RowLev = CharacteristicName) 
-    }
+                    group_by(MonitoringLocationIdentifier, CharSampleType, Yr) %>%
+                    dplyr::count(CategVar), by = c("MonitoringLocationIdentifier", "CharSampleType", "Yr")) 
+      
+      if(rv_param_temp$sel_summarize_by=="by_chartype") {
+        temp_pie_dat %<>% dplyr::rename(RowLev = MonitoringLocationIdentifier)
+      } else {
+        temp_pie_dat %<>% dplyr::rename(RowLev = CharSampleType)
+      }
+      
     temp_pie_dat %<>%
       dplyr::mutate(HoverLabel = paste0(RowLev, "<br>", rv_param_temp$seasonType, ": ", Yr, "<br>LEVEL: ", CategVar, "<br>COUNT: ", n, " out of N = ", N))
     return(temp_pie_dat)
@@ -2408,7 +2365,7 @@ final_plot_summary
 FuncClearAll <- function() {
   rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list())
   
-  rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
+  rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
   
   # Hide filter wellPanels
   restart_panels_filter <- c("new_data_P1", "new_data_P2", "new_data_P3", "new_data_P4", "create_categfile_P1", "create_categfile_P2", "create_categfile_P3") 
@@ -2455,7 +2412,7 @@ download_button <- function(outputId, label = "Download", class = NULL, ...)  {
 
 rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list())
   
-rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
+rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, showCharSets = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
 ```
 
 ```{r observe_inputs}
@@ -2464,17 +2421,36 @@ observeEvent(input$sel_SummaryParam, {
   })
 
 observeEvent(input$sel_ShowCharType, { # when a different parameter is selected, custom threshold limits are reset to NA
+  cat("PARAM CHANGED, SO RESETTING THRESHOLDS")
     rv_param_temp$currentInputs$sel_ThreshLower <- NA
     rv_param_temp$currentInputs$sel_ThreshUpper <- NA
+    rv_param_temp$currentInputs$sel_ThreshCateg1 <- rv_param_temp$currentInputs$sel_ThreshCateg2 <- rv_param_temp$currentInputs$sel_ThreshCateg3 <- "good"
   })
 
 observeEvent(input$sel_ThreshLower, { 
     rv_param_temp$currentInputs$sel_ThreshLower <- input$sel_ThreshLower
+    cat("ASSIGNED LOWER THRESH TO RV_PARAM_TEMP")
     })
 
 observeEvent(input$sel_ThreshUpper, { 
     rv_param_temp$currentInputs$sel_ThreshUpper <- input$sel_ThreshUpper
+    cat("ASSIGNED UPPER THRESH TO RV_PARAM_TEMP")
     })
+
+observeEvent(input$currentInputs$sel_ThreshCateg1, {
+  rv_param_temp$currentInputs$sel_ThreshCateg1 <- input$sel_ThreshCateg1
+  cat("ASSIGNED THRESHCATEG1")
+})
+
+observeEvent(input$currentInputs$sel_ThreshCateg2, {
+  rv_param_temp$currentInputs$sel_ThreshCateg2 <- input$sel_ThreshCateg2
+  cat("ASSIGNED THRESHCATEG2")
+})
+
+observeEvent(input$currentInputs$sel_ThreshCateg3, {
+  rv_param_temp$currentInputs$sel_ThreshCateg3 <- input$sel_ThreshCateg3
+  cat("ASSIGNED THRESHCATEG3")
+})
 
 ```
 
@@ -2537,7 +2513,7 @@ observeEvent(eventExpr = input$saved_data_file, {
   
   showModal(modalDialog(
   title = "Done",
-  "You may now navigate to the 'Define & Filter Data' page"
+  "You may now navigate to the other dashboard pages"
   ))
   }
 })
@@ -3188,7 +3164,7 @@ tempMeteoDat <- NULL
  
     showModal(modalDialog(
       title = "Done",
-      paste0("Data import SUCCESSFUL. You may now navigate to the FILTER DATA tab to choose a subset of data to work with. OPTIONAL: To download the formatted data file (.RDS) to your computer, press the `Save RDS to Computer` button in the left side panel. ") 
+      paste0("Data import SUCCESSFUL. OPTIONAL: To download the formatted data file (.RDS) to your computer, press the `Save RDS to Computer` button in the left side panel. You may now navigate to the other dashboard pages. ") 
     ))
   })
 }, ignoreInit = TRUE) # end of observeEvent
@@ -3562,7 +3538,7 @@ observeEvent(eventExpr = input$button_allStationChars, {
   shiny::req(input$sel_SummarizeBy == "by_station")
   updateCheckboxGroupInput(session,
                            "sel_ShowStationCharTypes",
-                           selected = sort(intersect(unique(rv_param_temp$subDat$CharacteristicName[rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation]), rv_param_temp$subDatTypes$CharacteristicName[rv_param_temp$subDatTypes$DataType == "numeric"]))
+                           selected = sort(intersect(unique(rv_param_temp$subDat$CharSampleType[rv_param_temp$subDat$MonitoringLocationIdentifier == input$sel_ShowOneStation]), rv_param_temp$subDatTypes$CharSampleType[rv_param_temp$subDatTypes$DataType == "numeric"]))
   )
   }, ignoreInit = TRUE) # end of observeEvent
 
@@ -3956,16 +3932,11 @@ cat("line3881")
     ## THRESH
     if(sel_param_map_show == "thresh") {
       shiny::validate(need(sum(!is.na(rv_param_temp$plotDat$ThreshCateg)) > 0, message = "No threshold limits defined for these data."))
-
+      
       thresh_mat <- rv_param_temp$plotDat %>%
         dplyr::filter(!is.na(ThreshCateg)) # NA's occur when is.na(ResultMeasureValue_replaced)--these should not be included, they are just missing values
-
-      thresh_list <- switch(rv_param_temp$sel_show_thresholds,
-                          showthresh_file = rv_param_temp$threshList,
-                          showthresh_custom = rv_param_temp$threshCustom,
-                          showthresh_none = NULL)
-
-      thresh_mat$ThreshCateg <- factor(thresh_mat$ThreshCateg, levels = thresh_list[[1]]$cut_categ) # ensures that a column is created even if a factor level is not in the data
+      
+      thresh_mat$ThreshCateg <- factor(thresh_mat$ThreshCateg, levels = c("good", "caution", "poor")) # ensures that a column is created even if a factor level is not in the data
       thresh_mat %<>%
         filter(Yr == as.numeric(input$sel_SurvYr)) %>%
         group_by(MonitoringLocationIdentifier, Yr) %>%
@@ -3977,7 +3948,7 @@ cat("line3881")
         ungroup()
       
       param_map %<>%
-        addControl(tags$div(tag.map.title, HTML(input$sel_ShowCharType, " in Year ", input$sel_SurvYr)), position = "topleft", className="map-title") %>%
+        addControl(tags$div(tag.map.title, HTML(input$sel_ShowChar, " in Year ", input$sel_SurvYr)), position = "topleft", className="map-title") %>%
         addMinicharts(
           lng = thresh_mat$X,
           lat = thresh_mat$Y,
@@ -3989,8 +3960,8 @@ cat("line3881")
           width = 30+(10*map_point_size),
           showLabels = TRUE,
           legend = TRUE,
-          chartdata = as.matrix(subset(thresh_mat, select = thresh_list[[1]]$cut_categ)),
-          colorPalette = thresh_list[[1]]$cut_colors,
+          chartdata = as.matrix(thresh_mat[, c("good", "caution", "poor")]),
+          colorPalette = rv_param_temp$threshColors,
           opacity = 1) %>%
         hideGroup("Imported monitoring sites")%>%
         hideGroup("Selected monitoring sites") %>%
@@ -4114,31 +4085,20 @@ output$out_thresh_plots <- renderPlotly({
 
   shiny::req(!is.null(rv$dat), !is.null(rv_param_temp$subDat),  !is.null(rv_param_temp$subDatTypes), !is.null(rv_param_temp$plotDat))
 shiny::req(!is.null(rv_param_temp$sel_summarize_by))
-# shiny::validate(need(rv_param_temp$sel_summarize_by == "by_chartype", message = "Currently, this display is available only when summarizing by characteristic (not by station)"))
 
 shiny::req(!is.null(rv_param_temp$sel_show_thresholds))
 shiny::validate(need(!is.null(rv_param_temp$sel_show_thresholds != "showthresh_none"), "In the left sidebar, choose to define custom threshold limits or import limits from a file, then click the green 'REFRESH PLOT DATA' button"))
 
-thresh_list <- switch(rv_param_temp$sel_show_thresholds,
-                          showthresh_file = rv_param_temp$threshList,
-                          showthresh_custom = rv_param_temp$threshCustom)
-
-shiny::validate(need(!is.null(thresh_list), message = "No threshold limits defined"))
-
-thresh_ID = paste0(unique(na.omit(rv_param_temp$plotDat$CharacteristicName)), " (", unique(na.omit(rv_param_temp$plotDat$ResultMeasure.MeasureUnitCode)), ")")
-shiny::validate(need(!is.null(thresh_list[[thresh_ID]]), message = paste0("No threshold limits defined for ", thresh_ID)))
+shiny::validate(need(length(na.omit(rv_param_temp$plotDat$ThreshCateg)) > 0, message = "No threshold limits defined for the selected characteristics"))
 
   threshPieDat <- FuncPieDat(limit_type = "ThreshCateg")
   
   shiny::validate(
-    need(!is.null(threshPieDat), message = "No threshold limits defined"))
-  
-  thresh_named_colors <- thresh_list[[thresh_ID]]$cut_colors
-  thresh_named_levels <- thresh_list[[thresh_ID]]$cut_categ
+    need(!is.null(threshPieDat), message = "No threshold limits defined for the selected characteristics"))
   
   thresh_plot_title <- paste0("Threshold levels by ", switch((rv_param_temp$sel_summarize_by == "by_chartype")+1, "water quality characteristic", "monitoring site"), " (rows) and year (cols) for ", switch((rv_param_temp$sel_summarize_by == "by_chartype")+1, unique(rv_param_temp$plotDat$MonitoringLocationIdentifier), unique(rv_param_temp$plotDat$CharacteristicName)))
   
-  thresh_pie <- FuncPlotlyPieMatrix(dat = threshPieDat %>% dplyr::filter(!is.na(CategVar)), discrete_cols = thresh_named_colors, discrete_levels = thresh_named_levels, plot_title = thresh_plot_title)
+  thresh_pie <- FuncPlotlyPieMatrix(dat = threshPieDat %>% dplyr::filter(!is.na(CategVar)), discrete_cols = rv_param_temp$threshColors, discrete_levels = c("good", "caution", "poor"), plot_title = thresh_plot_title)
   })
 tags$style("#out_thresh_plots{height: calc(100vh - 350px) !important;overflow-x:scroll;overflow-y:scroll}")
 
@@ -4156,7 +4116,7 @@ output$out_perc_plots <- renderPlotly({
 
   perc_named_levels <- c("below", "between", "above")
 
-  perc_plot_title <- paste0("Percentile levels by ", switch((rv_param_temp$sel_summarize_by == "by_chartype")+1, "WQ characteristic", "monitoring site"), " (rows) and year (cols) for ", switch((rv_param_temp$sel_summarize_by == "by_chartype")+1, unique(rv_param_temp$plotDat$MonitoringLocationIdentifier), unique(rv_param_temp$plotDat$CharacteristicName)), " calculated", switch((input$sel_QuantileGroupBy=="quant_all")+1, " separately by site", " for all sites combined"))
+  perc_plot_title <- paste0("Percentile levels by ", switch((rv_param_temp$sel_summarize_by == "by_chartype")+1, "WQ characteristic", "monitoring site"), " (rows) and year (cols) for ", switch((rv_param_temp$sel_summarize_by == "by_chartype")+1, unique(rv_param_temp$plotDat$MonitoringLocationIdentifier), unique(rv_param_temp$plotDat$CharSampleType)), " calculated", switch((input$sel_QuantileGroupBy=="quant_all")+1, " separately by site", " for all sites combined"))
 
   perc_pie <- FuncPlotlyPieMatrix(dat = percPieDat %>% dplyr::filter(!is.na(CategVar)), discrete_cols = perc_named_colors, discrete_levels = perc_named_levels, plot_title = perc_plot_title)
   })
@@ -5051,19 +5011,6 @@ br()
 
 br()
 
-# output$out_alert <- renderText({
-#     shiny::req(!is.null(rv_param_temp$plotDat))
-#     "NOTE: Summaries by Reporting Site are limited to survey events for which data are available for all included Sites"
-#   })
-# conditionalPanel(
-#   condition = "(typeof output.out_alert !== 'undefined' && output.out_alert > 0)",
-#   tags$div(
-#   id = "test_alert",
-#   class = "alert alert-warning",
-#   textOutput("out_alert")
-#   )
-# )
-
 wellPanel(
   id = "summarize_char_stations",
   p(strong("Select data to plot")),
@@ -5140,7 +5087,7 @@ renderUI({
 #     FuncAllNoneButtons(cond = "input.sel_ShowCharSets", name_all = "button_allCharSets", name_none = "button_noCharSets")
 #     }),
 
-# If summarizing by station (many characteristics for ONE STATION)...
+# If summarizing by station (many characteristics for ONE SITE)...
 renderUI({
     shiny::req(!is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$subDat))
   shiny::req(input$sel_SummarizeBy == "by_station")
@@ -5196,7 +5143,7 @@ wellPanel(
   renderUI({
     shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_SummarizeBy))
     thresh_choice_values <- c("showthresh_none",
-                              switch(!is.null(rv_param_temp$threshList)+1, NA, "showthresh_file"),
+                              ifelse(!is.null(rv_param_temp$threshList)+1, NA, "showthresh_file"),
                               ifelse(input$sel_SummarizeBy == "by_chartype", "showthresh_custom", NA)
                               
     )
@@ -5219,53 +5166,72 @@ wellPanel(
     }),
 
   renderUI({ # Set custom threshold limits
-    shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_ShowThresholds), !is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$currentInputs$sel_ThreshLower), !is.null(rv_param_temp$currentInputs$sel_ThreshUpper))
+    shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_ShowThresholds), !is.null(input$sel_SummarizeBy))
+    cat("line5239")
     shiny::req(input$sel_ShowThresholds == "showthresh_custom")
-    conditionalPanel(
-      condition = "input.sel_ShowThresholds == 'showthresh_custom'",
-      p(strong("Define up to TWO threshold cutoff values")),
-      
-
-        numericInput("sel_ThreshLower",
-                     label = "First cutoff:",
+    cat("line5241")
+    
+    shinyWidgets::awesomeRadio("sel_NumThresh",
+                               label = "Select number of thresholds:",
+                               choices = c(0, 1, 2),
+                               selected = 2,
+                               inline = TRUE)
+  }),
+    
+    renderUI({
+      shiny::req(input$sel_NumThresh > 0)
+      numericInput("sel_ThreshLower",
+                     label = "Threshold 1 (lower cutoff value, if multiple):",
                      value = rv_param_temp$currentInputs$sel_ThreshLower,
                      min = NA,
                      max = NA,
-                     step = NA),
-      
-      if(all(!is.null(rv_param_temp$currentInputs$sel_ThreshLower), !is.na(rv_param_temp$currentInputs$sel_ThreshLower))) { # If a lower threshold is defined, then ask for classification and give option for upper threshold
-
-        selectInput("sel_ThreshCateg1",
-                    label = paste0("Values <", rv_param_temp$currentInputs$sel_ThreshLower, " (inclusive) are classified as:"),
-                    choices = c("good", "caution", "poor"),
-                    selected = switch(is.null(input$sel_ThreshCateg1)+1, input$sel_ThreshCateg1, "good"))
-        
-        br()
-        
-        numericInput("sel_ThreshUpper",
-                     label = "Second cutoff (must be higher than first cutoff):",
+                     step = NA)
+    }),
+    
+    renderUI({
+      shiny::req(input$sel_NumThresh == 2, !is.na(input$sel_ThreshLower), !is.null(input$sel_ThreshLower))
+      numericInput("sel_ThreshUpper",
+                     label = "Threshold 2 (higher than Threshold 1):",
                      value = rv_param_temp$currentInputs$sel_ThreshUpper,
-                     min = NA,
+                     min = input$sel_ThreshLower,
                      max = NA,
                      step = NA)
-        
-        # If lower AND upper threshold are defined, ask for classification of the values btwn the thresholds
+    }),
+    
+    renderUI({ # Classify values less than lower threshold value
+      shiny::req(input$sel_NumThresh > 0, !is.null(input$sel_ThreshLower), !is.na(input$sel_ThreshLower))
+      radioButtons("sel_ThreshCateg1",
+                  label = paste0("Values LESS THAN ", input$sel_ThreshLower, " are classified as:"),
+                  choices = c("good", "caution", "poor"),
+                  inline = TRUE,
+                  selected = rv_param_temp$currentInputs$sel_ThreshCateg1)
+      }),
+    
+    renderUI({ # Classify values greater than lower threshold value
+      shiny::req(input$sel_NumThresh > 0, !is.null(input$sel_ThreshLower), !is.na(input$sel_ThreshLower))
       
-      if(all(!is.null(rv_param_temp$currentInputs$sel_ThreshLower), !is.na(rv_param_temp$currentInputs$sel_ThreshLower), !is.null(rv_param_temp$currentInputs$sel_ThreshUpper), !is.na(rv_param_temp$currentInputs$sel_ThreshUpper))) { # various packages have functions that can check for NA or NULL simultaneously, but don't want to deal with possible function deprecation in the future
-        selectInput("sel_ThreshCateg2",
-                    label = paste0("Values >", input$sel_ThreshLower, " and <", input$sel_ThreshUpper, " (inclusive) are classified as:"),
-                    choices = c("good", "caution", "poor"),
-                    selected = switch(is.null(input$sel_ThreshCateg2)+1, input$sel_ThreshCateg2, "good")
-                    )
-        }
-        
-        selectInput("sel_ThreshCateg3",
-                    label = paste0("Values >", switch(is.null(input$sel_ThreshUpper)+1, input$sel_ThreshLower, input$sel_ThreshUpper), " are classified as:"),
-                    choices = c("good", "caution", "poor"),
-                    selected = switch(is.null(input$sel_ThreshCateg3)+1, input$sel_ThreshCateg3, "good"))
+      if(all(input$sel_NumThresh == 2, !is.null(input$sel_ThreshUpper), !is.na(input$sel_ThreshUpper))) {
+        thresh_label <- paste0("Values BETWEEN ", input$sel_ThreshLower, " and ", input$sel_ThreshUpper, " (inclusive) are classified as:")
+      } else {
+        thresh_label <- paste0("Values GREATER THAN ", input$sel_ThreshLower, " are classified as:")
       }
-    ) # end of conditional panel
-    }), # end of renderUI
+        
+      radioButtons("sel_ThreshCateg2",
+                  label = thresh_label,
+                  choices = c("good", "caution", "poor"),
+                  inline = TRUE,
+                  selected = rv_param_temp$currentInputs$sel_ThreshCateg2)
+    }),
+  
+  renderUI({ # classify values greater than upper threshold
+    shiny::req(input$sel_NumThresh == 2, !is.null(input$sel_ThreshUpper), !is.na(input$sel_ThreshUpper))
+    shiny::req(input$sel_ThreshLower < input$sel_ThreshUpper)
+        
+        radioButtons("sel_ThreshCateg3",
+                    label = paste0("Values GREATER THAN ", input$sel_ThreshUpper, " are classified as:"),
+                    choices = c("good", "caution", "poor"),
+                    selected = rv_param_temp$currentInputs$sel_ThreshCateg3)
+  }),
 
   br(),
 
@@ -5472,8 +5438,13 @@ renderUI({
       shiny::req(input$sel_PlotType %in% c("points", "points_smooth"))
       avail_yrs <- c("None", as.character(sort(unique(rv_param_temp$plotDat$Yr))))
       shiny::req(length(unique(rv_param_temp$plotDat$Yr)) > 0)
-      sliderTextInput("sel_HighlightSurvYr", force_edges = TRUE, label = h4(strong("Choose a survey year to highlight blue in points plots")), choices = avail_yrs, selected = switch(is.null(input$sel_HighlightSurvYr)+1, input$sel_HighlightSurvYr, "None"), dragRange = FALSE, animate = FALSE, width = "500px")
-  }),
+      selectInput("sel_HighlightSurvYr", 
+                  label = h6("Highlight a year in points plots"), 
+                  choices = avail_yrs, 
+                  selected = switch(is.null(input$sel_HighlightSurvYr)+1, input$sel_HighlightSurvYr, "None"),
+                  width = "50%"
+                  )
+      }),
   
   shinyWidgets::dropdownButton(
     inputId = "dropdown_options",
@@ -5624,161 +5595,6 @@ bslib::card(
   )
 )
 ```
-
-TEMP - Define Categorical Characters
-====================================== 
-
-Leftside Panel  {data-width=210}
--------------------------------------
-
-###
-
-```{r categfile_leftside_panel} 
-useShinyjs(rmd = TRUE)
-# Panel for user to initiate color coding file ----
-
-strong("File for defining categorical data")
-
-radioButtons("sel_GetCategFile",
-               label = h6("Method for generating file:"),
-               choices = c("Attach file from computer" = "existing_data", "Follow steps to create a file" = "new_data"))
-
-actionButton("button_getCategFile", "Create Definitions File", width = "100%")
-
-br()
-
-br()
-
-# Panel to select a categorical characteristic
-shinyjs::hidden(
-wellPanel(
-  id = "create_categfile_P1",
-  p(strong("1. Identify a categorical characteristic")),
-  
-  renderUI({
-    shiny::req(!is.null(rv_param_temp$subDatTypes))
-    shiny::req(input$sel_GetCategFile == "new_data")
-    conditionalPanel(
-      condition = "input.sel_GetCategFile == 'new_data'",
-
-      selectInput("sel_CategParam",
-                  label = "",
-                  choices = rv_param_temp$subDatTypes$CharacteristicName[rv_param_temp$subDatTypes$DataType == "categorical"],
-                  selected = switch(is.null(input$sel_CategParam)+1, input$sel_CategParam, rv_param_temp$subDatTypes$CharacteristicName[rv_param_temp$subDatTypes$DataType == "categorical"][1]))
-      )
-    })
-  ) # end create_categfile_P1
-) # end hidden
-
-# Panel to set categorical levels (and, if applicable, their order) ----
-shinyjs::hidden(
-  wellPanel(
-  id = "create_categfile_P2",
-  p(strong("2. Specify category levels")),
-         renderUI({
-           shiny::req(!is.null(input$sel_GetCategFile), !is.null(input$sel_CategParam))
-
-              rv_param_temp$categLevels <- rv$dat %>% dplyr::filter(CharacteristicName == input$sel_CategParam, !is.na(ResultMeasureValue)) %>% dplyr::select(ResultMeasureValue) %>% distinct() %>% arrange() # can't just assign a vector to a reactive value initially assigned as NULL because it's expecting a dataframe or a single variable
-              
-              shiny::req(input$sel_GetCategFile == "new_data")
-           conditionalPanel(
-             condition = "input.sel_GetCategFile == 'new_data'",
-
-             actionButton("button_addCategLevel", "Add a Level"), # user can add a category level that is not present in the data
-             actionButton("button_deleteCategLevel", "Delete a Level"), # user can set category levels to NA)
-
-             renderUI({rank_list( # wrap in renderUI to update when user adds or deletes a level
-               text = "List of category levels (drag to rearrange order)",
-               labels = rv_param_temp$categLevels$ResultMeasureValue,
-               input_id = "categ_ranked") # this is the ID for the ranked category vector
-             })
-           )
-         })
-) # end create_categfile_P2
-) # end hidden
-```
-
-Middle Panel  {data-width=190}
--------------------------------------
-
-###
-
-```{r categfile_middle_panel}
-
-# Panel to assign colors to category levels ----
-
-shinyjs::hidden(
-  wellPanel(
-    id = "create_categfile_P3",
-    p(strong("3. Assign colors to category levels")),
-
-    actionButton("button_showPalettes", "Show All Color Palettes", width = "100%"),
-    
-    br(),
-    
-    selectizeInput("sel_CategPalette", # using selectize so user can start by typing in text
-                   label = h6("Select a color palette to apply"),
-                   choices = c("YlOrRd", "YlOrBr", "YlGnBu", "YlGn", "Reds", "RdPu", "Purples", "PuRd", "PuBuGn", "PuBu", "OrRd", "Oranges", "Greys", "Greens", "GnBu", "BuPu", "BuGn", "Blues", "Set3", "Set2", "Set1", "Pastel2", "Pastel1", "Paired", "Dark2", "Accent", "Spectral", "RdYlGn", "RdYlBu", "RdGy", "RdBu", "PuOr", "PRGn", "PiYG", "BrBG"),
-                   multiple = FALSE),
-    actionButton("button_updateCategFile", "Add to Color Coding File", width = "100%")
-    ) # end of well panel 'create_categfile_P3'
-) # end hidden
-
-# Show the colors that will be associated with color levels ----
-  renderPlot({
-    if(any(is.null(input$sel_GetCategFile), is.null(input$sel_CategPalette), is.null(input$categ_ranked), input$sel_GetCategFile == "existing_data")) {
-     plot(NULL, xaxt='n', yaxt='n', bty='n', ylab='', xlab='', xlim=0:1, ylim=0:1)
-    } else {
-      plot(NULL, xaxt='n', yaxt='n', bty='n', ylab='', xlab='', xlim=0:1, ylim=0:1)
-  legend("topleft", legend = input$categ_ranked, pch=16, pt.cex=2.5, cex=1.25, bty='n', col = get_brewer_pal(input$sel_CategPalette, length(input$categ_ranked), plot = FALSE))
-  mtext(input$sel_CategParam, at = 0.25, cex=1.25)
-    }
-  })
-```
-
-Rightside Panel {data-width=400}
--------------------------------------
-
-### Categorical Definitions File
-
-<center>*Double-click in any cell to edit contents. To delete a row, click it once to select and then choose 'Delete Selected Row(s).'*</center>
-
-```{r categfile_categ_table}
-renderUI({
-  FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE)
-  if(any(!rv$importSettings$sel_Organization %in% rv$sitesPointsSub@data$OrganizationFormalName))
-    {rv_param_temp$categLevels <- tibble("CharacteristicName" = as.character(), "CategOrder" =as.character(), "CategColor" = as.character())} # initiate a blank categorical levels data frame if the data have not been updated
-  })
-
-div(style="display:inline-block; width:100px; margin-right:10px;", actionButton("button_categAddRow", "Add a Row"))
-div(style="display:inline-block; width:180px;", actionButton("button_categDeleteRow", "Delete Selected Row(s)"))
-
-br()
-
-br()
-
-output$categDT <- DT::renderDT({rv_param_temp$categLevelsPlot}, editable = TRUE)
-proxyDT <- DT::dataTableProxy("categDT")
-    
-dataTableOutput("categDT")
-
-br()
-
-br()
-
-downloadLink("button_exportCateg", label = "Save table as .csv for future use")
-
-output$button_exportCateg <- downloadHandler(
-  filename = function() {
-    return(paste0("WQdash_categ_", rv$parkID, "_", paste0(gsub(pattern = "-", replacement = "", x = Sys.Date())),".csv"))
-    },
-  content = function(file) {
-    write_csv(rv_param_temp$categLevelsPlot, file)
-    }
-  )
-
-```
-
 
 TEMP - PLOT SUMMARY
 ======================================
