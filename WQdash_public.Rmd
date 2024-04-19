@@ -58,8 +58,9 @@ pkgs <- c("flexdashboard",
           "gridExtra", # for arranging plots and adding plot annotations (ggplotly can't do captions or subtitles)
           "RgoogleMaps", # for MaxZoom & MinZoom
           "geojsonio", # to test for presence of features
-          "lemon", # for facet_rep_wrap <<<<<<<<<<<<<<<<<<<<<<<< NEW
-          # "rnoaa", # to get NOAA climate data <<<<< THIS PACKAGE WILL RETIRE SOON. KEEP AN EYE ON THIS.
+          "lemon", # for facet_rep_wrap
+          # "EnvironmentalSettingToolkit", # installed from github
+          "rnoaa", # to get NOAA climate data <<<<< THIS PACKAGE WILL RETIRE SOON. KEEP AN EYE ON THIS.
           "leaflet.minicharts") # for web etiquette with APIs
 
 installed_pkgs <- pkgs %in% installed.packages()
@@ -2322,94 +2323,6 @@ download_button <- function(outputId, label = "Download", class = NULL, ...)  {
 
 ```
 
-```{r rnoaa functions}
-# The following are functions from rnoaa, copied verbatim. The package will be retired, so saving the functions here.
-  
-  meteo_tidy_ghcnd_element <- function(x, keep_flags = FALSE){
-  var_name <- colnames(x)[2]
-  if (keep_flags) {
-    flag_locs <- grep("flag", colnames(x))
-    colnames(x)[flag_locs] <-
-      paste(colnames(x)[flag_locs], var_name, sep = "_")
-    x <- tidyr::gather(x, "key", "value", 
-      tidyselect::vars_select(names(x), -id, -date))
-  } else {
-    x <- dplyr::select(x, -dplyr::ends_with('flag'))
-    x <- tidyr::gather(x, "key", "value",
-      tidyselect::vars_select(names(x), -id, -date))
-  }
-  return(x)
-  }
-  
-  ghcnd_search <- function (stationid, date_min = NULL, date_max = NULL, var = "all", 
-    refresh = FALSE, ...) 
-{
-    out <- ghcnd(stationid, refresh = refresh, ...)
-    dat <- ghcnd_splitvars(out)
-    message("file min/max dates: ", min(dat[[1]]$date), 
-        " / ", max(dat[[1]]$date))
-    possvars <- paste0(names(dat), collapse = ", ")
-    if (any(var != "all")) {
-        vars_null <- sort(tolower(var))[!sort(tolower(var)) %in% 
-            sort(names(dat))]
-        dat <- dat[tolower(var)]
-    }
-    if (any(sapply(dat, is.null))) {
-        dat <- noaa_compact(dat)
-        warning(sprintf("%s not in the dataset\nAvailable variables: %s", 
-            paste0(vars_null, collapse = ", "), possvars), 
-            call. = FALSE)
-    }
-    if (!is.null(date_min)) {
-        dat <- lapply(dat, function(z) dplyr::filter(z, date >= 
-            date_min))
-    }
-    if (!is.null(date_max)) {
-        dat <- lapply(dat, function(z) dplyr::filter(z, date <= 
-            date_max))
-    }
-    dat <- lapply(dat, function(z) dplyr::arrange(z, date))
-    return(dat)
-}
-  
-  
-meteo_tidy_ghcnd <- function (stationid, keep_flags = FALSE, var = "all", date_min = NULL, date_max = NULL) {
-    dat <- suppressWarnings(ghcnd_search(stationid = stationid, 
-        var = var, date_min = date_min, date_max = date_max))
-    dat <- lapply(dat, meteo_tidy_ghcnd_element, keep_flags = keep_flags)
-    cleaned_df <- do.call(rbind.data.frame, dat) %>% tidyr::spread("key", 
-        "value")
-    to_clean <- c("prcp", "tmax", "tmin", "tavg", 
-        "snow", "snwd")
-    for (i in seq_along(to_clean)) {
-        if (to_clean[i] %in% names(cleaned_df)) {
-            cleaned_df[[to_clean[i]]][cleaned_df[[to_clean[i]]] == 
-                -9999] <- NA_real_
-        }
-    }
-    return(cleaned_df)
-  }
-  
-meteo_pull_monitors <- function (monitors, keep_flags = FALSE, date_min = NULL, date_max = NULL, var = "all") {
-    monitors <- unique(monitors)
-    safe_meteo_tidy_ghcnd <- purrr::safely(meteo_tidy_ghcnd)
-    all_monitors_clean <- lapply(monitors, safe_meteo_tidy_ghcnd, 
-        keep_flags = keep_flags, date_min = date_min, date_max = date_max, 
-        var = var)
-    check_station <- sapply(all_monitors_clean, function(x) is.null(x$result))
-    bad_stations <- monitors[check_station]
-    if (length(bad_stations) > 0) {
-        warning(paste("The following stations could not be pulled from", 
-            "the GHCN ftp:\n", paste(bad_stations, collapse = ", "), 
-            "\nAny other monitors were successfully pulled from GHCN."))
-    }
-    all_monitors_out <- lapply(all_monitors_clean[!check_station], 
-        function(x) x$result)
-    all_monitors_out <- suppressWarnings(dplyr::bind_rows(all_monitors_out))
-    return(all_monitors_out)
-}
-```
-
 ```{r startup}
 
 rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list())
@@ -2619,6 +2532,7 @@ observeEvent(eventExpr = input$button_showStations, {
     
   # Recently active WQP stations that fall within the HUC10 bbox (sampled within past [user-specified number of] years) 
   sitesURL <- paste0("https://www.waterqualitydata.us/data/Station/search?siteType=Aggregate%20surface-water-use&siteType=Estuary&siteType=Lake%2C%20Reservoir%2C%20Impoundment&siteType=Spring&siteType=Stream&siteType=Well&siteType=Wetland&siteType=Aggregate%20groundwater%20use&siteType=Aggregate%20groundwater%20use%20&siteType=Aggregate%20water-use%20establishment&siteType=Subsurface&bBox=", paste(huc10_bbox, collapse ="%2C"), "&characteristicType=Toxicity&characteristicType=Physical&characteristicType=Organics%2C%20PFAS&characteristicType=Organics%2C%20Pesticide&characteristicType=Organics%2C%20PCBs&characteristicType=Nutrient&characteristicType=Microbiological&characteristicType=Cyanotoxins%2C%20Phytotoxins&characteristicType=Inorganics%2C%20Major%2C%20Metals&characteristicType=Inorganics%2C%20Major%2C%20Non-metals&minactivities=1&startDateLo=01-01-", lubridate::year(Sys.Date())-as.integer(input$sel_ActiveWithinYrs), "&sampleMedia=Water&sampleMedia=water&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
+  cat(sitesURL)
    
 cat("line2489")
     if(http_status(GET(sitesURL))$category!="Success") { # make sure the service call is valid
@@ -2737,6 +2651,7 @@ cat("line2336")
   
  facilitiesURL <- paste0("https://ofmpub.epa.gov/echo/cwa_rest_services.get_facility_info?output=GEOJSON&p_maj=Y&p_wbd=", paste(rv$HUC10$HUC, collapse = ",")) # major facilities only, falls within the HUC10 boundaries
 cat("line2614")
+cat(facilitiesURL)
   if(http_status(GET(facilitiesURL))$category!="Success") { # make sure the service call is valid
     showModal(modalDialog(
       title = "No Discharge Facilities Data",
@@ -2752,6 +2667,7 @@ cat("line2614")
         lostHUCS <- unlist(str_extract_all(content(GET(facilitiesURL))$message, "[[:digit:]]{10}")) # extract the HUC10's
         subsetHUC <- setdiff(rv$HUC10$HUC, lostHUCS) # remove those HUC's from the list, and try again
         facilitiesURL <- paste0("https://ofmpub.epa.gov/echo/cwa_rest_services.get_facility_info?output=GEOJSON&p_maj=Y&p_wbd=", paste(subsetHUC, collapse = ",")) # major facilities only, falls within the HUC10 boundaries
+        cat(facilitiesURL)
       }
       tempFacilitiesOutput <- "tempFacilities.geojson"
       cat("line2360")
@@ -3063,7 +2979,7 @@ observeEvent(eventExpr = input$button_downloadData, {
     # Limited to specified date range and minimum activities number
   allOrgs <- paste(paste0("organization=", unique(rv$dat$OrganizationIdentifier)), collapse = "&")
     orgURL <- paste0("https://www.waterqualitydata.us/data/Organization/search?", allOrgs, "&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
-
+cat(orgURL)
   if(http_status(GET(orgURL))$category!="Success") { # make sure the service call is valid
     showModal(
       urlModal(orgURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving organization information from the Water Quality Portal. The message from the web service is: `", http_status(GET(orgURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
@@ -3092,6 +3008,7 @@ observeEvent(eventExpr = input$button_downloadData, {
   # gagesDatURL <- paste0("https://waterservices.usgs.gov/nwis/dv/?format=rdb,1.0&sites=", paste(rv$selectedGages$GageID, collapse = ","), "&startDT=", format(input$sel_ImportStartDate,"%Y-%m-%d"), "&endDT=", format(input$sel_ImportEndDate,"%Y-%m-%d"), "&siteStatus=all")
   
   gagesDatURL <- paste0("https://waterservices.usgs.gov/nwis/dv/?format=rdb,1.0&sites=", paste(rv$selectedGages$GageID, collapse = ","), "&startDT=",range(rv$dat$ActivityStartDate)[1], "&endDT=", range(rv$dat$ActivityStartDate)[2], "&siteStatus=all") # <<<< GOT RID OF START STOP AND END DATE OPTION HERE
+  cat(gagesDatURL)
   
   if(http_status(GET(gagesDatURL))$category!="Success") { # make sure the service call is valid
     rv$gagesDat <- NULL
@@ -3119,17 +3036,17 @@ observeEvent(eventExpr = input$button_downloadData, {
   }
   
   # Get precipitation data from selected weather stations ----
-        saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+#         saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
 
 rv$meteoDat <- NULL
   if(all(!is.null(rv$meteoStations), !is.null(rv$selectedMeteo))) {
     if(all(nrow(rv$meteoStations) > 0, length(rv$selectedMeteo) > 0)) {
   setProgress(3/4, detail = "Getting precipitation data from selected weather stations")
 tempMeteoDat <- NULL
-  tempMeteoDat <- meteo_pull_monitors(monitors = sort(unique(rv$selectedMeteo$MeteoShortID)), keep_flags = TRUE, date_min = range(rv$dat$ActivityStartDate)[1], date_max = range(rv$dat$ActivityStartDate)[2], var = "PRCP") %>% # pull precipitation data (tenths of mm) for the stations and date range corresponding with downloaded WQP data
-    dplyr::filter(!is.na(prcp)) %>%
+  tempMeteoDat <- meteo_pull_monitors(monitors = sort(unique(rv$selectedMeteo$MeteoShortID)), keep_flags = TRUE, date_min = range(rv$dat$ActivityStartDate)[1], date_max = range(rv$dat$ActivityStartDate)[2], var = "PRCP") %>% 
+    dplyr::filter(!is.na(prcp)) %>% # pull precipitation data (tenths of mm) for the stations and date range corresponding with downloaded WQP data
     dplyr::mutate(prcp = as.numeric(prcp))
   if(!is.null(tempMeteoDat)) {
     if(nrow(tempMeteoDat) > 0 ) {
@@ -3199,17 +3116,22 @@ observeEvent(eventExpr = input$dismiss_gages_modal, {
   })
   
 renderUI({
+  cat("line3119")
   shiny::req(!is.null(rv$meteoStations), !is.null(input$sel_GetData), is.null(rv$dat))
   shiny::req(input$sel_GetData == "new_data")
+  cat("line3122")
   rv$selectedMeteo <- switch(is.null(input$sel_Meteo)+1, rv$meteoStations[rv$meteoStations$MeteoName %in% input$sel_Meteo,], NULL)
+  cat("line3124")
 })
 
 renderUI({
+  cat("line3128")
   shiny::req(!is.null(rv$gageStations), !is.null(input$sel_GetData), is.null(rv$dat))
   shiny::req(input$sel_GetData == "new_data")
   cat("updating SELECTED GAGES")
 
   rv$selectedGages <- switch(is.null(input$sel_Gages)+1, rv$gageStations[rv$gageStations$GageName %in% input$sel_Gages,], NULL)
+  cat("line3134")
   # Sys.sleep(1)
 })
 ```
@@ -5389,8 +5311,9 @@ wellPanel(
   renderUI({
     shiny::req(!is.null(input$sel_AddGagePrecip))
     shiny::req(input$sel_AddGagePrecip == "streamflow")
+    cat("line5314")
     shiny::validate(
-      need(!is.null(rv$selectedGages) & !is.null(rv$gagesDat), message = "No streamflow data imported"))
+      need(all(!is.null(rv$selectedGages), !is.null(rv$gagesDat)), message = "No streamflow data imported"))
     conditionalPanel(
       condition = "input.sel_AddGagePrecip == 'streamflow'",
       selectInput("sel_GageStation", # choose a gage station
@@ -5405,7 +5328,7 @@ wellPanel(
     shiny::req(!is.null(input$sel_AddGagePrecip))
     shiny::req(input$sel_AddGagePrecip == "precipitation")
     shiny::validate(
-      need(!is.null(rv$selectedMeteo) & !is.null(rv$meteoDat), message = "No precipitation data imported"))
+      need(all(!is.null(rv$selectedMeteo), !is.null(rv$meteoDat)), message = "No precipitation data imported"))
     conditionalPanel(
       condition = "input.sel_AddGagePrecip == 'precipitation'",
       selectInput("sel_PrecipStation", # choose a weather station
@@ -5667,40 +5590,9 @@ bslib::card(
 )
 ```
 
-TEMP - PLOT SUMMARY
-======================================
-
-### Plot Data Summary
-```{r plot_summary}
-output$plotDT <- DT::renderDT({
-  FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = TRUE)
-  shiny::req(!is.null(input$sel_SummaryTab), !is.null(rv_param_temp$plotSummarizeBy), !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$plotSummary))
-
-
-  temp_plotsummary <- DT::datatable(
-    rv_param_temp$plotSummary,
-    escape = FALSE,
-    filter = "top",
-    rownames = FALSE,
-    selection = "none",
-    class="compact stripe",
-    options = list(
-      # pageLength = -1,
-      colReorder = TRUE,
-      # lengthMenu = c(5, 10, 15, 20),
-      columnDefs = list(
-        list(className = 'dt-center', targets = "_all"))
-      )
-    )
-})
-plot_proxyDT <- DT::dataTableProxy("plotDT", session = session)
-dataTableOutput("plotDT")
-tags$style("#plotDT{height:100vh;overflow-x:scroll;overflow-y:scroll}")
-```
-
 Raw Data
 ======================================
-
+  
 Inputs {.sidebar data-width=400}
 -------------------------------------
 ```{r raw_data_input}
@@ -5716,13 +5608,13 @@ strong("Raw Data Fields for Filtered Data")
 
 # Raw data columns to display
 em(tags$a(href="https://www.waterqualitydata.us/portal_userguide/#WQPUserGuide-Table5", target="_blank", "Click for Variable Definitions"))
-    renderUI({
-      checkboxGroupInput("sel_RawFilteredDataCols",
-                       label = h6("Raw data fields (columns) to display: "),
-                       choices = sort(names(rv$dat)),
-                       selected = c("OrganizationFormalName", "MonitoringLocationIdentifier", "CharacteristicName", "CharacteristicSet", "ActivityTypeCode", "ActivityStartDate", "ResultDetectionConditionText", "ResultMeasureValue", "ResultStatusIdentifier", "ResultCommentText")
-                     )
-      })
+renderUI({
+  checkboxGroupInput("sel_RawFilteredDataCols",
+                     label = h6("Raw data fields (columns) to display: "),
+                     choices = sort(names(rv$dat)),
+                     selected = c("OrganizationFormalName", "MonitoringLocationIdentifier", "CharacteristicName", "CharacteristicSet", "ActivityTypeCode", "ActivityStartDate", "ResultDetectionConditionText", "ResultMeasureValue", "ResultStatusIdentifier", "ResultCommentText")
+  )
+})
 ```
 
 Raw Data
