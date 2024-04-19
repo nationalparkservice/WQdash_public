@@ -513,17 +513,17 @@ FuncUpdateHome <- function() {
   updateCheckboxGroupInput(session,
                            "sel_Organization",
                            choices = NULL,
-                           selected = NULL)
+                           selected = character(0))
   
   updateCheckboxGroupInput(session,
                            "sel_Gages",
                            choices = NULL,
-                           selected = NULL)
+                           selected = character(0))
   
   updateCheckboxGroupInput(session,
                            "sel_Meteo",
                            choices = NULL,
-                           selected = NULL)
+                           selected = character(0))
   
   # # Reset map center and map bounds to NULL
   session$sendCustomMessage(type = "setNull", message = "map_center")
@@ -590,7 +590,7 @@ FuncUpdateInputsOther <- function() {
     updateCheckboxGroupInput(session,
                            "sel_ShowStations",
                            choices = NULL,
-                           selected = NULL)
+                           selected = character(0))
  
     updateRadioButtons(session,
                        "sel_Categ",
@@ -2322,6 +2322,94 @@ download_button <- function(outputId, label = "Download", class = NULL, ...)  {
 
 ```
 
+```{r rnoaa functions}
+# The following are functions from rnoaa, copied verbatim. The package will be retired, so saving the functions here.
+  
+  meteo_tidy_ghcnd_element <- function(x, keep_flags = FALSE){
+  var_name <- colnames(x)[2]
+  if (keep_flags) {
+    flag_locs <- grep("flag", colnames(x))
+    colnames(x)[flag_locs] <-
+      paste(colnames(x)[flag_locs], var_name, sep = "_")
+    x <- tidyr::gather(x, "key", "value", 
+      tidyselect::vars_select(names(x), -id, -date))
+  } else {
+    x <- dplyr::select(x, -dplyr::ends_with('flag'))
+    x <- tidyr::gather(x, "key", "value",
+      tidyselect::vars_select(names(x), -id, -date))
+  }
+  return(x)
+  }
+  
+  ghcnd_search <- function (stationid, date_min = NULL, date_max = NULL, var = "all", 
+    refresh = FALSE, ...) 
+{
+    out <- ghcnd(stationid, refresh = refresh, ...)
+    dat <- ghcnd_splitvars(out)
+    message("file min/max dates: ", min(dat[[1]]$date), 
+        " / ", max(dat[[1]]$date))
+    possvars <- paste0(names(dat), collapse = ", ")
+    if (any(var != "all")) {
+        vars_null <- sort(tolower(var))[!sort(tolower(var)) %in% 
+            sort(names(dat))]
+        dat <- dat[tolower(var)]
+    }
+    if (any(sapply(dat, is.null))) {
+        dat <- noaa_compact(dat)
+        warning(sprintf("%s not in the dataset\nAvailable variables: %s", 
+            paste0(vars_null, collapse = ", "), possvars), 
+            call. = FALSE)
+    }
+    if (!is.null(date_min)) {
+        dat <- lapply(dat, function(z) dplyr::filter(z, date >= 
+            date_min))
+    }
+    if (!is.null(date_max)) {
+        dat <- lapply(dat, function(z) dplyr::filter(z, date <= 
+            date_max))
+    }
+    dat <- lapply(dat, function(z) dplyr::arrange(z, date))
+    return(dat)
+}
+  
+  
+meteo_tidy_ghcnd <- function (stationid, keep_flags = FALSE, var = "all", date_min = NULL, date_max = NULL) {
+    dat <- suppressWarnings(ghcnd_search(stationid = stationid, 
+        var = var, date_min = date_min, date_max = date_max))
+    dat <- lapply(dat, meteo_tidy_ghcnd_element, keep_flags = keep_flags)
+    cleaned_df <- do.call(rbind.data.frame, dat) %>% tidyr::spread("key", 
+        "value")
+    to_clean <- c("prcp", "tmax", "tmin", "tavg", 
+        "snow", "snwd")
+    for (i in seq_along(to_clean)) {
+        if (to_clean[i] %in% names(cleaned_df)) {
+            cleaned_df[[to_clean[i]]][cleaned_df[[to_clean[i]]] == 
+                -9999] <- NA_real_
+        }
+    }
+    return(cleaned_df)
+  }
+  
+meteo_pull_monitors <- function (monitors, keep_flags = FALSE, date_min = NULL, date_max = NULL, var = "all") {
+    monitors <- unique(monitors)
+    safe_meteo_tidy_ghcnd <- purrr::safely(meteo_tidy_ghcnd)
+    all_monitors_clean <- lapply(monitors, safe_meteo_tidy_ghcnd, 
+        keep_flags = keep_flags, date_min = date_min, date_max = date_max, 
+        var = var)
+    check_station <- sapply(all_monitors_clean, function(x) is.null(x$result))
+    bad_stations <- monitors[check_station]
+    if (length(bad_stations) > 0) {
+        warning(paste("The following stations could not be pulled from", 
+            "the GHCN ftp:\n", paste(bad_stations, collapse = ", "), 
+            "\nAny other monitors were successfully pulled from GHCN."))
+    }
+    all_monitors_out <- lapply(all_monitors_clean[!check_station], 
+        function(x) x$result)
+    all_monitors_out <- suppressWarnings(dplyr::bind_rows(all_monitors_out))
+    return(all_monitors_out)
+}
+```
+
 ```{r startup}
 
 rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list())
@@ -3031,13 +3119,18 @@ observeEvent(eventExpr = input$button_downloadData, {
   }
   
   # Get precipitation data from selected weather stations ----
+        saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+
+rv$meteoDat <- NULL
   if(all(!is.null(rv$meteoStations), !is.null(rv$selectedMeteo))) {
     if(all(nrow(rv$meteoStations) > 0, length(rv$selectedMeteo) > 0)) {
   setProgress(3/4, detail = "Getting precipitation data from selected weather stations")
 tempMeteoDat <- NULL
-  # tempMeteoDat <- rnoaa::meteo_pull_monitors(monitors = sort(unique(rv$selectedMeteo$MeteoShortID)), keep_flags = TRUE, date_min = range(rv$dat$ActivityStartDate)[1], date_max = range(rv$dat$ActivityStartDate)[2], var = "PRCP") %>% # pull precipitation data (tenths of mm) for the stations and date range corresponding with downloaded WQP data
-    # dplyr::filter(!is.na(prcp)) %>%
-    # dplyr::mutate(prcp = as.numeric(prcp))
+  tempMeteoDat <- meteo_pull_monitors(monitors = sort(unique(rv$selectedMeteo$MeteoShortID)), keep_flags = TRUE, date_min = range(rv$dat$ActivityStartDate)[1], date_max = range(rv$dat$ActivityStartDate)[2], var = "PRCP") %>% # pull precipitation data (tenths of mm) for the stations and date range corresponding with downloaded WQP data
+    dplyr::filter(!is.na(prcp)) %>%
+    dplyr::mutate(prcp = as.numeric(prcp))
   if(!is.null(tempMeteoDat)) {
     if(nrow(tempMeteoDat) > 0 ) {
     tempMeteoDat %<>%
@@ -4211,6 +4304,8 @@ shinyjs::hidden( # initially hide this well panel
     
     renderUI({
       shiny::req(!is.null(rv$meteoStations))
+
+cat("line4218")
       checkboxGroupInput("sel_Meteo",
                          label = h6("Import data only from these weather stations: "),
                          choices = sort(unique(rv$meteoStations$MeteoName)))
