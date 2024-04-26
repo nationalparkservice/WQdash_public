@@ -1,0 +1,5 @@
+CharacteristicName,SampleFraction,MeasureUnit,ThreshBreaks,ThreshCateg,Notes
+pH,,None,(-Inf//6.5//8.5//Inf),(poor//good//poor),
+Escherichia coli,,MPN/100ml,(-Inf//90//126//Inf),(good//caution//poor),
+Dissolved oxygen (DO),,mg/l,(-Inf//1//3//Inf),(poor//caution//good),
+"Temperature, water",,deg C,(-Inf//24//27//Inf),(good//caution//poor),
