@@ -60,7 +60,7 @@ pkgs <- c("flexdashboard",
           "geojsonio", # to test for presence of features
           "lemon", # for facet_rep_wrap
           # "EnvironmentalSettingToolkit", # installed from github
-          "rnoaa", # to get NOAA climate data <<<<< THIS PACKAGE WILL RETIRE SOON. KEEP AN EYE ON THIS.
+          # "rnoaa", # to get NOAA climate data <<<<< THIS PACKAGE WILL RETIRE SOON. KEEP AN EYE ON THIS.
           "leaflet.minicharts") # for web etiquette with APIs
 
 installed_pkgs <- pkgs %in% installed.packages()
@@ -3041,32 +3041,32 @@ cat(orgURL)
 # saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
 
 rv$meteoDat <- NULL
-  if(all(!is.null(rv$meteoStations), !is.null(rv$selectedMeteo))) {
-    if(all(nrow(rv$meteoStations) > 0, length(rv$selectedMeteo) > 0)) {
-  setProgress(3/4, detail = "Getting precipitation data from selected weather stations")
-tempMeteoDat <- NULL
-  tempMeteoDat <- meteo_pull_monitors(monitors = sort(unique(rv$selectedMeteo$MeteoShortID)), keep_flags = TRUE, date_min = range(rv$dat$ActivityStartDate)[1], date_max = range(rv$dat$ActivityStartDate)[2], var = "PRCP") %>% 
-    dplyr::filter(!is.na(prcp)) %>% # pull precipitation data (tenths of mm) for the stations and date range corresponding with downloaded WQP data
-    dplyr::mutate(prcp = as.numeric(prcp))
-  if(!is.null(tempMeteoDat)) {
-    if(nrow(tempMeteoDat) > 0 ) {
-    tempMeteoDat %<>%
-    dplyr::mutate(PRCP_cm = prcp/100) %>% # prcp is in tenths of mm. Convert precip measure to cm
-    dplyr::filter(qflag_prcp == " ") %>% # only keep data without quality flags
-    dplyr::select(MeteoShortID = id, ActivityStartDate = date, PRCP_cm)
-
-  tempMeteoDat2 <- tempMeteoDat[complete.cases(tempMeteoDat), ] %>% left_join(rv$selectedMeteo[, c("MeteoName", "MeteoShortID")])
-  tempMeteoDat2$ActivityStartDate <- base::as.Date(tempMeteoDat2$ActivityStartDate)
-  rv$meteoDat <- FuncBreakDates(tempMeteoDat2)
-  rm(tempMeteoDat, tempMeteoDat2)
-  }
-    # } else {
-    # rv$meteoDat <- NULL
-    # rv$meteoStations <- NULL
-    # rv$selectedMeteo <- NULL
-  }
-    }
-  }
+#   if(all(!is.null(rv$meteoStations), !is.null(rv$selectedMeteo))) {
+#     if(all(nrow(rv$meteoStations) > 0, length(rv$selectedMeteo) > 0)) {
+#   setProgress(3/4, detail = "Getting precipitation data from selected weather stations")
+# tempMeteoDat <- NULL
+#   tempMeteoDat <- meteo_pull_monitors(monitors = sort(unique(rv$selectedMeteo$MeteoShortID)), keep_flags = TRUE, date_min = range(rv$dat$ActivityStartDate)[1], date_max = range(rv$dat$ActivityStartDate)[2], var = "PRCP") %>% 
+#     dplyr::filter(!is.na(prcp)) %>% # pull precipitation data (tenths of mm) for the stations and date range corresponding with downloaded WQP data
+#     dplyr::mutate(prcp = as.numeric(prcp))
+#   if(!is.null(tempMeteoDat)) {
+#     if(nrow(tempMeteoDat) > 0 ) {
+#     tempMeteoDat %<>%
+#     dplyr::mutate(PRCP_cm = prcp/100) %>% # prcp is in tenths of mm. Convert precip measure to cm
+#     dplyr::filter(qflag_prcp == " ") %>% # only keep data without quality flags
+#     dplyr::select(MeteoShortID = id, ActivityStartDate = date, PRCP_cm)
+# 
+#   tempMeteoDat2 <- tempMeteoDat[complete.cases(tempMeteoDat), ] %>% left_join(rv$selectedMeteo[, c("MeteoName", "MeteoShortID")])
+#   tempMeteoDat2$ActivityStartDate <- base::as.Date(tempMeteoDat2$ActivityStartDate)
+#   rv$meteoDat <- FuncBreakDates(tempMeteoDat2)
+#   rm(tempMeteoDat, tempMeteoDat2)
+#   }
+#     # } else {
+#     # rv$meteoDat <- NULL
+#     # rv$meteoStations <- NULL
+#     # rv$selectedMeteo <- NULL
+#   }
+#     }
+#   }
   
   ### Save query
   
@@ -3949,7 +3949,7 @@ output$out_perc_plots <- renderPlotly({
   percPieDat <- FuncPieDat(limit_type = "PercCateg")
   
   shiny::validate(
-    need(!is.null(percPieDat), message = "No percentile data calculated"))
+    need(!is.null(percPieDat), message = "No percentile data calculated. Make sure you have 'Add Percentile Lines to Plots' checkmarked on left sidepanel."))
   shiny::req(!is.null(rv_param_temp$sel_summarize_by), !is.null(input$sel_AddQuantile))
 
   perc_named_colors <- c("lightgray", "#56B4E9", "orange")
