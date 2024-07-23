@@ -11,7 +11,34 @@ runtime: shiny
 ```{r global, include=FALSE}
 ### UPCOMING CHANGES:
 # > rnoaa is not available for R3.2. This package is going to be phased out in 2024, so keep an eye out
-
+# https://waterdata.usgs.gov/blog/wqx3/
+# A large update of dataRetrieval was just pushed to GitHub. This update will allow users to access the new "WQX3" profiles from the Water Quality Portal. Any new USGS discrete water quality data since March 11th is ONLY available via dataRetrieval from these new data profiles. With this update, all WQP functions that can use these new profiles will use them by default.
+#  
+# I'd encourage anyone who uses dataRetrieval for discrete water quality data to install this new update and give it a good test. If you would be willing to test out the updates, use the "remotes" package to install dataRetrieval:
+#  
+# remotes::install_github("DOI-USGS/dataRetrieval")
+#  
+# You'll need to update scripts downstream of the WQP pulls to new column names and possibly different values returned. Eventually, you'll HAVE to update your workflows (the legacy profiles will eventually be retired). If you need to switch back to the production version of dataRetrieval, you can re-install (after unloading the package) by reinstalling the CRAN version:
+#  
+# install.packages("dataRetrieval")
+#  
+# Please submit any bugs/questions/issues here:
+# https://github.com/DOI-USGS/dataRetrieval/issues
+# 
+# Or email: CompTools@usgs.gov
+# 
+# I will be on leave from June 17 - July 8, so it would be better to report issues and ask questions via the GitHub issues.
+#  
+# More information is here:
+# https://water.code-pages.usgs.gov/dataRetrieval/articles/qwdata_changes.html
+# https://water.code-pages.usgs.gov/dataRetrieval/articles/Status.html
+#  like 4
+# Issues · DOI-USGS/dataRetrieval
+# This R package is designed to obtain USGS or EPA water quality sample data, streamflow data, and metadata directly from web services. - Issues · DOI-USGS/dataRetrieval
+ 
+ 
+ 
+ 
 # Install and load packages
 rm(list=ls())
 
@@ -3115,14 +3142,14 @@ observeEvent(eventExpr = input$dismiss_gages_modal, {
   removeModal()
   })
   
-renderUI({
-  cat("line3119")
-  shiny::req(!is.null(rv$meteoStations), !is.null(input$sel_GetData), is.null(rv$dat))
-  shiny::req(input$sel_GetData == "new_data")
-  cat("line3122")
-  rv$selectedMeteo <- switch(is.null(input$sel_Meteo)+1, rv$meteoStations[rv$meteoStations$MeteoName %in% input$sel_Meteo,], NULL)
-  cat("line3124")
-})
+# renderUI({
+#   cat("line3119")
+#   shiny::req(!is.null(rv$meteoStations), !is.null(input$sel_GetData), is.null(rv$dat))
+#   shiny::req(input$sel_GetData == "new_data")
+#   cat("line3122")
+#   rv$selectedMeteo <- switch(is.null(input$sel_Meteo)+1, rv$meteoStations[rv$meteoStations$MeteoName %in% input$sel_Meteo,], NULL)
+#   cat("line3124")
+# })
 
 renderUI({
   cat("line3128")
