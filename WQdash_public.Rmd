@@ -5,6 +5,7 @@ output:
     theme: yeti   # theme options: default, cosmo, bootstrap, cerulean, journal, flatly, readable, spacelab, united, lumen, paper, sandstone, simplex, yeti
 orientation: columns
 vertical_layout: fill
+horizontal_layout: fill
 runtime: shiny
 ---
 
@@ -2149,7 +2150,7 @@ FuncPlotPage <- function(plot_list, time_unit) {
             shareY = FALSE,
             titleX = TRUE,
             titleY = TRUE,
-            margin = c(0, 0.0, 0.02/length(subplot_list), 0.14/length(subplot_list)),
+            margin = c(0, 0.0, 0.02/length(subplot_list), 0.18/length(subplot_list)), # used to be 0.14/length(subplot_list)
             which_layout = 1)
   return_list <- list(plotly_page = plotly_page, shared_legend = shared_legend)
   return(return_list)
@@ -2599,6 +2600,9 @@ observeEvent(eventExpr = input$button_showStations, {
     rm(sites, temp_points, sitesPoints)
     unlink("tempSites.csv")
   
+#       saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
   # Get recently active USGS stream gauging station information, within HUC10's, from dashboard files ----
   incProgress(1/7, detail = "...USGS stream gages station information from NWIS")
   print("Getting gages")
@@ -2618,10 +2622,17 @@ observeEvent(eventExpr = input$button_showStations, {
   
   gagePoints <- st_filter(temp_gagepoints, rv[["HUC10"]]) # These are the ones that fall within HUC10's, so keep them
   
-  rv$gageStations <- gagePoints
+  if(nrow(gagePoints) > 0) {
+    rv$gageStations <- gagePoints
+  } else {
+    rv$gageStations <- NULL # None actually fall within HUC10's
+  }
+  
   } else {
     rv$gageStations <- NULL
-    
+  }
+  
+  if(is.null(rv$gageStations)) {
     showModal(modalDialog(
       title = "No Stream Gage Stations Meet Download Criteria",
       "Could not find active USGS stream gage stations with at least 10 years of data, located within the park's HUC10 watershed boundaries (active = most recent data are less than one year old). These data are not necessary for visualizing water quality data on the dashboard.",
@@ -2630,8 +2641,9 @@ observeEvent(eventExpr = input$button_showStations, {
         div(style="display:inline-block; width:100px;", actionButton("dismiss_gages_modal", "Got it!"))
         )
       )
-      ) # Require user to click 'Got it!' button for the modal to close
-  }
+      )
+  } # Require user to click 'Got it!' button for the modal to close
+  
   rm(gages, temp_gagepoints, gagePoints)
 
   # Get locations of recently active weather stations, for the bounding box, from dashboard files ----
@@ -3877,9 +3889,9 @@ print("line5039")
   
   shiny::req(!is.null(input$sel_PlotType),!is.null(rv_param_temp$plotDat), !is.null(input$sel_SeasonalTimeUnit), !is.null(input$sel_FreeY), !is.null(input$sel_CombineSites))
    
-  saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+#   saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
 
   rv_param_temp$ggplot_ts_list <- FuncPlotList(time_unit = "ActivityStartDate")
 
@@ -3955,7 +3967,7 @@ output$out_perc_plots <- renderPlotly({
   # FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = TRUE)
   shiny::req(!is.null(rv$dat), !is.null(rv_param_temp$subDat),  !is.null(rv_param_temp$subDatTypes), !is.null(rv_param_temp$plotDat))
   
-  shiny::validate(need(length(na.omit(rv_param_temp$plotDat$PercCateg)) > 0, message = "No percentile limits defined. Make sure you have 'Add Percentile Lines to Plots' checkmarked on left sidepanel."))
+  shiny::validate(need(length(na.omit(rv_param_temp$plotDat$PercCateg)) > 0, message = "No percentile limits defined. Make sure you have 'Add Percentile Lines to Plots' checkmarked on left sidepanel, then REFRESH PLOT DATA."))
           
   percPieDat <- FuncPieDat(limit_type = "PercCateg")
   
