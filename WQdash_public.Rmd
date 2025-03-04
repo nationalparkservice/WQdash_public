@@ -4282,15 +4282,15 @@ shinyjs::hidden( # initially hide this well panel
     actionButton("button_downloadData", "DOWNLOAD SELECTED DATA", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px"),
     
     br(),
+    
     renderUI({
-  shiny::req(!is.null(rv))
-  
-  shiny::req(rv_param_temp$newImport == TRUE)
-             
-  download_button(
-  outputId = "download_RDS", 
-  label = "   Save RDS to Computer")
-})
+    shiny::req(!is.null(rv))
+    shiny::req(rv_param_temp$newImport == TRUE)
+    
+    download_button(
+    outputId = "download_RDS",
+    label = "   Save RDS to Computer")
+    })
     
     ) # end filter-import panel
   ) # end hide for filter-import panel
