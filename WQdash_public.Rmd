@@ -37,9 +37,6 @@ runtime: shiny
 # Issues · DOI-USGS/dataRetrieval
 # This R package is designed to obtain USGS or EPA water quality sample data, streamflow data, and metadata directly from web services. - Issues · DOI-USGS/dataRetrieval
  
- 
- 
- 
 # Install and load packages
 rm(list=ls())
 
@@ -103,8 +100,8 @@ try(if(!all(req_files %in% have_files)) stop(paste("Missing required dashboard f
   # Read in park choice file
   unique_parks_df <- read_csv("dashboard_files/unique_parks_df.csv")
 
-options(shiny.maxRequestSize = 20*1024^2, 
-        timeout = 1500,
+options(shiny.maxRequestSize = 30*1024^2, 
+        timeout = 2000,
         stringsAsFactors = FALSE,
         dplyr.summarise.inform = FALSE
 )
