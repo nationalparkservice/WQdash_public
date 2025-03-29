@@ -13,7 +13,7 @@ runtime: shiny
 ### UPCOMING CHANGES:
 # > rnoaa is not available for R3.2. This package is going to be phased out in 2024, so keep an eye out
 # https://waterdata.usgs.gov/blog/wqx3/
-# A large update of dataRetrieval was just pushed to GitHub. This update will allow users to access the new "WQX3" profiles from the Water Quality Portal. Any new USGS discrete water quality data since March 11th is ONLY available via dataRetrieval from these new data profiles. With this update, all WQP functions that can use these new profiles will use them by default.
+# A large update of dataRetrieval was just pushed to GitHub. This update will allow users to access the new "WQX3" profiles from the Water Quality Portal. Any new USGS discrete water quality data since March 11th is ONLY availablerv via dataRetrieval from these new data profiles. With this update, all WQP functions that can use these new profiles will use them by default.
 #  
 # I'd encourage anyone who uses dataRetrieval for discrete water quality data to install this new update and give it a good test. If you would be willing to test out the updates, use the "remotes" package to install dataRetrieval:
 #  
@@ -3151,7 +3151,8 @@ observeEvent(eventExpr = input$dismiss_gages_modal, {
 #   print("line3124")
 # })
 
-renderUI({
+# renderUI({
+observe({
   shiny::req(!is.null(rv$gageStations), !is.null(input$sel_GetData), is.null(rv$dat))
   shiny::req(input$sel_GetData == "new_data")
 
@@ -3235,7 +3236,8 @@ observeEvent(eventExpr = input$saved_thresh_file, {
 
 
 # Reactively update whenever rv_param_temp$subDat or rv_param_temp$threshList change
-renderUI({
+# renderUI({
+observe({
   shiny::req(all(!is.null(rv_param_temp$subDat), !is.null(rv_param_temp$threshList)))
   for (t in names(rv_param_temp$threshList)) {
     which_rows <- which(tolower(rv_param_temp$subDat$CharSampleType) == tolower(t)) # Don't require case to match
@@ -3245,11 +3247,11 @@ renderUI({
   }
 })
 
-# Reactively update whenever rv_param_temp$subDat or rv_param_temp$threshList change
-renderUI({
-  shiny::req(all(!is.null(rv_param_temp$subDat), !is.null(rv_param_temp$threshList)))
-  
-})
+# # Reactively update whenever rv_param_temp$subDat or rv_param_temp$threshList change
+# renderUI({
+#   shiny::req(all(!is.null(rv_param_temp$subDat), !is.null(rv_param_temp$threshList)))
+#   
+# })
 ```
 
 ```{r events_categfiles_page}
