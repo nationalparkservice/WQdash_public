@@ -13,8 +13,9 @@ runtime: shiny
 ### UPCOMING CHANGES:
 # > rnoaa is not available for R3.2. This package is going to be phased out in 2024, so keep an eye out
 # https://waterdata.usgs.gov/blog/wqx3/
-# A large update of dataRetrieval was just pushed to GitHub. This update will allow users to access the new "WQX3" profiles from the Water Quality Portal. Any new USGS discrete water quality data since March 11th is ONLY availablerv via dataRetrieval from these new data profiles. With this update, all WQP functions that can use these new profiles will use them by default.
+# A large update of dataRetrieval was just pushed to GitHub. This update will allow users to access the new "WQX3" profiles from the Water Quality Portal. Any new USGS discrete water quality data since March 11th is ONLY available via dataRetrieval from these new data profiles. With this update, all WQP functions that can use these new profiles will use them by default.
 #  
+# TADAShiny for synonymizing
 # I'd encourage anyone who uses dataRetrieval for discrete water quality data to install this new update and give it a good test. If you would be willing to test out the updates, use the "remotes" package to install dataRetrieval:
 #  
 # remotes::install_github("DOI-USGS/dataRetrieval")
@@ -36,6 +37,8 @@ runtime: shiny
 #  like 4
 # Issues · DOI-USGS/dataRetrieval
 # This R package is designed to obtain USGS or EPA water quality sample data, streamflow data, and metadata directly from web services. - Issues · DOI-USGS/dataRetrieval
+# 
+# Look for the site on efficient pulling of WQP data
  
 # Install and load packages
 rm(list=ls())
@@ -100,8 +103,8 @@ try(if(!all(req_files %in% have_files)) stop(paste("Missing required dashboard f
   # Read in park choice file
   unique_parks_df <- read_csv("dashboard_files/unique_parks_df.csv")
 
-options(shiny.maxRequestSize = 30*1024^2, 
-        timeout = 2000,
+options(shiny.maxRequestSize = 30*1024^2, # increases download limit to 30MB from 5MB default
+        timeout = 3000,
         stringsAsFactors = FALSE,
         dplyr.summarise.inform = FALSE
 )
@@ -864,7 +867,7 @@ filterDat$ThreshCateg <- filterDat$CategName <- filterDat$CategResultMeasureValu
       rv_param_temp$subDatYears <- NULL
       rv_param_temp$subDatTypes <- NULL
     }
-    rm(filterDat, filterYears)
+    rm(filterDat)
   }
 }
 
@@ -2346,6 +2349,14 @@ download_button <- function(outputId, label = "Download", class = NULL, ...)  {
         icon("download"), label, ...)
 }
 
+grabit <- function(url) {
+  tmpfile <- "tempdownload.geojson"
+  req <- download.file(url, tmpfile, mode = "w")
+  temp <- sf::st_read(dsn = tmpfile) 
+  file.remove(tmpfile)
+ return(temp)
+}
+
 ```
 
 ```{r startup}
@@ -2500,6 +2511,7 @@ observeEvent(eventExpr = input$button_showStations, {
   print("line2432")
    # Get HUC10 & HUC12 boundary data from web services ----
     # Files are too large to save with dashboard for quick pull
+
     for(hucLevel in 6:5) {
       hucName <- switch((hucLevel==6)+1, "HUC10", "HUC12")
      
@@ -2515,7 +2527,9 @@ observeEvent(eventExpr = input$button_showStations, {
    
     shiny::req(http_status(GET(hucURL))$category=="Success") # if not a valid service call, abort
     
-    hucPoly <- tryCatch(sf::st_read(hucURL), error=function(e) print("Error retrieving ", hucName, " data"))
+    # hucPoly <- tryCatch(sf::st_read(hucURL), error=function(e) print("Error retrieving ", hucName, " data")
+    # NOTE: st_read() on a data service (WCS, maybe arcgis/rest too) uses GDAL to let it become a virtual feature, not (yet) downloading the entire data.  That includes extra authentication, which often gets broken by any ssl change on our systems
+    hucPoly <- tryCatch(grabit(hucURL), error=function(e) print("Error retrieving ", hucName, " data"))
 
     if(!"sf" %in% class(hucPoly)) {
       showModal(
@@ -2597,9 +2611,6 @@ observeEvent(eventExpr = input$button_showStations, {
     rm(sites, temp_points, sitesPoints)
     unlink("tempSites.csv")
   
-#       saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
   # Get recently active USGS stream gauging station information, within HUC10's, from dashboard files ----
   incProgress(1/7, detail = "...USGS stream gages station information from NWIS")
   print("Getting gages")
@@ -3557,7 +3568,11 @@ shiny::req(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"
 ```{r action_button_refreshFilter}
 observeEvent(eventExpr = input$button_refreshFilter, { 
 # Returns rv_param_temp$subDat, rv_param_temp$subDatYears
-  
+#   
+#         saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+
   shiny::req(!is.null(rv$dat))
   
   FuncRefreshFilter(sel_MinYrs = input$sel_MinYrs, sel_SummaryParam = input$sel_SummaryParam, sel_SummaryOrg = input$sel_SummaryOrg, sel_YrRange = input$sel_YrRange, sel_ActivityType = input$sel_ActivityType, sel_ResultStatus = input$sel_ResultStatus, sel_DefineSeasons = input$sel_DefineSeasons)
