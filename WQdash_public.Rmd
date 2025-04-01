@@ -12,34 +12,23 @@ runtime: shiny
 ```{r global, include=FALSE}
 ### UPCOMING CHANGES:
 # > rnoaa is not available for R3.2. This package is going to be phased out in 2024, so keep an eye out
-# https://waterdata.usgs.gov/blog/wqx3/
-# A large update of dataRetrieval was just pushed to GitHub. This update will allow users to access the new "WQX3" profiles from the Water Quality Portal. Any new USGS discrete water quality data since March 11th is ONLY available via dataRetrieval from these new data profiles. With this update, all WQP functions that can use these new profiles will use them by default.
-#  
-# TADAShiny for synonymizing
-# I'd encourage anyone who uses dataRetrieval for discrete water quality data to install this new update and give it a good test. If you would be willing to test out the updates, use the "remotes" package to install dataRetrieval:
-#  
-# remotes::install_github("DOI-USGS/dataRetrieval")
-#  
-# You'll need to update scripts downstream of the WQP pulls to new column names and possibly different values returned. Eventually, you'll HAVE to update your workflows (the legacy profiles will eventually be retired). If you need to switch back to the production version of dataRetrieval, you can re-install (after unloading the package) by reinstalling the CRAN version:
-#  
-# install.packages("dataRetrieval")
-#  
-# Please submit any bugs/questions/issues here:
-# https://github.com/DOI-USGS/dataRetrieval/issues
-# 
-# Or email: CompTools@usgs.gov
-# 
-# I will be on leave from June 17 - July 8, so it would be better to report issues and ask questions via the GitHub issues.
-#  
-# More information is here:
+# > https://waterdata.usgs.gov/blog/wqx3/
+# > A large update of dataRetrieval was just pushed to GitHub. This update will allow users to access the new "WQX3" profiles from the Water Quality Portal. Any new USGS discrete water quality data since March 11th is ONLY available via dataRetrieval from these new data profiles. With this update, all WQP functions that can use these new profiles will use them by default.
+# > TADAShiny for synonymizing and flag/remove data (how does it deal with non-numeric entries like >XXX?). Perhaps add option for uploading a TADA file.
+# > Update to work with hydrography revisions
+# > Need to update scripts downstream of the WQP pulls to new column names and possibly different values returned. Eventually, you'll HAVE to update your workflows (the legacy profiles will eventually be retired). If you need to switch back to the production version of dataRetrieval, you can re-install (after unloading the package) by reinstalling the CRAN version:
+# > More information is here:
 # https://water.code-pages.usgs.gov/dataRetrieval/articles/qwdata_changes.html
 # https://water.code-pages.usgs.gov/dataRetrieval/articles/Status.html
-#  like 4
-# Issues · DOI-USGS/dataRetrieval
-# This R package is designed to obtain USGS or EPA water quality sample data, streamflow data, and metadata directly from web services. - Issues · DOI-USGS/dataRetrieval
-# 
-# Look for the site on efficient pulling of WQP data
- 
+# > Look for the site on efficient pulling of WQP data
+# > Try package 'polite' again
+# > Only show parameters reported by NPS--fix the wording
+# > Explore Data should not require Filter
+
+## MODIFY FOR SCI4GA
+# county_map <- us_map(regions = "counties", include = "Georgia)
+
+
 # Install and load packages
 rm(list=ls())
 
@@ -1065,6 +1054,10 @@ FuncPlotDat <- function() {
   #
   # Returns:
   #   Formatted plot data
+  
+#         saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
 
   shiny::req(!is.null(rv_param_temp$subDat), !is.null(rv_param_temp$sel_summarize_by))
   # Filter plotting data by user inputs
@@ -3568,10 +3561,6 @@ shiny::req(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"
 ```{r action_button_refreshFilter}
 observeEvent(eventExpr = input$button_refreshFilter, { 
 # Returns rv_param_temp$subDat, rv_param_temp$subDatYears
-#   
-#         saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
 
   shiny::req(!is.null(rv$dat))
   
@@ -3585,7 +3574,6 @@ observeEvent(eventExpr = input$button_refreshFilter, {
 observeEvent(eventExpr = input$button_refreshPlotData, { 
   # FuncUpdateTSPlots()
   
-
   shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_SummarizeBy))
   
 
@@ -4056,6 +4044,7 @@ Column {data-width=750}
 -------------------------------------
 
 ###
+
 ```{r}
 htmltools::img(src="Images/secchi_transparent.png", width = "7%", style="position:absolute; top:20px; right:25px;")
 ```
@@ -4689,9 +4678,11 @@ wellPanel(
 
     renderUI({
       shiny::req(!is.null(rv$dat), !is.null(rv_param_temp$defaultInputs$sel_NPSparam))
+
       checkboxInput("sel_NPSparam",
                     "Only show characteristics reported by NPS for the imported monitoring sites",
-                    value = rv_param_temp$defaultInputs$sel_NPSparam)
+                    value = FALSE)
+                    # value = rv_param_temp$defaultInputs$sel_NPSparam)
     }),
     
     renderUI({
@@ -4703,14 +4694,17 @@ wellPanel(
     sel_SummaryOrg = input$sel_SummaryOrg, 
     sel_ActivityType = input$sel_ActivityType, 
     sel_ResultStatus = input$sel_ResultStatus, 
-    sel_MinYrs = input$sel_MinYrs)
+    sel_MinYrs = input$sel_MinYrs)  
+      
+      match_vec <- c("Dissolved oxygen", "Escherichia", "Flow, severity (choice list)", "Flow, stream stage (choice list)", "Nitrate", "pH", "Specific conductance", "Temperature, water", "Phosphorus", "Turbidity")
+      init_match <- rv_param_temp$selectCharSampleType[grep(paste(match_vec, collapse = "|"), rv_param_temp$selectCharSampleType)]
 
       checkboxGroupInput("sel_SummaryParam",
                          label = h6("Water quality characteristic types to summarize: "),
                          choices = sort(rv_param_temp$selectCharSampleType),
-                         selected = rv_param_temp$currentInputs$sel_SummaryParam
+                         # selected = rv_param_temp$currentInputs$sel_SummaryParam
                          # selected = switch(all(is.null(input$sel_SummaryParam), !identical(input$sel_SummaryParam, character(0)))+1, input$sel_SummaryParam, rv_param_temp$selectCharSampleType[rv_param_temp$selectCharSampleType %in% c("Dissolved oxygen (DO)", "Escherichia coli", "Flow, severity (choice list)", "Flow, stream stage (choice list)", "Nitrate + Nitrite", "pH", "Specific conductance", "Temperature, water", "Total Phosphorus, mixed forms", "Turbidity")])
-                         # selected = switch(is.null(input$sel_SummaryParam)+1, input$sel_SummaryParam, rv_param_temp$selectCharSampleType)
+                         selected = switch(is.null(input$sel_SummaryParam)+1, input$sel_SummaryParam, init_match)
       )
     }),
 
@@ -4852,6 +4846,7 @@ reactableOutput("table_filtered_chars")
 ### Sample Size Matrix
 
 ####
+
 ```{r sample_size_input}
 
 renderUI({
@@ -4879,6 +4874,7 @@ renderUI({
 ```
 
 ####
+
 ```{r sample_sizes}
 output$out_SamplePlots <- renderPlot({ 
   shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_TimeSubunit), !is.null(input$sel_SampleSizeCharType))
@@ -5039,6 +5035,7 @@ Rightside Panel {data-width=400}
 <center>*Double-click in any cell to edit contents. To delete a row, click it once to select and then choose 'Delete Selected Row(s).'*</center>
 
 ####
+
 ```{r categfile_categ_table}
 
 br()
@@ -5081,21 +5078,21 @@ output$button_exportCateg <- downloadHandler(
 
 ```
 
-
-Explore Data
+Explore Data TEST BSLIB
 ====================================== 
 
-Inputs {.sidebar data-width=330}
--------------------------------------
-```{r summary_sidebar}  
-FuncAboutButton(nam = "button_aboutExploreData")
+```{r}
 observeEvent(eventExpr = input$button_aboutExploreData, {
   browseURL(here::here("About_files", "aboutExploreData.html"))})
 
-br()
-
-br()
-
+### Explore sidebar----
+explore_sidebar_card <- 
+  bslib::card(
+    full_screen = FALSE,
+    fillable = FALSE,
+    width = "340px",
+    FuncAboutButton(nam = "button_aboutExploreData"),
+br(),
 wellPanel(
   id = "summarize_char_stations",
   p(strong("Select data to plot")),
@@ -5170,10 +5167,10 @@ renderUI({
 
     FuncAllNoneButtons(cond = "input.sel_ShowStationCharTypes", name_all = "button_allStationChars", name_none = "button_noStationChars")
 }),
-) # end of wellPanel
+), # end of well panel
 
-# Panel to define high/low values ----
-wellPanel(
+
+wellPanel( # Panel to define high/low values
   id = "define_limits",
   p(strong("Define thresholds and percentile bounds")),
 
@@ -5318,10 +5315,9 @@ tags$div(renderText({
         # }
       )
     })
-) # end of wellPanel
+), # end of wellPanel
 
-## Panel to add streamflow/precip data ----
-wellPanel(
+wellPanel( ## Panel to add streamflow/precip data 
   id = "plot_display_options",
   p(strong("Add streamflow/precip")),
 
@@ -5365,13 +5361,15 @@ wellPanel(
       )
     })
 ) # end of wellPanel
-```
+  ) # end of explore_sidebar_card
 
-Column
--------------------------------------
-```{r map_input}
-
-div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
+### Explore map card----
+explore_map_card <-
+  bslib::card(
+    full_screen = FALSE,
+    fillable = FALSE,
+    card_header(
+      div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
     # Left side inputs
     div(style ="flex: 1 1 45%; padding:10px; justify-content:center; align-items:center;", # padding is for spacing from div edge and each other
             renderUI({
@@ -5425,21 +5423,61 @@ div(style ="flex: 1 1 45%; padding:10px; justify-content:center; align-items:cen
   })
   )
 )
-```
+), 
+card_body(
+  leafletOutput('param_map', width = "100%")
+),
+) # end of explore_map_card
 
-```{r map}  
-bslib::card(
-  full_screen = TRUE,
-  card_body(
-leafletOutput('param_map', width = "100%")
-))
-```
+### Explore seasonal patterns subcard----
+explore_seasonal_patterns_subcard <-
+  bslib::card(
+    card_header(
+      shinyWidgets::radioGroupButtons("sel_SeasonalTimeUnit",
+              label = h6("SEASONAL patterns time unit:"),
+              choices = c("Day of Year" = "DayOfYr", "Week of Year" = "Wk", "Month of Year" = "Mnth", "Season of Year" = "Season"),
+              selected = "Mnth",
+              status = "primary",
+              size = "xs"),
 
-Column {.tabset .tabset-fade}
--------------------------------------
-```{r plots_inputs}
-## Start of plot inputs
-div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
+renderUI({
+  shiny::req(!is.null(rv_param_temp$plotDat), !is.null(input$sel_PlotType))
+      shiny::req(input$sel_PlotType %in% c("points", "points_smooth"))
+      avail_yrs <- c("None", as.character(sort(unique(rv_param_temp$plotDat$Yr))))
+      shiny::req(length(unique(rv_param_temp$plotDat$Yr)) > 0)
+      selectInput("sel_HighlightSurvYr",
+                  label = h6(strong("Highlight a survey year")),
+                  choices = avail_yrs,
+                  selected = switch(is.null(input$sel_HighlightSurvYr)+1, input$sel_HighlightSurvYr, "None"),
+                  width = "200px"
+                  )
+      })
+    ),
+card_body(
+#   p(
+#     renderPlot({ # separate validation statements so they are checked in sequence
+#     shiny::req(!is.null(rv$importSettings), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
+#     if(any(!rv$importSettings$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName, is.null(rv_param_temp$seasonalPlot), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharTypes), is.null(rv_param_temp$seasonalPlot$shared_legend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
+#     seas_plotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
+#   } else {
+#     seas_plotly_legend <- grid.arrange(rv_param_temp$seasonalPlot$shared_legend)
+#   }
+#   seas_plotly_legend
+# }, height = 70) # setting the width here or at the 'Legend' subheading seems to rescale the height too. Size of ggplot legends is absolute. Set height through the 'Legend' subheading in combination with here. Legend width will not adjust with browser window. Fixed the width issue by putting the plot notes on a white background.
+# ),
+p(plotlyOutput("out_season_plots"))
+  ),
+fillable = FALSE,
+class = "p-0"
+) # end explore_seasonal_patterns_subcard
+
+### Explore plots card----
+explore_plots_card <-
+  bslib::card(
+    full_screen = FALSE,
+    fillable = FALSE,
+    card_header(
+      div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
     
     # Left side inputs
  
@@ -5452,20 +5490,6 @@ div(style="display:flex; flex-direction:row; max-width:98%; justify-content:cent
              status = "primary",
              size = "xs",
              selected = "points"),
-    
-    # Highlight a survey yr
-# renderUI({
-#   shiny::req(!is.null(rv_param_temp$plotDat), !is.null(input$sel_PlotType))
-#       shiny::req(input$sel_PlotType %in% c("points", "points_smooth"))
-#       avail_yrs <- c("None", as.character(sort(unique(rv_param_temp$plotDat$Yr))))
-#       shiny::req(length(unique(rv_param_temp$plotDat$Yr)) > 0)
-#       selectInput("sel_HighlightSurvYr", 
-#                   label = h6(strong("Highlight a survey year")), 
-#                   choices = avail_yrs, 
-#                   selected = switch(is.null(input$sel_HighlightSurvYr)+1, input$sel_HighlightSurvYr, "None"),
-#                   width = "200px"
-#                   )
-#       }),
   
   shinyWidgets::dropdownButton(
     inputId = "dropdown_options",
@@ -5534,96 +5558,66 @@ div(style="display:flex; flex-direction:row; max-width:98%; justify-content:cent
   actionButton(inputId = "button_plotTable", label = "View Table", icon = icon("table-cells", lib = "font-awesome"), style="color:black; background-color: lightblue; display:inline-block; border:1px; margin:5px")
   )
 )
-```
-
-### Time Series
-####
-```{r TS_plots_legend}
-renderPlot({ # separate validation statements so they are checked in sequence
-  shiny::req(!is.null(rv$importSettings), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
-  if(any(!rv$importSettings$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName, is.null(rv_param_temp$finalPlot), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharTypes), is.null(rv_param_temp$finalPlot$shared_legend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
-    ts_plotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
-  } else {
-    ts_plotly_legend <- grid.arrange(rv_param_temp$finalPlot$shared_legend)
-  }
-  ts_plotly_legend
-}, height = 70) # setting the width here or at the 'Legend' subheading seems to rescale the height too. Size of ggplot legends is absolute. Set height through the 'Legend' subheading in combination with here. Legend width will not adjust with browser window. Fixed the width issue by putting the plot notes on a white background.
-```
-
-```{r ts_plots}
-bslib::card(
-  full_screen = TRUE,
-  card_body(
-    plotlyOutput("out_ts_plots")
-    )
+    ),
+card_body(
+  navset_card_tab(
+    nav_panel(
+      title = "Time Series",
+#       p(renderPlot({ # separate validation statements so they are checked in sequence
+#   shiny::req(!is.null(rv$importSettings), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
+#   if(any(!rv$importSettings$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName, is.null(rv_param_temp$finalPlot), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharTypes), is.null(rv_param_temp$finalPlot$shared_legend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
+#     ts_plotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
+#   } else {
+#     ts_plotly_legend <- grid.arrange(rv_param_temp$finalPlot$shared_legend)
+#   }
+#   ts_plotly_legend # setting the width here or at the 'Legend' subheading seems to rescale the height too. Size of ggplot legends is absolute. Set height through the 'Legend' subheading in combination with here. Legend width will not adjust with browser window. Fixed the width issue by putting the plot notes on a white background.
+# }, height = 70)
+# ), 
+p(
+  plotlyOutput("out_ts_plots")
 )
-```
-
-### Seasonal Patterns
-####
-```{r seasonal_plots_input}
-shinyWidgets::radioGroupButtons("sel_SeasonalTimeUnit",
-              label = h6("SEASONAL patterns time unit:"),
-              choices = c("Day of Year" = "DayOfYr", "Week of Year" = "Wk", "Month of Year" = "Mnth", "Season of Year" = "Season"),
-              selected = "Mnth",
-              status = "primary",
-              size = "xs")
-
-# Highlight a survey yr
-renderUI({
-  shiny::req(!is.null(rv_param_temp$plotDat), !is.null(input$sel_PlotType))
-      shiny::req(input$sel_PlotType %in% c("points", "points_smooth"))
-      avail_yrs <- c("None", as.character(sort(unique(rv_param_temp$plotDat$Yr))))
-      shiny::req(length(unique(rv_param_temp$plotDat$Yr)) > 0)
-      selectInput("sel_HighlightSurvYr",
-                  label = h6(strong("Highlight a survey year")),
-                  choices = avail_yrs,
-                  selected = switch(is.null(input$sel_HighlightSurvYr)+1, input$sel_HighlightSurvYr, "None"),
-                  width = "200px"
-                  )
-      })
-```
-
-#### 
-```{r seasonal_plots_legend}
-renderPlot({ # separate validation statements so they are checked in sequence
-    shiny::req(!is.null(rv$importSettings), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
-    if(any(!rv$importSettings$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName, is.null(rv_param_temp$seasonalPlot), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharTypes), is.null(rv_param_temp$seasonalPlot$shared_legend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
-    seas_plotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
-  } else {
-    seas_plotly_legend <- grid.arrange(rv_param_temp$seasonalPlot$shared_legend)
-  }
-  seas_plotly_legend
-}, height = 70) # setting the width here or at the 'Legend' subheading seems to rescale the height too. Size of ggplot legends is absolute. Set height through the 'Legend' subheading in combination with here. Legend width will not adjust with browser window. Fixed the width issue by putting the plot notes on a white background.
-```
-
-```{r seasonal_plots}
-bslib::card(
-  full_screen = TRUE,
-  card_body(
-    plotlyOutput("out_season_plots")
-  )
+),
+nav_panel(
+  title = "Seasonal Patterns",
+  p(explore_seasonal_patterns_subcard)
+),
+nav_panel(
+  title = "Annual Threshold Levels",
+  p(plotlyOutput("out_thresh_plots"))
+),
+nav_panel(
+  title = "Annual Percentile Levels",
+  p(plotlyOutput("out_perc_plots"))
 )
-```
-
-### Annual Threshold Levels
-```{r pie_thresh}
-bslib::card(
-  full_screen = TRUE,
-  card_body(
-    plotlyOutput("out_thresh_plots")
-  )
+),
+class = "p-0",
+full_screen = TRUE
 )
-```
+) # end of explore_plots_card
 
-### Annual Percentile Levels
-```{r pie_perc}
+### Explore page setup----
 bslib::card(
-  full_screen = TRUE,
-  card_body(
-    plotlyOutput("out_perc_plots")
-  )
+  layout_sidebar(
+    sidebar = sidebar(
+      explore_sidebar_card,
+      position = "left",
+      open = TRUE),
+    layout_sidebar(
+      sidebar = sidebar(
+        explore_plots_card,
+        position = "right",
+        width = "50%",
+        open = FALSE),
+      explore_map_card,
+      border = FALSE
+    ),
+    border_radius = FALSE,
+  ),
+  full_screen = FALSE,    
+  fillable = FALSE,
+    class = "p-0"
 )
+
 ```
 
 Raw Data
