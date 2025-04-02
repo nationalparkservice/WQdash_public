@@ -2,7 +2,7 @@
 title: "Water in Our Parks"
 output:
   flexdashboard::flex_dashboard:
-    theme: yeti   # theme options: default, cosmo, bootstrap, cerulean, journal, flatly, readable, spacelab, united, lumen, paper, sandstone, simplex, yeti
+    theme: yeti  # theme options: default, cosmo, bootstrap, cerulean, journal, flatly, readable, spacelab, united, lumen, paper, sandstone, simplex, yeti. To allow bslib components in flexdashboard, only some themes have limited conflict, e.g., cosmo, shiny, default--but still problematic
 orientation: columns
 vertical_layout: fill
 horizontal_layout: fill
@@ -25,6 +25,8 @@ runtime: shiny
 # > Only show parameters reported by NPS--fix the wording
 # > Explore Data should not require Filter
 
+## NOTES 
+# > bslib accordion requires bootswatch themes that screw up flexdashboard formatting; shinyBS::bsCollapse does not work
 ## MODIFY FOR SCI4GA
 # county_map <- us_map(regions = "counties", include = "Georgia)
 
@@ -51,7 +53,7 @@ pkgs <- c("flexdashboard",
           "plotly", 
           "httr", 
           "sp",
-          "bslib", # for accordion panels
+          "bslib", 
           "bsicons",
           "RgoogleMaps", # to set map zoom
           "sf",
@@ -76,6 +78,7 @@ pkgs <- c("flexdashboard",
           "RgoogleMaps", # for MaxZoom & MinZoom
           "geojsonio", # to test for presence of features
           "lemon", # for facet_rep_wrap
+          "shinyBS", # for collapsible panels
           # "EnvironmentalSettingToolkit", # installed from github
           # "rnoaa", # to get NOAA climate data <<<<< THIS PACKAGE WILL RETIRE SOON. KEEP AN EYE ON THIS.
           "leaflet.minicharts") # for web etiquette with APIs
@@ -116,6 +119,11 @@ options(shiny.maxRequestSize = 30*1024^2, # increases download limit to 30MB fro
 # This forces datatable to fill height of modal
 tags$style(".dataTables_scrollBody {
     height: calc(100vh - 180px) !important;
+}")
+
+# This forces navset_card_tab to fill height 
+tags$style(".tab-content {
+    height: calc(100vh) !important;
 }")
 
 # This sizes and positions the custom gif loading images
@@ -190,13 +198,48 @@ tag.map.title <- tags$style(HTML("
 tags$style(".map-unitcode {
            font-weight: bold;
            background: rgba(255,255,255,0.75); # white box
-           font-size:28px;
+           font-size:35px;
            }") # add bold park unit name/code to leaflet map
 
 tags$style(".chart-stage-flex {
 overflow: scroll !important;
 }") # Helps ensure data table bottoms don't get cut off
 
+tags$style(HTML("
+      .panel {
+        margin-bottom: 10px; /* Adjust the margin between panels */
+      }
+      
+      .panel-title {
+      font-size: 14px; /* Adjust the font size as needed */
+      }
+      
+      .panel-heading {
+        font-size: 10px; /* Adjust the font size of the panel heading */
+        padding: 5px 8px; /* Adjust the padding of the panel heading */
+      }
+      
+      .panel-body {
+        font-size: 10px; /* Adjust the font size of the panel body */
+        padding: 5px; /* Adjust the padding of the panel body */
+      }
+
+    .panel-heading .panel-title a.collapsed:after {
+      transform: rotate(180deg);
+      transition: .5s ease-in-out;
+    }
+    
+    .panel-heading .panel-title a:after {
+      content:'⏶';
+      text-align: right;
+      float:right;
+      transition: .5s ease-in-out;
+    }
+    
+    .panel-heading .panel-title a:not([class]):after {
+      transform: rotate(180deg);
+    }
+    ")) # Modify bsCollapse drop-down panels
 
 ```
 
@@ -242,8 +285,8 @@ FuncAllNoneButtons <- function(cond, name_all, name_none) {
   #
   conditionalPanel(
     condition = paste0("typeof ", cond, " !== 'undefined'"),
-    actionButton(name_all, "Select All", style="color:black; display:inline-block; border:1px; padding:4px 12px;"),
-    actionButton(name_none, "Select None", style="color:black; display:inline-block; border:1px; padding:4px 12px;")
+    actionButton(name_all, "Select All", style="color:black; display:inline-block; border:1px; padding:2px 6px;"),
+    actionButton(name_none, "Select None", style="color:black; display:inline-block; border:1px; padding:2px 6px;")
   )
 }
 
@@ -596,6 +639,18 @@ FuncUpdateFilterInputs <- function() {
   updateCheckboxGroupInput(session,
                            "sel_SummaryOrg",
                            selected = rv_param_temp$defaultInputs$sel_SummaryOrg)
+  
+  updateCheckboxInput(session,
+                      "sel_AddQuantile",
+                      value = FALSE)
+  
+  updateRadioButtons(session,
+                     "sel_ShowThresholds",
+                     selected = "showthresh_none")
+  
+  updateRadioButtons(session,
+                     "sel_AddGagePrecip",
+                     selected = "none")
 }
 
 
@@ -725,21 +780,6 @@ FuncFilterSelectCharSampleType <- function(sel_NPSparam, sel_YrRange, sel_Summar
   return(sort(unique(char_vec)))
 }
 
-# FuncHighlightYr <- function(plot_list) {
-#     h_plot_list <- list()
-# 
-#     for(i in 1:length(plot_list)) {
-#       p <- plot_list[[i]]
-# 
-#       highlight_dat <- subset(p$data, Yr == as.integer(input$sel_HighlightSurvYr), select = c(x, y))
-#       if(nrow(highlight_dat) > 0) {
-#         h_plot_list[[i]] <- p +
-#           geom_point(data = highlight_dat, aes(x = x, y = y), color = "turquoise2", size = 3)
-#         }
-#     }
-#     return(h_plot_list)
-# }
-
 FuncInitFilter <- function() {
   shiny::req(!is.null(rv$dat))
   # Initial default filtering of data so user can bypass filter page
@@ -747,7 +787,7 @@ FuncInitFilter <- function() {
   rv_param_temp$defaultInputs$sel_MinYrs <- 3
   rv_param_temp$defaultInputs$sel_DefineSeasons <- "MeteoSeasons"
   rv_param_temp$defaultInputs$sel_SummaryOrg <-sort(unique(rv$dat$OrganizationFormalName))
-  rv_param_temp$defaultInputs$sel_NPSparam <- "National Park Service Water Resources Division" %in% rv$dat$OrganizationFormalName
+  rv_param_temp$defaultInputs$sel_NPSparam <- FALSE
   rv_param_temp$defaultInputs$sel_ActivityType <- sort(intersect(unique(rv$dat$ActivityTypeCode), c("Field Msr/Obs", "Field Msr/Obs-Portable Data Logger",  "Sample", "Sample-Routine")))
   rv_param_temp$defaultInputs$sel_ResultStatus <- sort(intersect(unique(rv$dat$ResultStatusIdentifier), c("Accepted", "Final", "Validated", "Historical")))
   
@@ -761,17 +801,21 @@ FuncInitFilter <- function() {
     sel_ResultStatus = rv_param_temp$defaultInputs$sel_ResultStatus, 
     sel_MinYrs = rv_param_temp$defaultInputs$sel_MinYrs)
   
+    match_vec <- c("Dissolved oxygen", "Escherichia", "Flow, severity (choice list)", "Flow, stream stage (choice list)", "Nitrate + Nitrite", "Nitrogen", "pH", "Specific conductance", "Temperature", " Phosphorus", "Turbidity")
+    init_param_select <- rv_param_temp$selectCharSampleType[grep(paste(match_vec, collapse = "|"), rv_param_temp$selectCharSampleType)]
+  
   # Set initial plot input values
   print("SETTING INITIAL THRESHOLD VALUES")
   rv_param_temp$threshList <- NULL
   print("SET THRESHLIST TO NULL")
   
-  rv_param_temp$currentInputs$sel_SummaryParam <- rv_param_temp$selectCharSampleType
+  rv_param_temp$currentInputs$sel_SummaryParam <- init_param_select
   rv_param_temp$currentInputs$sel_ThreshLower <- NA
   rv_param_temp$currentInputs$sel_ThreshUpper <- NA
   rv_param_temp$currentInputs$sel_ThreshCateg1 <- rv_param_temp$currentInputs$sel_ThreshCateg2 <- rv_param_temp$currentInputs$sel_ThreshCateg3 <- "good"
   
   # session$sendCustomMessage(type = "resetValue", message = list("sel_SummaryParam", sort(rv_param_temp$selectCharSampleType)))
+
 }
 
 # FuncAddCategLevels <- function(subdat, )
@@ -1054,10 +1098,6 @@ FuncPlotDat <- function() {
   #
   # Returns:
   #   Formatted plot data
-  
-#         saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
 
   shiny::req(!is.null(rv_param_temp$subDat), !is.null(rv_param_temp$sel_summarize_by))
   # Filter plotting data by user inputs
@@ -1100,7 +1140,7 @@ FuncPlotDat <- function() {
         }# end assign custom threshold limits
 
     # Determine quantiles for plots
-  if(any(input$sel_AddQuantile == FALSE, is.null(input$sel_QuantileProbLower), is.null(input$sel_QuantileProbUpper))) {
+  if(any(is.null(input$sel_AddQuantile), input$sel_AddQuantile == FALSE, is.null(input$sel_QuantileProbLower), is.null(input$sel_QuantileProbUpper))) {
       rv_param_temp$quantDat <- NULL
     } else {
 
@@ -1504,14 +1544,14 @@ if(x_nam == "ActivityStartDate") {
         geom_segment(data = dat_cens, aes(x = x, xend = x, y = segment_start, yend = segment_end), linewidth = 0.25, linetype = "dotted")
     }
   }
-    # Highlight a year
-    if(all(x_nam != "ActivityStartDate", !is.null(input$sel_HighlightSurvYr), input$sel_HighlightSurvYr != "None",  suppressWarnings(as.integer(input$sel_HighlightSurvYr) %in% unique(dat_df$Yr)))) {
-      highlight_dat <- subset(dat_df, Yr == as.integer(input$sel_HighlightSurvYr), select = c(x, y))
-      if(nrow(highlight_dat) > 0) {
-        p1_points <- p1_points +
-          geom_point(data = highlight_dat, aes(x = x, y = y), color = "turquoise2", size = 3)
-      }
-    }
+    # # Highlight a year
+    # if(all(x_nam != "ActivityStartDate", !is.null(input$sel_HighlightSurvYr), input$sel_HighlightSurvYr != "None",  suppressWarnings(as.integer(input$sel_HighlightSurvYr) %in% unique(dat_df$Yr)))) {
+    #   highlight_dat <- subset(dat_df, Yr == as.integer(input$sel_HighlightSurvYr), select = c(x, y))
+    #   if(nrow(highlight_dat) > 0) {
+    #     p1_points <- p1_points +
+    #       geom_point(data = highlight_dat, aes(x = x, y = y), color = "turquoise2", size = 3)
+    #   }
+    # }
     
   print("line1533")  
     # If adding loess smooth...
@@ -1773,7 +1813,8 @@ FuncPlotBox <- function(plot_dat, quant_df = NULL, x_nam = "Yr", combine_sites =
     p1_box <- p_box +
       geom_boxplot(aes(fill = MonitoringLocationIdentifier), alpha = 0.4, show.legend = c(fill = TRUE)) +
       scale_fill_viridis_d(name = "Site") + 
-      guides(fill = guide_legend(direction = "horizontal")) # can't seem to turn legend horizontal with theme(legend...)
+      guides(fill = guide_legend(direction = "horizontal")) + # can't seem to turn legend horizontal with theme(legend...)
+      theme(legend.position = "top")
     } else {
       p1_box <- p_box + geom_boxplot()
     }
@@ -2081,8 +2122,10 @@ FuncPlotPage <- function(plot_list, time_unit) {
   shiny::req(!is.null(plot_list[[1]])) # this is the list of plots
   
   # Get the shared legend if it exists - getting shared legends to format properly with plotly is a PITB. Tried following many stackexchange suggestions, with no success.
-  if(!is.null(get_legend(plot_list[[1]][[1]]))) {
-    shared_legend <- ggpubr::as_ggplot(ggpubr::get_legend(plot_list[[1]][[1]])) # if a legend exists, extract it
+  slegend <- cowplot::get_plot_component(plot_list[[1]][[1]], 'guide-box-top', return_all = TRUE)
+  if(!is.null(slegend)) {
+    shared_legend <- slegend
+  #   # shared_legend <- ggpubr::as_ggplot(ggpubr::get_legend(plot_list[[1]][[1]])) # if a legend exists, extract it
   } else {
     shared_legend <- NULL
   }
@@ -2451,7 +2494,7 @@ observeEvent(eventExpr = input$saved_data_file, {
 
   FuncInitFilter()
   FuncUpdateFilterInputs() 
-  FuncRefreshFilter(sel_MinYrs = rv_param_temp$defaultInputs$sel_MinYrs, sel_SummaryParam = rv_param_temp$selectCharSampleType, sel_SummaryOrg = rv_param_temp$defaultInputs$sel_SummaryOrg, sel_YrRange = rv_param_temp$defaultInputs$sel_YrRange, sel_ActivityType = rv_param_temp$defaultInputs$sel_ActivityType, sel_ResultStatus = rv_param_temp$defaultInputs$sel_ResultStatus, sel_DefineSeasons = rv_param_temp$defaultInputs$sel_DefineSeasons) # generate the initial filtered data based on default filters. Also call this filter when action button clicked for refreshing filter
+  FuncRefreshFilter(sel_MinYrs = rv_param_temp$defaultInputs$sel_MinYrs, sel_SummaryParam = rv_param_temp$currentInputs$sel_SummaryParam, sel_SummaryOrg = rv_param_temp$defaultInputs$sel_SummaryOrg, sel_YrRange = rv_param_temp$defaultInputs$sel_YrRange, sel_ActivityType = rv_param_temp$defaultInputs$sel_ActivityType, sel_ResultStatus = rv_param_temp$defaultInputs$sel_ResultStatus, sel_DefineSeasons = rv_param_temp$defaultInputs$sel_DefineSeasons) # generate the initial filtered data based on default filters. Also call this filter when action button clicked for refreshing filter
   # rv_param_temp$resetFilter <- TRUE
   rm(out_file)
   
@@ -3572,6 +3615,7 @@ observeEvent(eventExpr = input$button_refreshFilter, {
 # Action to update data summaries with current user inputs----
 
 observeEvent(eventExpr = input$button_refreshPlotData, { 
+  
   # FuncUpdateTSPlots()
   
   shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_SummarizeBy))
@@ -3617,13 +3661,18 @@ rv_param_temp$sel_show_thresholds <- isolate(input$sel_ShowThresholds) # save th
       rv_param_temp$finalPlot <- rv_param_temp$seasonalPlot <- list(plotly_page = NULL, shared_legend = NULL)
 
 # Format plot data for time series plot tab
-  if(any(is.null(rv_param_temp$subDat),  is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharTypes), is.null(rv_param_temp$sel_summarize_by), is.null(input$sel_AddQuantile), is.null(rv_param_temp$sel_add_gage_precip), is.null(rv_param_temp$sel_show_thresholds))) { 
+  if(any(is.null(rv_param_temp$subDat),  is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharTypes), is.null(rv_param_temp$sel_summarize_by))) {
+    
+  # , is.null(input$sel_AddQuantile), is.null(rv_param_temp$sel_add_gage_precip), is.null(rv_param_temp$sel_show_thresholds))) { 
    
     rv_param_temp$plotDat <- NULL
 
   } else {          
 
       withProgress(message = "Formatting plot data...", value = 0, {
+        
+        if(is.null(rv_param_temp$sel_add_gage_precip)) {rv_param_temp$sel_add_gage_precip <- "none"}
+        if(is.null(rv_param_temp$sel_show_thresholds)) {rv_param_temp$sel_show_thresholds <- "showthresh_none"}
 
           rv_param_temp$plotDat <- FuncPlotDat() # this function also assigns data to rv_param_temp$quantDat
       })
@@ -3882,6 +3931,10 @@ output$out_ts_plots <- renderPlotly({ # separate validation statements so they a
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE)
 print("line5039")
 
+#           saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+
   shiny::validate(
     need(!is.null(rv_param_temp$showCharTypes) & !is.null(rv_param_temp$showStations), message = "From the left sidebar, please select characteristic(s) and monitoring site(s) to plot, then click the green 'REFRESH PLOT DATA' button"))
   
@@ -3889,11 +3942,9 @@ print("line5039")
     shiny::validate(need(length(rv_param_temp$showStations) < 6 | input$sel_CombineSites == FALSE, message = "The maximum number of monitoring sites to display in a single plot is FIVE. From the left sidebar, please either UNSELECT 'Combine sites in one plot' or reduce the number of sites to display."))
   }
   
-  shiny::req(!is.null(input$sel_PlotType),!is.null(rv_param_temp$plotDat), !is.null(input$sel_SeasonalTimeUnit), !is.null(input$sel_FreeY), !is.null(input$sel_CombineSites))
-   
-#   saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+  # shiny::req(!is.null(input$sel_PlotType),!is.null(rv_param_temp$plotDat), !is.null(input$sel_SeasonalTimeUnit), !is.null(input$sel_FreeY), !is.null(input$sel_CombineSites))
+  
+  shiny::req(!is.null(input$sel_PlotType),!is.null(rv_param_temp$plotDat), !is.null(input$sel_SeasonalTimeUnit))
 
   rv_param_temp$ggplot_ts_list <- FuncPlotList(time_unit = "ActivityStartDate")
 
@@ -3921,7 +3972,9 @@ output$out_season_plots <- renderPlotly({
     shiny::validate(need(length(rv_param_temp$showStations) < 6 | input$sel_CombineSites == FALSE, message = "The maximum number of monitoring sites to display in a single plot is FIVE. From the left sidebar, please either UNSELECT 'Combine sites in one plot' or reduce the number of sites to display."))
   }
   
-  shiny::req(!is.null(input$sel_PlotType),!is.null(rv_param_temp$plotDat), !is.null(input$sel_SeasonalTimeUnit), !is.null(input$sel_FreeY), !is.null(input$sel_CombineSites))
+  # shiny::req(!is.null(input$sel_PlotType),!is.null(rv_param_temp$plotDat), !is.null(input$sel_SeasonalTimeUnit), !is.null(input$sel_FreeY), !is.null(input$sel_CombineSites))
+  
+  shiny::req(!is.null(input$sel_PlotType),!is.null(rv_param_temp$plotDat), !is.null(input$sel_SeasonalTimeUnit))
   
   rv_param_temp$ggplot_season_list <- FuncPlotList(time_unit = switch(is.null(input$sel_SeasonalTimeUnit)+1, input$sel_SeasonalTimeUnit, "Wk"))
   
@@ -4681,8 +4734,7 @@ wellPanel(
 
       checkboxInput("sel_NPSparam",
                     "Only show characteristics reported by NPS for the imported monitoring sites",
-                    value = FALSE)
-                    # value = rv_param_temp$defaultInputs$sel_NPSparam)
+                    value = rv_param_temp$defaultInputs$sel_NPSparam)
     }),
     
     renderUI({
@@ -4695,16 +4747,13 @@ wellPanel(
     sel_ActivityType = input$sel_ActivityType, 
     sel_ResultStatus = input$sel_ResultStatus, 
     sel_MinYrs = input$sel_MinYrs)  
-      
-      match_vec <- c("Dissolved oxygen", "Escherichia", "Flow, severity (choice list)", "Flow, stream stage (choice list)", "Nitrate", "pH", "Specific conductance", "Temperature, water", "Phosphorus", "Turbidity")
-      init_match <- rv_param_temp$selectCharSampleType[grep(paste(match_vec, collapse = "|"), rv_param_temp$selectCharSampleType)]
 
       checkboxGroupInput("sel_SummaryParam",
                          label = h6("Water quality characteristic types to summarize: "),
                          choices = sort(rv_param_temp$selectCharSampleType),
-                         # selected = rv_param_temp$currentInputs$sel_SummaryParam
+                         selected = rv_param_temp$currentInputs$sel_SummaryParam
                          # selected = switch(all(is.null(input$sel_SummaryParam), !identical(input$sel_SummaryParam, character(0)))+1, input$sel_SummaryParam, rv_param_temp$selectCharSampleType[rv_param_temp$selectCharSampleType %in% c("Dissolved oxygen (DO)", "Escherichia coli", "Flow, severity (choice list)", "Flow, stream stage (choice list)", "Nitrate + Nitrite", "pH", "Specific conductance", "Temperature, water", "Total Phosphorus, mixed forms", "Turbidity")])
-                         selected = switch(is.null(input$sel_SummaryParam)+1, input$sel_SummaryParam, init_match)
+                         # selected = switch(is.null(input$sel_SummaryParam)+1, input$sel_SummaryParam, init_match)
       )
     }),
 
@@ -5078,34 +5127,38 @@ output$button_exportCateg <- downloadHandler(
 
 ```
 
-Explore Data TEST BSLIB
+Explore Data
 ====================================== 
 
-```{r}
+Inputs {.sidebar data-width=260}
+-------------------------------------
+```{r explore_data_input}
+FuncAboutButton(nam = "button_aboutExploreData")
 observeEvent(eventExpr = input$button_aboutExploreData, {
   browseURL(here::here("About_files", "aboutExploreData.html"))})
 
-### Explore sidebar----
-explore_sidebar_card <- 
-  bslib::card(
-    full_screen = FALSE,
-    fillable = FALSE,
-    width = "340px",
-    FuncAboutButton(nam = "button_aboutExploreData"),
-br(),
-wellPanel(
-  id = "summarize_char_stations",
-  p(strong("Select data to plot")),
-  
-  actionButton("button_refreshPlotData", "REFRESH PLOT DATA", style="border-color:black; background-color: lightgreen; width:100%; border:0px; margin:0px"), # updates plots
+br()
 
-renderUI({
-  radioButtons("sel_SummarizeBy",
-               label = h6(" Summarize by:"),
-               choiceNames = list("ONE CHARACTERISTIC for many sites", "many characteristics for ONE SITE"),
-               choiceValues = list("by_chartype", "by_station"),
-               selected = "by_chartype")
-  }),
+br()
+
+actionButton("button_refreshPlotData", "REFRESH PLOT DATA", style="border-color:black; background-color: lightgreen; width:100%; border:0px; margin:0px") # updates plots
+
+br()
+
+br()
+
+shinyBS::bsCollapse(
+  id = "collapse_explore_input", 
+  open = "Select data to plot",
+  bsCollapsePanel(
+    title = "Select data to plot", 
+    renderUI({
+      radioButtons("sel_SummarizeBy",
+                   label = h6(" Summarize by:"),
+                   choiceNames = list("ONE CHARACTERISTIC for many sites", "many characteristics for ONE SITE"),
+                   choiceValues = list("by_chartype", "by_station"),
+                   selected = "by_chartype")
+      }),
 
 # If summarizing by characteristic (ONE CHARACTERISTIC for many stations)...
 renderUI({
@@ -5167,12 +5220,11 @@ renderUI({
 
     FuncAllNoneButtons(cond = "input.sel_ShowStationCharTypes", name_all = "button_allStationChars", name_none = "button_noStationChars")
 }),
-), # end of well panel
+style = "default"
+), # end of collapse panel
 
-
-wellPanel( # Panel to define high/low values
-  id = "define_limits",
-  p(strong("Define thresholds and percentile bounds")),
+  bsCollapsePanel(
+    title = "Thresholds & Percentiles",
 
   renderUI({
     shiny::req(!is.null(rv_param_temp$subDat), !is.null(input$sel_SummarizeBy))
@@ -5314,14 +5366,13 @@ tags$div(renderText({
               selected = "quant_all")
         # }
       )
-    })
-), # end of wellPanel
+    }),
+style = "default"
+), # end of collapse panel
 
-wellPanel( ## Panel to add streamflow/precip data 
-  id = "plot_display_options",
-  p(strong("Add streamflow/precip")),
+  bsCollapsePanel(
+    title = "Streamflow/Precip Plots",
 
-  # Additional plot
   renderUI({
     radioButtons("sel_AddGagePrecip",
                  label = h6("Add external data plot: "),
@@ -5359,32 +5410,46 @@ wellPanel( ## Panel to add streamflow/precip data
                   choices = sort(unique(rv$selectedMeteo$MeteoName)),
                   selected = switch(is.null(input$sel_PrecipStation)+1, input$sel_PrecipStation, sort(unique(rv$selectedMeteo$MeteoName))[1])),
       )
-    })
-) # end of wellPanel
-  ) # end of explore_sidebar_card
+    }),
+  style = "default"
+) # end of collapse panel
+) # end of input collapse
+```
+
+Column
+-------------------------------------
+```{r explore_summaries}
 
 ### Explore map card----
 explore_map_card <-
   bslib::card(
-    full_screen = FALSE,
-    fillable = FALSE,
-    card_header(
+    full_screen = TRUE,
+    gap = 0,
+    card_body(
       div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
     # Left side inputs
-    div(style ="flex: 1 1 45%; padding:10px; justify-content:center; align-items:center;", # padding is for spacing from div edge and each other
+    div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:left;", # padding is for spacing from div edge and each other
             renderUI({
   shiny::req(!is.null(rv$sitesPointsSub))
   param_map_zoom <- min(RgoogleMaps::MaxZoom(lonrange = c(st_bbox(rv$sitesPointsSub)$xmin, st_bbox(rv$sitesPointsSub)$xmax), latrange = c(st_bbox(rv$sitesPointsSub)$ymin, st_bbox(rv$sitesPointsSub)$ymax)))
   sliderInput("sel_ParamMapZoom", label = h6(strong("Set map zoom:")), min = max(1, param_map_zoom - 3), max = param_map_zoom + 5, value = param_map_zoom - 1, step = 0.25, ticks = FALSE, dragRange = FALSE, width = "100%")
-  }),
-        renderUI({
-          shiny::req(!is.null(rv$sitesPointsSub))
-    sliderInput("sel_MapPointSize", label = h6(strong("Resize map points:")), min = -3, max = 3, value = 0, step = 1, ticks = FALSE, dragRange = FALSE, width = "100%")
-    })
+  })
   ),
 
-div(style ="flex: 1 1 45%; padding:10px; justify-content:center; align-items:center;", # using default flex grow-shrink-size
+div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:center;", # using default flex grow-shrink-size
     
+            renderUI({
+          shiny::req(!is.null(rv$sitesPointsSub))
+    sliderInput("sel_MapPointSize", label = h6(strong("Resize map points:")), min = -3, max = 3, value = 0, step = 1, ticks = FALSE, dragRange = FALSE, width = "100%")
+    }),
+    renderUI({
+  shiny::req(!is.null(rv$unitPoly), !is.null(rv_param_temp$sel_summarize_by), !is.null(rv_param_temp$plotDat), !is.null(input$sel_ParamMapShow), !is.null(input$sel_MapByYr))
+    shiny::req(input$sel_ParamMapShow != "show", input$sel_MapByYr == TRUE)
+  sliderTextInput("sel_SurvYr", force_edges = TRUE, label = h6(strong("Choose a survey year")), choices = sort(unique(rv_param_temp$plotDat$Yr)), selected = max(rv_param_temp$plotDat$Yr, na.rm = TRUE), dragRange = FALSE, animate = TRUE, width = "100%")
+  })
+  ),
+    
+div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:right;", # using default flex grow-shrink-size
     renderUI({
       shiny::req(!is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$plotDat))
         # shiny::req(identical(unique(rv_param_temp$plotDat$MonitoringLocationIdentifier), rv_param_temp$param_map_highlight)) # make sure the plots have been updated  
@@ -5406,82 +5471,71 @@ div(style ="flex: 1 1 45%; padding:10px; justify-content:center; align-items:cen
               size = "xs",
               selected = "show") 
   }),
-  
-  renderUI({
+      renderUI({
     shiny::req(!is.null(rv$unitPoly), !is.null(rv_param_temp$sel_summarize_by), !is.null(rv_param_temp$plotDat), !is.null(input$sel_ParamMapShow))
     shiny::req(input$sel_ParamMapShow != "show")
     checkboxInput("sel_MapByYr",
                   label = h6(strong("Show map summaries BY YEAR")),
                   value = FALSE
     )
-  }),
-  
-  renderUI({
-  shiny::req(!is.null(rv$unitPoly), !is.null(rv_param_temp$sel_summarize_by), !is.null(rv_param_temp$plotDat), !is.null(input$sel_ParamMapShow), !is.null(input$sel_MapByYr))
-    shiny::req(input$sel_ParamMapShow != "show", input$sel_MapByYr == TRUE)
-  sliderTextInput("sel_SurvYr", force_edges = TRUE, label = h6(strong("Choose a survey year")), choices = sort(unique(rv_param_temp$plotDat$Yr)), selected = max(rv_param_temp$plotDat$Yr, na.rm = TRUE), dragRange = FALSE, animate = TRUE, width = "100%")
   })
   )
-)
-), 
-card_body(
-  leafletOutput('param_map', width = "100%")
 ),
+
+leafletOutput('param_map', width = "100%")
+  )
 ) # end of explore_map_card
 
 ### Explore seasonal patterns subcard----
 explore_seasonal_patterns_subcard <-
   bslib::card(
+    full_screen = TRUE,
     card_header(
       shinyWidgets::radioGroupButtons("sel_SeasonalTimeUnit",
               label = h6("SEASONAL patterns time unit:"),
               choices = c("Day of Year" = "DayOfYr", "Week of Year" = "Wk", "Month of Year" = "Mnth", "Season of Year" = "Season"),
               selected = "Mnth",
               status = "primary",
-              size = "xs"),
+              size = "xs"), 
+      
+      br(),
+      
+# 
+# renderUI({
+#   shiny::req(!is.null(rv_param_temp$plotDat), !is.null(input$sel_PlotType))
+#       shiny::req(input$sel_PlotType %in% c("points", "points_smooth"))
+#       avail_yrs <- c("None", as.character(sort(unique(rv_param_temp$plotDat$Yr))))
+#       shiny::req(length(unique(rv_param_temp$plotDat$Yr)) > 0)
+#       selectInput("sel_HighlightSurvYr",
+#                   label = h6(strong("Highlight a survey year")),
+#                   choices = avail_yrs,
+#                   selected = switch(is.null(input$sel_HighlightSurvYr)+1, input$sel_HighlightSurvYr, "None"),
+#                   width = "200px"
+#                   )
+#       })
 
-renderUI({
-  shiny::req(!is.null(rv_param_temp$plotDat), !is.null(input$sel_PlotType))
-      shiny::req(input$sel_PlotType %in% c("points", "points_smooth"))
-      avail_yrs <- c("None", as.character(sort(unique(rv_param_temp$plotDat$Yr))))
-      shiny::req(length(unique(rv_param_temp$plotDat$Yr)) > 0)
-      selectInput("sel_HighlightSurvYr",
-                  label = h6(strong("Highlight a survey year")),
-                  choices = avail_yrs,
-                  selected = switch(is.null(input$sel_HighlightSurvYr)+1, input$sel_HighlightSurvYr, "None"),
-                  width = "200px"
-                  )
-      })
-    ),
-card_body(
-#   p(
-#     renderPlot({ # separate validation statements so they are checked in sequence
-#     shiny::req(!is.null(rv$importSettings), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
-#     if(any(!rv$importSettings$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName, is.null(rv_param_temp$seasonalPlot), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharTypes), is.null(rv_param_temp$seasonalPlot$shared_legend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
-#     seas_plotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
-#   } else {
-#     seas_plotly_legend <- grid.arrange(rv_param_temp$seasonalPlot$shared_legend)
-#   }
-#   seas_plotly_legend
-# }, height = 70) # setting the width here or at the 'Legend' subheading seems to rescale the height too. Size of ggplot legends is absolute. Set height through the 'Legend' subheading in combination with here. Legend width will not adjust with browser window. Fixed the width issue by putting the plot notes on a white background.
-# ),
-p(plotlyOutput("out_season_plots"))
-  ),
-fillable = FALSE,
-class = "p-0"
+    renderPlot({ # separate validation statements so they are checked in sequence
+    shiny::req(!is.null(rv$importSettings), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
+    if(any(!rv$importSettings$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName, is.null(rv_param_temp$seasonalPlot), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharTypes), is.null(rv_param_temp$seasonalPlot$shared_legend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
+    seas_plotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
+  } else {
+    seas_plotly_legend <- grid.arrange(rv_param_temp$seasonalPlot$shared_legend)
+  }
+  seas_plotly_legend
+}, height = 70)# setting the width here or at the 'Legend' subheading seems to rescale the height too. Size of ggplot legends is absolute. Set height through the 'Legend' subheading in combination with here. Legend width will not adjust with browser window. Fixed the width issue by putting the plot notes on a white background.
+), 
+plotlyOutput("out_season_plots")
 ) # end explore_seasonal_patterns_subcard
 
 ### Explore plots card----
 explore_plots_card <-
   bslib::card(
     full_screen = FALSE,
-    fillable = FALSE,
-    card_header(
+    gap = 0,
+    card_body(
       div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
     
-    # Left side inputs
- 
-    div(style ="flex: 1 1 45%; padding:10px; justify-content:center; align-items:center;",
+    div(style ="flex: 1 1 35%; padding:5px; justify-content:center; align-items:left;",
         
     shinyWidgets::radioGroupButtons("sel_PlotType",
              label = h6(strong("Plot type:")),
@@ -5489,16 +5543,35 @@ explore_plots_card <-
              choiceValues = list("points", "points_smooth", "box"),
              status = "primary",
              size = "xs",
-             selected = "points"),
+             selected = "points")
+    ),
+    
+    div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:center;",
   
   shinyWidgets::dropdownButton(
     inputId = "dropdown_options",
-    label = "Additional Plot Options",
+    label = "More Plot Options",
     circle = FALSE,
     status = "button_menu",
-    size = "xs",
+    size = "s",
     icon = icon("sliders"),
     tooltip = "Additional options for user to modify plot",
+    
+    ## Allow different y-axes
+    renderUI({
+      shiny::req(all(!is.null(input$sel_SummarizeBy), input$sel_SummarizeBy == "by_chartype"), !is.null(input$sel_CombineSites), input$sel_CombineSites == FALSE)
+      checkboxInput("sel_FreeY",
+                        label = h6(strong("Allow y-axis to differ by plot")),
+                        value = switch(is.null(input$sel_FreeY)+1, input$sel_FreeY, FALSE))
+  }),
+    
+    ## Multiple sites in one plot
+    renderUI({
+      shiny::req(all(!is.null(input$sel_SummarizeBy), input$sel_SummarizeBy == "by_chartype"))
+      checkboxInput("sel_CombineSites",
+                        label = h6(strong("Combine sites in one plot")),
+                        value = switch(is.null(input$sel_CombineSites)+1, input$sel_CombineSites, FALSE))
+      }),
 
     ## Log-transform y-axes
     renderUI({
@@ -5537,86 +5610,65 @@ explore_plots_card <-
                    value = 0)
     })
   ) # End Additional Plot Options
-),
-
-    div(style ="flex: 1 1 45%; padding:10px; justify-content:center; align-items:center;",
+), 
+          div(style ="flex: 1 1 15%; padding:5px; justify-content:center; align-items:right;",
     
-    renderUI({
-      shiny::req(all(!is.null(input$sel_SummarizeBy), input$sel_SummarizeBy == "by_chartype"), !is.null(input$sel_CombineSites), input$sel_CombineSites == FALSE)
-      checkboxInput("sel_FreeY",
-                        label = h6(strong("Allow y-axis to differ by plot")),
-                        value = switch(is.null(input$sel_FreeY)+1, input$sel_FreeY, FALSE))
-  }),
-  
-    renderUI({
-      shiny::req(all(!is.null(input$sel_SummarizeBy), input$sel_SummarizeBy == "by_chartype"))
-      checkboxInput("sel_CombineSites",
-                        label = h6(strong("Combine sites in one plot")),
-                        value = switch(is.null(input$sel_CombineSites)+1, input$sel_CombineSites, FALSE))
-      }),
-  
-  actionButton(inputId = "button_plotTable", label = "View Table", icon = icon("table-cells", lib = "font-awesome"), style="color:black; background-color: lightblue; display:inline-block; border:1px; margin:5px")
+  actionButton(inputId = "button_plotTable", label = "View Table", icon = icon("table-cells", lib = "font-awesome"), style="color:black; font-size:8pt; background-color: lightblue; display:inline-block; border:1px; margin:1px")
   )
-)
-    ),
-card_body(
+), # end of overall div
+
   navset_card_tab(
     nav_panel(
       title = "Time Series",
-#       p(renderPlot({ # separate validation statements so they are checked in sequence
-#   shiny::req(!is.null(rv$importSettings), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
-#   if(any(!rv$importSettings$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName, is.null(rv_param_temp$finalPlot), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharTypes), is.null(rv_param_temp$finalPlot$shared_legend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
-#     ts_plotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
-#   } else {
-#     ts_plotly_legend <- grid.arrange(rv_param_temp$finalPlot$shared_legend)
-#   }
-#   ts_plotly_legend # setting the width here or at the 'Legend' subheading seems to rescale the height too. Size of ggplot legends is absolute. Set height through the 'Legend' subheading in combination with here. Legend width will not adjust with browser window. Fixed the width issue by putting the plot notes on a white background.
-# }, height = 70)
-# ), 
-p(
-  plotlyOutput("out_ts_plots")
+      bslib::card(
+        full_screen = TRUE,
+        card_header(
+          renderPlot({ # separate validation statements so they are checked in sequence
+  shiny::req(!is.null(rv$importSettings), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
+  if(any(!rv$importSettings$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName, is.null(rv_param_temp$finalPlot), is.null(rv_param_temp$showStations), is.null(rv_param_temp$showCharTypes), is.null(rv_param_temp$finalPlot$shared_legend))) { # this if-statement forces the plot to be reset to blank when these conditions apply
+    ts_plotly_legend <- ggplot(dat = data.frame()) + theme_minimal()
+  } else {
+    ts_plotly_legend <- grid.arrange(rv_param_temp$finalPlot$shared_legend)
+  }
+  ts_plotly_legend # setting the width here or at the 'Legend' subheading seems to rescale the height too. Size of ggplot legends is absolute. Set height through the 'Legend' subheading in combination with here. Legend width will not adjust with browser window. Fixed the width issue by putting the plot notes on a white background.
+}, height = 70)
+),
+plotlyOutput("out_ts_plots")
 )
 ),
 nav_panel(
   title = "Seasonal Patterns",
-  p(explore_seasonal_patterns_subcard)
+  explore_seasonal_patterns_subcard
 ),
 nav_panel(
-  title = "Annual Threshold Levels",
-  p(plotlyOutput("out_thresh_plots"))
+  title = "Threshold Patterns",
+  bslib::card(
+    full_screen = TRUE,
+    plotlyOutput("out_thresh_plots"))
 ),
 nav_panel(
-  title = "Annual Percentile Levels",
-  p(plotlyOutput("out_perc_plots"))
+  title = "Percentile Patterns",
+  bslib::card(
+    full_screen = TRUE,
+    p(plotlyOutput("out_perc_plots"))
 )
-),
-class = "p-0",
-full_screen = TRUE
+  )
+)
 )
 ) # end of explore_plots_card
 
 ### Explore page setup----
-bslib::card(
-  layout_sidebar(
-    sidebar = sidebar(
-      explore_sidebar_card,
-      position = "left",
-      open = TRUE),
-    layout_sidebar(
+# page_fillable does not work with flexdashboard
+bslib::layout_sidebar(
+      fillable = FALSE,
+      border = FALSE,
       sidebar = sidebar(
-        explore_plots_card,
-        position = "right",
+        explore_map_card,
+        position = "left",
         width = "50%",
-        open = FALSE),
-      explore_map_card,
-      border = FALSE
-    ),
-    border_radius = FALSE,
-  ),
-  full_screen = FALSE,    
-  fillable = FALSE,
-    class = "p-0"
-)
+        open = TRUE),
+      explore_plots_card,
+    )
 
 ```
 
