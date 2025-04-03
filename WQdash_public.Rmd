@@ -3,13 +3,16 @@ title: "Water in Our Parks"
 output:
   flexdashboard::flex_dashboard:
     theme: yeti  # theme options: default, cosmo, bootstrap, cerulean, journal, flatly, readable, spacelab, united, lumen, paper, sandstone, simplex, yeti. To allow bslib components in flexdashboard, only some themes have limited conflict, e.g., cosmo, shiny, default--but still problematic
-orientation: columns
-vertical_layout: fill
-horizontal_layout: fill
+    orientation: columns
+    vertical_layout: fill
+    horizontal_layout: fill
 runtime: shiny
 ---
 
 ```{r global, include=FALSE}
+
+### >>>>>>>>>>> PICK UP FROM HERE. THE EXPLORE PLOTS HAVE TOO MANY SCROLLBARS AND DO NOT FILL THE SCREEN
+
 ### UPCOMING CHANGES:
 # > rnoaa is not available for R3.2. This package is going to be phased out in 2024, so keep an eye out
 # > https://waterdata.usgs.gov/blog/wqx3/
@@ -119,11 +122,6 @@ options(shiny.maxRequestSize = 30*1024^2, # increases download limit to 30MB fro
 # This forces datatable to fill height of modal
 tags$style(".dataTables_scrollBody {
     height: calc(100vh - 180px) !important;
-}")
-
-# This forces navset_card_tab to fill height 
-tags$style(".tab-content {
-    height: calc(100vh) !important;
 }")
 
 # This sizes and positions the custom gif loading images
@@ -3271,8 +3269,6 @@ observeEvent(eventExpr = input$saved_thresh_file, {
     }
     
     rv_param_temp$threshList <- tempThresh_list
-
-    rm(tempThresh_df, tempThresh_list, out_thresh_file)
     
     showModal(modalDialog(
       title = "Done",
@@ -3293,12 +3289,6 @@ observe({
     }
   }
 })
-
-# # Reactively update whenever rv_param_temp$subDat or rv_param_temp$threshList change
-# renderUI({
-#   shiny::req(all(!is.null(rv_param_temp$subDat), !is.null(rv_param_temp$threshList)))
-#   
-# })
 ```
 
 ```{r events_categfiles_page}
@@ -3922,7 +3912,7 @@ print("line3881")
     setView(lng = switch(any(is.null(isolate(input$param_map_center$lng)), isolate(input$param_map_center$lng) == 0, isolate(input$param_map_center$lng) > st_bbox(rv[["HUC10"]])$xmax, isolate(input$param_map_center$lng) < st_bbox(rv[["HUC10"]])$xmin)+1, isolate(input$param_map_center$lng), mean(c(st_bbox(rv$sitesPointsSub)$xmin, st_bbox(rv$sitesPointsSub)$xmax))), lat = switch(any(is.null(isolate(input$param_map_center$lat)), isolate(input$param_map_center$lat) == 0, isolate(input$param_map_center$lat) > st_bbox(rv[["HUC10"]])$ymax, isolate(input$param_map_center$lat) < st_bbox(rv[["HUC10"]])$ymin)+1, isolate(input$param_map_center$lat), mean(c(st_bbox(rv$sitesPointsSub)$ymin, st_bbox(rv$sitesPointsSub)$ymax))), zoom = input$sel_ParamMapZoom)
   }) # end of renderLeaflet
 
-tags$style("#param_map {height: calc(100vh - 180px) !important;}") # expand map to fill screen
+tags$style("#param_map {height: calc(100vh - 210px) !important;}") # expand map to fill screen
 ```
 
 ```{r ts_cards}
@@ -3930,10 +3920,6 @@ output$out_ts_plots <- renderPlotly({ # separate validation statements so they a
 
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE)
 print("line5039")
-
-#           saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
 
   shiny::validate(
     need(!is.null(rv_param_temp$showCharTypes) & !is.null(rv_param_temp$showStations), message = "From the left sidebar, please select characteristic(s) and monitoring site(s) to plot, then click the green 'REFRESH PLOT DATA' button"))
@@ -3955,7 +3941,7 @@ print("line5039")
   })
 
 unlink("Rplots.pdf")
-tags$style("#out_ts_plots{height: calc(95vh - 350px) !important;overflow-y:scroll}")
+tags$style("#out_ts_plots{height: calc(95vh - 260px) !important;}")
 
 # I actually need these forced overflow scrollbars for when the expanded card doesn't show all the plots
 
@@ -3991,7 +3977,7 @@ output$out_season_plots <- renderPlotly({
 })
 
 unlink("Rplots.pdf")
-tags$style("#out_season_plots{height: calc(95vh - 350px) !important;overflow-y:scroll}")
+tags$style("#out_season_plots{height: calc(95vh - 350px) !important;}")
 
 output$out_thresh_plots <- renderPlotly({
 
@@ -4005,7 +3991,9 @@ shiny::validate(need(!is.null(rv_param_temp$sel_show_thresholds != "showthresh_n
 
 shiny::validate(need(length(na.omit(rv_param_temp$plotDat$ThreshCateg)) > 0, message = "No threshold limits defined for the selected characteristics"))
 
-
+#         saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+# saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+# saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
 
   threshPieDat <- FuncPieDat(limit_type = "ThreshCateg")
   
@@ -4016,7 +4004,7 @@ shiny::validate(need(length(na.omit(rv_param_temp$plotDat$ThreshCateg)) > 0, mes
   
   thresh_pie <- FuncPlotlyPieMatrix(dat = threshPieDat %>% dplyr::filter(!is.na(CategVar)), discrete_cols = rv_param_temp$threshColors, discrete_levels = c("good", "caution", "poor"), plot_title = thresh_plot_title)
   })
-tags$style("#out_thresh_plots{height: calc(100vh - 350px) !important;overflow-x:scroll;overflow-y:scroll}")
+tags$style("#out_thresh_plots{height: calc(100vh - 245px) !important;overflow-x:scroll;overflow-y:scroll}")
 
 output$out_perc_plots <- renderPlotly({
   # FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = TRUE)
@@ -4038,7 +4026,7 @@ output$out_perc_plots <- renderPlotly({
 
   perc_pie <- FuncPlotlyPieMatrix(dat = percPieDat %>% dplyr::filter(!is.na(CategVar)), discrete_cols = perc_named_colors, discrete_levels = perc_named_levels, plot_title = perc_plot_title)
   })
-tags$style("#out_perc_plots{height: calc(100vh - 350px) !important;overflow-x:scroll;overflow-y:scroll}")
+tags$style("#out_perc_plots{height: calc(100vh - 245px) !important;overflow-x:scroll;overflow-y:scroll}")
 ```
 
 ```{r plot_summary_table}
@@ -5423,9 +5411,10 @@ Column
 ### Explore map card----
 explore_map_card <-
   bslib::card(
+    style = "resize:vertical;",
     full_screen = TRUE,
-    gap = 0,
     card_body(
+      class = "p-0",
       div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
     # Left side inputs
     div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:left;", # padding is for spacing from div edge and each other
@@ -5489,6 +5478,7 @@ leafletOutput('param_map', width = "100%")
 ### Explore seasonal patterns subcard----
 explore_seasonal_patterns_subcard <-
   bslib::card(
+    style = "resize:vertical;",
     full_screen = TRUE,
     card_header(
       shinyWidgets::radioGroupButtons("sel_SeasonalTimeUnit",
@@ -5524,15 +5514,18 @@ explore_seasonal_patterns_subcard <-
   seas_plotly_legend
 }, height = 70)# setting the width here or at the 'Legend' subheading seems to rescale the height too. Size of ggplot legends is absolute. Set height through the 'Legend' subheading in combination with here. Legend width will not adjust with browser window. Fixed the width issue by putting the plot notes on a white background.
 ), 
-plotlyOutput("out_season_plots")
+card_body(
+  class = "p-0",
+  plotlyOutput("out_season_plots")  
+)
 ) # end explore_seasonal_patterns_subcard
 
 ### Explore plots card----
 explore_plots_card <-
   bslib::card(
-    full_screen = FALSE,
     gap = 0,
     card_body(
+      class = "p-0",
       div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
     
     div(style ="flex: 1 1 35%; padding:5px; justify-content:center; align-items:left;",
@@ -5621,6 +5614,7 @@ explore_plots_card <-
     nav_panel(
       title = "Time Series",
       bslib::card(
+        style = "resize:vertical;",
         full_screen = TRUE,
         card_header(
           renderPlot({ # separate validation statements so they are checked in sequence
@@ -5643,12 +5637,14 @@ nav_panel(
 nav_panel(
   title = "Threshold Patterns",
   bslib::card(
+    style = "resize:vertical;",
     full_screen = TRUE,
     plotlyOutput("out_thresh_plots"))
 ),
 nav_panel(
   title = "Percentile Patterns",
   bslib::card(
+    style = "resize:vertical;",
     full_screen = TRUE,
     p(plotlyOutput("out_perc_plots"))
 )
@@ -5660,7 +5656,6 @@ nav_panel(
 ### Explore page setup----
 # page_fillable does not work with flexdashboard
 bslib::layout_sidebar(
-      fillable = FALSE,
       border = FALSE,
       sidebar = sidebar(
         explore_map_card,
