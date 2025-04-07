@@ -11,7 +11,15 @@ runtime: shiny
 
 ```{r global, include=FALSE}
 
-### >>>>>>>>>>> PICK UP FROM HERE. THE EXPLORE PLOTS HAVE TOO MANY SCROLLBARS AND DO NOT FILL THE SCREEN
+### NEXT CHANGES:
+# > Threshold import/setting should be moved to explore data threshold section
+# > Define categorical should be a hidden tab but on filter data page, if a categorical parameter is selected, a warning/option to define categorical should show
+# > Explore data page
+# -- When refresh plot, the select data input tab should collapse
+# -- Add map toggle to show site labels
+# -- When refresh data, then the selected sites should get a number on the map and the plots should also get a number so they can be easily matched up
+# -- Add 'guidance info' on how to navigate Explore data page
+# -- Plots card user inputs show 'grow' to fit when map is closed, or they should all be left-aligned
 
 ### UPCOMING CHANGES:
 # > rnoaa is not available for R3.2. This package is going to be phased out in 2024, so keep an eye out
@@ -24,14 +32,10 @@ runtime: shiny
 # https://water.code-pages.usgs.gov/dataRetrieval/articles/qwdata_changes.html
 # https://water.code-pages.usgs.gov/dataRetrieval/articles/Status.html
 # > Look for the site on efficient pulling of WQP data
-# > Try package 'polite' again
-# > Only show parameters reported by NPS--fix the wording
-# > Explore Data should not require Filter
+
 
 ## NOTES 
 # > bslib accordion requires bootswatch themes that screw up flexdashboard formatting; shinyBS::bsCollapse does not work
-## MODIFY FOR SCI4GA
-# county_map <- us_map(regions = "counties", include = "Georgia)
 
 
 # Install and load packages
@@ -5539,7 +5543,7 @@ explore_plots_card <-
              selected = "points")
     ),
     
-    div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:center;",
+    div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:left;",
   
   shinyWidgets::dropdownButton(
     inputId = "dropdown_options",
@@ -5604,7 +5608,7 @@ explore_plots_card <-
     })
   ) # End Additional Plot Options
 ), 
-          div(style ="flex: 1 1 15%; padding:5px; justify-content:center; align-items:right;",
+          div(style ="flex: 1 1 15%; padding:5px; justify-content:center; align-items:left;",
     
   actionButton(inputId = "button_plotTable", label = "View Table", icon = icon("table-cells", lib = "font-awesome"), style="color:black; font-size:8pt; background-color: lightblue; display:inline-block; border:1px; margin:1px")
   )
