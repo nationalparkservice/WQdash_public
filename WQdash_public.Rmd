@@ -244,24 +244,55 @@ tags$style(HTML("
     }
     ")) # Modify bsCollapse drop-down panels
 
-# Make the bslib card full screen icon and exit more obvious
 tags$style(HTML("
-        .bslib-full-screen-enter {
-          bottom: var(--bslib-full-screen-enter-top);
-          visibility: visible !important;
-          background-color: #e97451 !important;
-        }
-        .bslib-full-screen-exit {
-          visibility: visible !important;
-          background-color: #e97451 !important;
-          font-weight: bold !important;
-          border-radius: 0.3rem;padding: 0.5rem 1rem;
-          z-index: 10000;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-          cursor: pointer;
-      ")) # full-screen card shows on top right and in color
+.bslib-sidebar-layout > .collapse-toggle[aria-expanded='true']::after,
+.bslib-sidebar-layout > .collapse-toggle[aria-expanded='false']::after {
+  content: '';
+  display: inline-block;
+  padding: 2px 10px;
+  background-color: #e97451;  
+  color: white;
+  border-radius: 12px;
+  margin-left: -12px;  /* Slight left shift */
+  font-size: 0.9em;
+  font-weight: bold;
+  white-space: nowrap;
+}
 
+.bslib-sidebar-layout > .collapse-toggle[aria-expanded='true']::after {
+  content: 'Hide Map';
+}
 
+.bslib-sidebar-layout > .collapse-toggle[aria-expanded='false']::after {
+  content: 'Show Map';
+}
+"))
+
+tags$style(HTML("
+.bslib-sidebar-layout > .collapse-toggle[aria-expanded='true']::after {
+  content: 'Hide Map';
+  }
+  .bslib-sidebar-layout > .collapse-toggle[aria-expanded='false']::after {
+  content: 'Show Map';
+  }
+"))
+
+# # Make the bslib card full screen icon and exit more obvious
+# tags$style(HTML("
+#         .bslib-full-screen-enter {
+#           bottom: var(--bslib-full-screen-enter-top);
+#           visibility: visible !important;
+#           background-color: #e97451 !important;
+#         }
+#         .bslib-full-screen-exit {
+#           visibility: visible !important;
+#           background-color: #e97451 !important;
+#           font-weight: bold !important;
+#           border-radius: 0.3rem;padding: 0.5rem 1rem;
+#           z-index: 10000;
+#           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+#           cursor: pointer;
+#       ")) # full-screen card shows on top right and in color
 ```
 
 ```{r generic_action_buttons}
@@ -5435,7 +5466,10 @@ Column
 explore_map_card <-
   bslib::card(
     style = "resize:vertical;",
-    full_screen = TRUE,
+    full_screen = FALSE,
+    card_header(
+      HTML('<span style="color: red;">Select sites via the map or sidebar, then click REFRESH PLOT DATA to generate plots</span>')
+      ),
     card_body(
       class = "p-0",
       div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
@@ -5502,7 +5536,7 @@ leafletOutput('param_map', width = "100%")
 explore_seasonal_patterns_subcard <-
   bslib::card(
     style = "resize:vertical;",
-    full_screen = TRUE,
+    full_screen = FALSE,
     card_header(
       shinyWidgets::radioGroupButtons("sel_SeasonalTimeUnit",
               label = h6("SEASONAL patterns time unit:"),
@@ -5559,7 +5593,7 @@ explore_plots_card <-
              choiceValues = list("points", "points_smooth", "box"),
              status = "primary",
              size = "xs",
-             selected = "points")
+             selected = "points_smooth")
     ),
     
     div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:left;",
@@ -5638,7 +5672,7 @@ explore_plots_card <-
       title = "Time Series",
       bslib::card(
         style = "resize:vertical;",
-        full_screen = TRUE,
+        full_screen = FALSE,
         card_header(
           renderPlot({ # separate validation statements so they are checked in sequence
   shiny::req(!is.null(rv$importSettings), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
@@ -5661,14 +5695,14 @@ nav_panel(
   title = "Threshold Patterns",
   bslib::card(
     style = "resize:vertical;",
-    full_screen = TRUE,
+    full_screen = FALSE,
     plotlyOutput("out_thresh_plots"))
 ),
 nav_panel(
   title = "Percentile Patterns",
   bslib::card(
     style = "resize:vertical;",
-    full_screen = TRUE,
+    full_screen = FALSE,
     p(plotlyOutput("out_perc_plots"))
 )
   )
@@ -5677,16 +5711,19 @@ nav_panel(
 ) # end of explore_plots_card
 
 ### Explore page setup----
-# page_fillable does not work with flexdashboard
 bslib::layout_sidebar(
-      border = FALSE,
-      sidebar = sidebar(
-        explore_map_card,
-        position = "left",
-        width = "50%",
-        open = TRUE),
-      explore_plots_card,
-    )
+  border = FALSE,
+  sidebar = sidebar(
+    explore_map_card,
+    position = "left",
+    width = "50%",
+    open = TRUE
+  ),
+  div(
+    id = "plot-panel",
+    explore_plots_card
+  )
+)
 
 ```
 
