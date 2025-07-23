@@ -20,6 +20,7 @@ runtime: shiny
 # -- When refresh data, then the selected sites should get a number on the map and the plots should also get a number so they can be easily matched up
 # -- Add 'guidance info' on how to navigate Explore data page
 # -- Plots card user inputs show 'grow' to fit when map is closed, or they should all be left-aligned
+# > Incorporate EPA data cleaning/standardization functions (TADAShiny)
 
 ### UPCOMING CHANGES:
 # > rnoaa is not available for R3.2. This package is going to be phased out in 2024, so keep an eye out
@@ -242,6 +243,24 @@ tags$style(HTML("
       transform: rotate(180deg);
     }
     ")) # Modify bsCollapse drop-down panels
+
+# Make the bslib card full screen icon and exit more obvious
+tags$style(HTML("
+        .bslib-full-screen-enter {
+          bottom: var(--bslib-full-screen-enter-top);
+          visibility: visible !important;
+          background-color: #e97451 !important;
+        }
+        .bslib-full-screen-exit {
+          visibility: visible !important;
+          background-color: #e97451 !important;
+          font-weight: bold !important;
+          border-radius: 0.3rem;padding: 0.5rem 1rem;
+          z-index: 10000;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+          cursor: pointer;
+      ")) # full-screen card shows on top right and in color
+
 
 ```
 
