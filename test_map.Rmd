@@ -1,0 +1,311 @@
+---
+title: "Flexdashboard Leaflet Popup Test"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+---
+title: "Right-Click Popup per Site"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+# >>>>>>>>>>> PICK UP. PIE CHART NEEDS TO SHIFT RIGHT. NO THRESHOLD AVAIL TEXT NEEDS TO LINE UP MIDDLE HORIZONTALLY AND WITH VERTICAL. ALL CELL TEXT NEEDS TO LINE UP UNDER COL. ANY HOVER DOESN'T WORK SO KNOCK IT OFF.
+library(flexdashboard)
+library(shiny)
+library(leaflet)
+library(sf)
+library(htmlwidgets)
+
+# Dummy site coordinates
+set.seed(1)
+sites <- data.frame(
+  site_id = paste0("Site_", 1:5),
+  lon = runif(5, -90, -89),
+  lat = runif(5, 29, 30)
+)
+sites_sf <- st_as_sf(sites, coords = c("lon", "lat"), crs = 4326)
+
+# Dummy parameter tables for each site
+make_params <- function(n) {
+  data.frame(
+    Parameter = paste("Param", 1:n),
+    Sample_Size = sample(50:200, n, TRUE),
+    Year_Range = paste0(sample(2000:2010, n, TRUE), "–", sample(2015:2024, n, TRUE)),
+    Lowest_Value = round(runif(n, 0, 5), 1),
+    Highest_Value = round(runif(n, 10, 30), 1),
+    Most_Recent_Value = round(runif(n, 5, 25), 1),
+    Most_Recent_Sample_Date = sample(seq(as.Date('2022-01-01'), as.Date('2024-07-01'), by = "month"), n))
+}
+
+site_param_data <- setNames(
+  lapply(sample(2:5, 5, TRUE), make_params),
+  sites$site_id
+)
+
+threshold_df <- data.frame(
+  MonitoringLocationIdentifier = c("Site_1", "Site_1", "Site_2", "Site_3", "Site_3", "Site_3"),
+  CharacteristicName = rep("Param 1", 6),
+  ThreshCateg = c("good", "caution", "good", "good", "caution", "poor"),
+  n = c(16, 1, 20, 19, 4, 2)
+)
+
+# Function to generate table with horizontal bar
+generate_param_table <- function(df, threshold_df, site_id) {
+  css <- "
+    .bar-container {
+      position: relative;
+      height: 14px;
+      background-color: #eee;
+      margin-top: 2px;
+      margin-bottom: 6px;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+    }
+    .bar-labels {
+      font-size: 10px;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    .bar-marker, .bar-median {
+      position: absolute;
+      top: 2px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .bar-median-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: black;
+    }
+
+    .legend-text {
+      font-size: 10px;
+      margin-left: 8px;
+    }
+.donut-container {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 130px;
+}
+    table td, table th {
+      vertical-align: top;
+      padding-right: 10px;
+    }
+  "
+
+build_donut_svg <- function(parts, colors, label) {
+  total <- sum(parts, na.rm = TRUE)
+  if (total == 0) {
+    # Show light gray full donut with total in center
+    return(paste0(
+      '<svg width="50" height="50" viewBox="0 0 50 50">',
+      '<circle cx="25" cy="25" r="20" fill="#cccccc"/>',
+      '<circle cx="25" cy="25" r="10" fill="white"/>',
+      sprintf('<text x="25" y="30" text-anchor="middle" font-size="10">%s</text>', label),
+      '</svg>'
+    ))
+  }
+
+  if (length(parts) == 1) {
+    angles <- c(360)
+    start_angles <- c(0)
+  } else {
+    angles <- cumsum(parts) / total * 360
+    start_angles <- c(0, head(angles, -1))
+  }
+
+  arcs <- mapply(function(start, end, color) {
+    large_arc <- ifelse(end - start >= 180, 1, 0)
+    start_rad <- pi * start / 180
+    end_rad <- pi * end / 180
+    x1 <- 25 + 20 * cos(start_rad)
+    y1 <- 25 + 20 * sin(start_rad)
+    x2 <- 25 + 20 * cos(end_rad)
+    y2 <- 25 + 20 * sin(end_rad)
+
+    if (abs(end - start) >= 359.99) {
+      arc1 <- sprintf('<path d="M25,25 L%.2f,%.2f A20,20 0 1,1 %.2f,%.2f z" fill="%s"/>',
+                      x1, y1, 25 + 20 * cos(pi), 25 + 20 * sin(pi), color)
+      arc2 <- sprintf('<path d="M25,25 L%.2f,%.2f A20,20 0 1,1 %.2f,%.2f z" fill="%s"/>',
+                      25 + 20 * cos(pi), 25 + 20 * sin(pi), x1, y1, color)
+      return(paste(arc1, arc2))
+    }
+
+    sprintf('<path d="M25,25 L%.2f,%.2f A20,20 0 %d,1 %.2f,%.2f z" fill="%s"/>',
+            x1, y1, large_arc, x2, y2, color)
+  }, start_angles, angles, colors, SIMPLIFY = TRUE)
+
+  paste0(
+    '<svg width="50" height="50" viewBox="0 0 50 50">',
+    paste(arcs, collapse = "\n"),
+    '<circle cx="25" cy="25" r="10" fill="white"/>',
+    sprintf('<text x="25" y="30" text-anchor="middle" font-size="10">%s</text>', label),
+    '</svg>'
+  )
+}
+
+  color_map <- c(
+    "good" = "#28a745",
+    "caution" = "#ffc107",
+    "poor" = "#dc3545",
+    "unknown" = "#999999"
+  )
+
+  rows <- apply(df, 1, function(row) {
+    low <- as.numeric(row["Lowest_Value"])
+    high <- as.numeric(row["Highest_Value"])
+    val <- as.numeric(row["Most_Recent_Value"])
+    n <- as.numeric(row["Sample_Size"])
+    param <- row["Parameter"]
+
+    values <- runif(n, low, high)
+    pos <- if (high > low) ((val - low) / (high - low)) * 100 else 0
+    pos <- min(max(pos, 0), 100)
+    med <- median(values, na.rm = TRUE)
+    med_pos <- if (high > low) ((med - low) / (high - low)) * 100 else 50
+
+ bar_html <- sprintf(
+  '<div style="font-size: 10px; margin-bottom: 5px;">
+     <div class="bar-labels">
+       <span>%.1f</span><span style="float: right;">%.1f</span>
+     </div>
+     <div class="bar-container">
+       <div class="bar-median-line" style="left: %.1f%%;" title="Median"></div>
+       <div class="bar-marker" style="left: %.1f%%; background-color: #007BFF;" title="Most Recent: %.2f"></div>
+     </div>
+   </div>',
+  low, high, med_pos, pos, val
+)
+
+    thresh_sub <- threshold_df[
+      tolower(threshold_df$MonitoringLocationIdentifier) == tolower(site_id) &
+      tolower(threshold_df$CharacteristicName) == tolower(param),
+    ]
+
+    if (nrow(thresh_sub) > 0) {
+      parts <- thresh_sub$n
+      categories <- thresh_sub$ThreshCateg
+      colors <- unname(color_map[categories])
+      colors[is.na(colors)] <- "#666666"
+      donut_svg <- build_donut_svg(parts, colors, sum(parts, na.rm = TRUE))
+      legend_html <- paste(sprintf(
+        '<div style="color:%s;">%s: %d</div>',
+        colors,
+        paste0(tools::toTitleCase(categories), " (", parts, ")"),
+        parts
+      ), collapse = "\n")
+    } else {
+donut_svg <- build_donut_svg(c(1), c("#aaaaaa"), sum(df$Sample_Size, na.rm = TRUE))
+legend_html <- '<div class="legend-text" style="color:#666666; padding-top: 2px;">No threshold available</div>'
+}
+
+    tags$tr(
+      tags$td(param),
+      tags$td(n),
+      tags$td(row["Year_Range"]),
+      tags$td(as.character(row["Most_Recent_Sample_Date"])),
+      tags$td(val), 
+      tags$td(HTML(bar_html)),
+      tags$td(HTML(sprintf('<div class="donut-container">%s<div class="legend-text">%s</div></div>',
+                           donut_svg, legend_html)))
+    )
+  })
+
+  tagList(
+    tags$style(HTML(css)),
+    tags$table(
+      style = "width:100%; font-size: 12px; table-layout: auto;",
+      tags$thead(
+        tags$tr(
+          tags$th("Parameter"),
+          tags$th("Sample Size"),
+          tags$th("Year Range"),
+          tags$th("Most Recent Date"),
+          tags$th("Most Recent Value"),
+          tags$th("Value in Range"),
+          tags$th("Threshold Summary")
+        )
+      ),
+      tags$tbody(rows)
+    )
+  )
+}
+
+
+```
+
+Column {data-width = 1000}
+-------------------------------------
+```{r}
+# Output the map
+leafletOutput("param_map", height = "600px")
+```
+
+```{r}
+output$param_map <- renderLeaflet({
+  leaflet(data = sites_sf) |>
+    addTiles() |>
+    addCircleMarkers(
+      layerId = ~site_id,
+      label = ~site_id,
+      radius = 8,
+      color = "red",
+      fillOpacity = 0.8,
+      stroke = FALSE
+    ) |>
+    htmlwidgets::onRender("
+      function(el, x) {
+        this.on('contextmenu', function(e) {
+          var clicked = null;
+          this.eachLayer(function(layer) {
+            if (layer.options && layer.options.layerId) {
+              var latlng = layer.getLatLng();
+              var dist = Math.sqrt(
+                Math.pow(e.latlng.lat - latlng.lat, 2) +
+                Math.pow(e.latlng.lng - latlng.lng, 2)
+              );
+              if (dist < 0.01) { clicked = layer.options.layerId; }
+            }
+          });
+          if (clicked) {
+            Shiny.setInputValue('map_right_click', {
+              site_id: clicked,
+              nonce: Math.random()
+            });
+          }
+        });
+      }
+    ")
+})
+
+observeEvent(input$map_right_click, {
+  site <- input$map_right_click$site_id
+  df <- site_param_data[[site]]
+  showModal(
+    modalDialog(
+      title = paste("Summary for", site),
+      generate_param_table(
+  df = df,
+  threshold_df = threshold_df,
+  site_id = site
+),
+      easyClose = TRUE,
+      size = "l"
+    )
+  )
+})
+```

@@ -87,9 +87,9 @@ pkgs <- c("flexdashboard",
           "geojsonio", # to test for presence of features
           "lemon", # for facet_rep_wrap
           "shinyBS", # for collapsible panels
-          # "EnvironmentalSettingToolkit", # installed from github
+          "tigris", # for state boundaries
           # "rnoaa", # to get NOAA climate data <<<<< THIS PACKAGE WILL RETIRE SOON. KEEP AN EYE ON THIS.
-          "leaflet.minicharts") # for web etiquette with APIs
+          "leaflet.minicharts") 
 
 installed_pkgs <- pkgs %in% installed.packages()
 if (length(pkgs[!installed_pkgs]) > 0) install.packages(pkgs[!installed_pkgs], repos = "https://cloud.r-project.org", dep=TRUE) 
@@ -103,6 +103,10 @@ try(if(!all(req_files %in% have_files)) stop(paste("Missing required dashboard f
   # Read in park choice file
   unique_parks_df <- read_csv("dashboard_files/unique_parks_df.csv")
 
+  # # >>>>>>>>>>>> PICK UP FROM HERE. ADD OPTION FOR USER TO ENTER STATE NAME/ABBREV. INSTEAD OF PARK.
+  # usa <- st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
+  # data.frame(state.abb, state.name) >>> does not include DC
+  
 options(shiny.maxRequestSize = 30*1024^2, # increases download limit to 30MB from 5MB default
         timeout = 3000,
         stringsAsFactors = FALSE,
@@ -277,22 +281,22 @@ tags$style(HTML("
   }
 "))
 
-# # Make the bslib card full screen icon and exit more obvious
-# tags$style(HTML("
-#         .bslib-full-screen-enter {
-#           bottom: var(--bslib-full-screen-enter-top);
-#           visibility: visible !important;
-#           background-color: #e97451 !important;
-#         }
-#         .bslib-full-screen-exit {
-#           visibility: visible !important;
-#           background-color: #e97451 !important;
-#           font-weight: bold !important;
-#           border-radius: 0.3rem;padding: 0.5rem 1rem;
-#           z-index: 10000;
-#           box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-#           cursor: pointer;
-#       ")) # full-screen card shows on top right and in color
+# Make the bslib card full screen icon and exit more obvious
+tags$style(HTML("
+        .bslib-full-screen-enter {
+          bottom: var(--bslib-full-screen-enter-top);
+          visibility: visible !important;
+          background-color: #e97451 !important;
+        }
+        .bslib-full-screen-exit {
+          visibility: visible !important;
+          background-color: #e97451 !important;
+          font-weight: bold !important;
+          border-radius: 0.3rem;padding: 0.5rem 1rem;
+          z-index: 10000;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+          cursor: pointer;
+      ")) # full-screen card shows on top right and in color
 ```
 
 ```{r generic_action_buttons}
@@ -2285,6 +2289,9 @@ FuncPieMap <- function(pie_map, map_by_yr = input$sel_MapByYr, limit_type, limit
           pie_matrix$ThreshCateg <- factor(pie_matrix$ThreshCateg, levels = c("good", "caution", "poor")) # ensures that a column is created even if a factor level is not in the data
         }
         
+  #                                      cat("WRITING PIE TEMP DAT") # <<<<<<<<<<<<<<<<<<<<<<<<
+  # saveRDS(pie_matrix, "TEMP_pie_dat.RDS")
+  
         pie_matrix %<>%
           dplyr::count(.[[limit_type]]) %>%
           tidyr::spread(key = `.[[limit_type]]` , value = n, drop = FALSE, fill = 0) %>%
@@ -2292,6 +2299,7 @@ FuncPieMap <- function(pie_map, map_by_yr = input$sel_MapByYr, limit_type, limit
             cbind(rv$sitesPointsSub, sf::st_coordinates(rv$sitesPointsSub)) %>%
               dplyr::select(MonitoringLocationIdentifier, SITELAB, X, Y), by = "MonitoringLocationIdentifier") %>%
           ungroup()
+
         
         if(map_by_yr == TRUE) {
           map_caption <- paste(input$sel_ShowCharType, limit_name, "in Year", input$sel_SurvYr)
@@ -4050,7 +4058,7 @@ shiny::validate(need(length(na.omit(rv_param_temp$plotDat$ThreshCateg)) > 0, mes
 # saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
 
   threshPieDat <- FuncPieDat(limit_type = "ThreshCateg")
-  
+
   shiny::validate(
     need(!is.null(threshPieDat), message = "No threshold limits defined for the selected characteristics"))
   
@@ -4387,7 +4395,9 @@ shinyjs::hidden( # initially hide this well panel
     
     download_button(
     outputId = "download_RDS",
-    label = "   Save RDS to Computer")
+    label = "   Save RDS to Computer",
+    style = "width: 100%; background-color: #e97451; 
+             display: inline-block; border: 1px solid black; margin: 5px;")
     })
     
     ) # end filter-import panel
@@ -5536,7 +5546,7 @@ leafletOutput('param_map', width = "100%")
 explore_seasonal_patterns_subcard <-
   bslib::card(
     style = "resize:vertical;",
-    full_screen = FALSE,
+    full_screen = TRUE,
     card_header(
       shinyWidgets::radioGroupButtons("sel_SeasonalTimeUnit",
               label = h6("SEASONAL patterns time unit:"),
@@ -5672,7 +5682,7 @@ explore_plots_card <-
       title = "Time Series",
       bslib::card(
         style = "resize:vertical;",
-        full_screen = FALSE,
+        full_screen = TRUE,
         card_header(
           renderPlot({ # separate validation statements so they are checked in sequence
   shiny::req(!is.null(rv$importSettings), !is.null(rv$sitesPointsSub), !is.null(rv_param_temp))
@@ -5695,14 +5705,14 @@ nav_panel(
   title = "Threshold Patterns",
   bslib::card(
     style = "resize:vertical;",
-    full_screen = FALSE,
+    full_screen = TRUE,
     plotlyOutput("out_thresh_plots"))
 ),
 nav_panel(
   title = "Percentile Patterns",
   bslib::card(
     style = "resize:vertical;",
-    full_screen = FALSE,
+    full_screen = TRUE,
     p(plotlyOutput("out_perc_plots"))
 )
   )
