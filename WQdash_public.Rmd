@@ -3281,22 +3281,22 @@ observeEvent(eventExpr = input$button_getThreshFile, {
     ))
   }
   
-  if(is.null(rv_param_temp$subDat)) {
-    showModal(modalDialog(
-      title = "No Filter Selection",
-      "From the left sidebar, please choose a subset of data to work with."
-    ))
-    }
+  # if(is.null(rv_param_temp$subDat)) {
+  #   showModal(modalDialog(
+  #     title = "No Filter Selection",
+  #     "From the left sidebar, please choose a subset of data to work with."
+  #   ))
+  #   }
   
-  shiny::req(!is.null(input$sel_GetThreshFile))
-  if (input$sel_GetThreshFile == "existing_data") {
+  # shiny::req(!is.null(input$sel_GetThreshFile))
+  # if (input$sel_GetThreshFile == "existing_data") {
     showModal(modalDialog(
       fileInput("saved_thresh_file", label = "Attach a threshold limits file ('csv' extension)", placeholder = "Click 'Browse...' button then navigate to file", accept = c('.csv'), width = "100%"),
                footer = tagList(
                  modalButton("Cancel")
                )
     ))
-  }
+  # }
 }) # end observeEvent
 
 # Action to load threshold limits .csv file ----
@@ -4123,20 +4123,52 @@ print("CREATING DT")
   )
   })
   
+# observeEvent(input$button_plotTable, {
+#     div(style="max-width:100%;",
+#   showModal(
+#     modalDialog(
+#     title = "Summary statistics for plot data",
+#     easyClose = FALSE,
+#     size = "l",
+#     div(DTOutput("table_plot_summary"),style = "font-size:80%"),
+#   tags$head(tags$style("#plot_tab .modal-footer{display:none} .modal-lg{min-width:90%;margin:0;height:auto;)")),
+#   idcss = "plot_tab"
+#   ))
+#     )
+#   })
 observeEvent(input$button_plotTable, {
-    div(style="max-width:100%;",
   showModal(
-    modalDialog(
-    title = "Summary statistics for plot data",
-    easyClose = FALSE,
-    size = "l",
-    div(DTOutput("table_plot_summary"),style = "font-size:80%"),
-  tags$head(tags$style("#plot_tab .modal-footer{display:none} .modal-lg{min-width:90%;margin:0;height:auto;)")),
-  idcss = "plot_tab"
-  ))
+    tags$div(
+      id = "plot_tab",
+      modalDialog(
+        title = div(
+          "Summary statistics for plot data",
+          actionButton("dismiss_view_table", "Dismiss", class = "btn btn-danger", style = "float: right; margin-left: 10px;")
+        ),
+        div(
+          DTOutput("table_plot_summary"),
+          style = "font-size: 80%; overflow-y: auto; height: auto; max-height: none;"
+        ),
+        footer = NULL,
+        size = "l",
+        easyClose = TRUE
+      ),
+      # ✅ Cleaned-up styles
+      tags$head(tags$style(HTML("
+        #plot_tab .modal-footer { display: none; }
+        #plot_tab .modal-lg {
+          min-width: 90%;
+          margin: 0;
+          height: auto;
+        }
+      ")))
     )
-  })
+  )
+})
 
+observeEvent(input$dismiss_view_table, {
+  removeModal()
+})
 ```
 HOME
 ====================================== 
@@ -4618,11 +4650,11 @@ wellPanel(
     id = "wp_filter_threshfile",
     p(strong("Define threshold limits for imported data")),
     
-    radioButtons("sel_GetThreshFile",
-             label = h6("Method for generating file:"),
-             choices = c("Attach threshold limits file from computer" = "existing_data", "Follow steps to create a threshold limits file" = "new_data")),
-    
-    actionButton("button_getThreshFile", "Add a Threshold Limits File", width = "100%")
+    actionButton("button_getThreshFile", "Add a Threshold Limits File", width = "100%"),
+    br(),
+    actionButton("button_defineCategs", "Define Categorical Characters", 
+             icon = icon("sliders"),
+             style = "color: black; background-color: lightblue; border: 1px solid black;")
 ) # end of 'wp_filter_threshfile'
 
   wellPanel(
@@ -4695,7 +4727,7 @@ wellPanel(
                   timeFormat = "%b-%d")
     }),
   
-  br(),
+  # br(),
     
     renderUI({
       shiny::req(!is.null(input$sel_DefineSeasons), !is.null(input$sel_SeasonsStart), !is.null(input$sel_Season1Range[2]))
@@ -4718,7 +4750,7 @@ wellPanel(
                   timeFormat = "%b-%d")
     }),
   
-  br(),
+  # br(),
     
     renderUI({
       shiny::req(!is.null(input$sel_DefineSeasons), !is.null(input$sel_SeasonsStart), !is.null(input$sel_Season2Range[2]))
@@ -4741,7 +4773,7 @@ wellPanel(
                   timeFormat = "%b-%d")
     }),
   
-  br(),
+  # br(),
     
     renderUI({
       shiny::req(!is.null(input$sel_DefineSeasons), !is.null(input$sel_SeasonsStart), !is.null(input$sel_Season3Range[2]))
@@ -5017,7 +5049,93 @@ output$out_SamplePlots <- renderPlot({
 plotOutput("out_SamplePlots", height="85%", width = "100%")
 ```
 
-Define Categorical Characters
+```{r define_categ, echo = FALSE}
+# observeEvent(input$button_defineCategs, {
+#   showModal(modalDialog(
+#     title = "Test Modal",
+#     "This is a test.",
+#     easyClose = TRUE
+#   ))
+# })
+observeEvent(input$button_defineCategs, {
+showModal(modalDialog(
+  title = "Define Categorical Characters",
+  easyClose = TRUE,
+  size = "l",
+  useShinyjs(),
+  fluidRow(
+    # Left Panel
+    column(3,
+      strong("File for defining categorical data"),
+      radioButtons("sel_GetCategFile",
+                   label = h6("Method for generating file:"),
+                   choices = c("Attach file from computer" = "existing_data",
+                               "Follow steps to create a file" = "new_data")),
+      actionButton("button_getCategFile", "Create Definitions File",
+                   width = "100%",
+                   style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px"),
+      br(), br(),
+      shinyjs::hidden(
+        wellPanel(
+          id = "create_categfile_P1",
+          p(strong("1. Identify a categorical characteristic")),
+          uiOutput("sel_CategParam")
+        )
+      ),
+      shinyjs::hidden(
+        wellPanel(
+          id = "create_categfile_P2",
+          p(strong("2. Specify category levels")),
+          actionButton("button_addCategLevel", "Add a Level"),
+          actionButton("button_deleteCategLevel", "Delete a Level"),
+          uiOutput("categ_ranked_list")
+        )
+      )
+    ), # end column 1
+
+    # Middle Panel
+    column(3,
+      shinyjs::hidden(
+        wellPanel(
+          id = "create_categfile_P3",
+          p(strong("3. Assign colors to category levels")),
+          actionButton("button_showPalettes", "Show Color Palettes", width = "100%"),
+          br(),
+          selectizeInput("sel_CategPalette",
+                         label = h6("Select a color palette to apply"),
+                         choices = c("YlGnBu", "YlGn", "RdPu", "Purples", "PuRd", "PuBuGn", "PuBu", "OrRd", "Oranges",
+                                     "Greys", "Greens", "GnBu", "BuPu", "BuGn", "Blues", "Set2", "Set1", "Paired",
+                                     "Dark2", "Accent", "Spectral", "RdYlGn", "RdYlBu", "RdGy", "RdBu", "PuOr",
+                                     "PRGn", "PiYG", "BrBG"),
+                         multiple = FALSE),
+          actionButton("button_updateCategFile", "Add to Color Coding File",
+                       width = "100%",
+                       style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px")
+        )
+      ),
+      plotOutput("categ_color_plot")
+    ), # end column 2
+
+    # Right Panel
+    column(6,
+      tags$center(em("Double-click in any cell to edit contents. To delete a row, click it once to select and then choose 'Delete Selected Row(s).'")),
+      br(),
+      div(style="display:inline-block; width:100px; height:30px; margin-right:10px;",
+          actionButton("button_categAddRow", "Add a Row")),
+      div(style="display:inline-block; width:180px; height:30px;",
+          actionButton("button_categDeleteRow", "Delete Selected Row(s)")),
+      br(), br(),
+      dataTableOutput("categDT"),
+      br(), br(),
+      downloadLink("button_exportCateg", label = "Save table as .csv for future use")
+    ) # end column 3
+  ), # end fluidRow
+  footer = NULL
+)) # end modalDialog
+}) # end observeEvent
+```
+
+Define Categorical Characters - OLD
 ====================================== 
 
 Leftside Panel  {data-width=210}
@@ -5593,12 +5711,14 @@ explore_plots_card <-
     gap = 0,
     card_body(
       class = "p-0",
-      div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
+      # div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
+      div(style = "display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; align-items: center; padding: 5px; max-width: 98%; margin: auto;",
     
-    div(style ="flex: 1 1 35%; padding:5px; justify-content:center; align-items:left;",
+    div(style = "display: flex; flex-direction: column; align-items: center; font-family: sans-serif;",
+  tags$label("Plot Type:", style = "font-weight: bold; font-size: 80%; margin-bottom: 3px;"),
         
     shinyWidgets::radioGroupButtons("sel_PlotType",
-             label = h6(strong("Plot type:")),
+             label = NULL, #h6(strong("Plot type:")),
              choiceNames = list("Points", "Points + Smooth", "Box Plots"),
              choiceValues = list("points", "points_smooth", "box"),
              status = "primary",
@@ -5606,16 +5726,19 @@ explore_plots_card <-
              selected = "points_smooth")
     ),
     
-    div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:left;",
-  
-  shinyWidgets::dropdownButton(
-    inputId = "dropdown_options",
-    label = "More Plot Options",
-    circle = FALSE,
-    status = "button_menu",
-    size = "s",
-    icon = icon("sliders"),
-    tooltip = "Additional options for user to modify plot",
+div(
+  style = "flex: 1 1 25%; display: flex; justify-content: center; align-items: center; height: 28px;",
+  div(
+    style = "height: 100%; border: 1px solid #555; border-radius: 0; padding: 0 0px; display: flex; align-items: center; line-height: 1;",
+
+    shinyWidgets::dropdownButton(
+      inputId = "dropdown_options",
+      label = "More Plot Options",
+      circle = FALSE,
+      status = "button_menu",
+      size = "xs",
+      icon = icon("sliders"),
+      tooltip = "Additional options for user to modify plot",
     
     ## Allow different y-axes
     renderUI({
@@ -5670,10 +5793,11 @@ explore_plots_card <-
                    value = 0)
     })
   ) # End Additional Plot Options
+)
 ), 
           div(style ="flex: 1 1 15%; padding:5px; justify-content:center; align-items:left;",
     
-  actionButton(inputId = "button_plotTable", label = "View Table", icon = icon("table-cells", lib = "font-awesome"), style="color:black; font-size:8pt; background-color: lightblue; display:inline-block; border:1px; margin:1px")
+  actionButton(inputId = "button_plotTable", label = "View Table", icon = icon("table-cells", lib = "font-awesome"), style="color:black; font-size:9pt; background-color: lightblue; display:inline-block; height: 28px; line-height:28px; padding: 0 8px; vertical-align: middle;")
   )
 ), # end of overall div
 
