@@ -23,6 +23,7 @@ library(shiny)
 library(leaflet)
 library(sf)
 library(htmlwidgets)
+library(shinyjs)
 
 # Dummy site coordinates
 set.seed(1)
@@ -250,6 +251,7 @@ legend_html <- '<div class="legend-text" style="color:#666666; padding-top: 2px;
 
 Column {data-width = 1000}
 -------------------------------------
+
 ```{r}
 # Output the map
 leafletOutput("param_map", height = "600px")
@@ -309,3 +311,12 @@ observeEvent(input$map_right_click, {
   )
 })
 ```
+
+```{r define_categ, echo = FALSE}
+# observeEvent(input$button_defineCategs, {
+#   showModal(modalDialog(
+#     title = "Test Modal",
+#     "This is a test.",
+#     easyClose = TRUE
+#   ))
+# })
