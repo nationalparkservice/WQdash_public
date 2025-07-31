@@ -322,11 +322,3 @@ observeEvent(input$map_right_click, {
 })
 ```
 
-```{r define_categ, echo = FALSE}
-# observeEvent(input$button_defineCategs, {
-#   showModal(modalDialog(
-#     title = "Test Modal",
-#     "This is a test.",
-#     easyClose = TRUE
-#   ))
-# })
