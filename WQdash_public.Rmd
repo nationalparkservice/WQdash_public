@@ -12,13 +12,26 @@ runtime: shiny
 ```{r global, include=FALSE}
 
 ### NEXT CHANGES:
+# > Import
+# -- Switch to dataRetrieval
+# -- Prior to import, show number of sites and data records
+# -- Allow user to upload a shapefile or select a state (instead of park)
+# -- Allow selection of stations within the unit shape only (not overlapping watersheds)
+# -- NOAA precip data
+# -- Upstream/downstream selection
+# -- Start date for filter
 # > Filter page input should have collapsing inputs just like Explore plots
 # > Threshold import/setting should be moved to explore data threshold section
-# > Define categorical should be a hidden tab but on filter data page, if a categorical parameter is selected, a warning/option to define categorical should show
+# > if a categorical parameter is selected, a warning/option to define categorical should show
 # > Explore data page
 # -- Add map toggle to show site labels; legend for colors
-# -- Add 'guidance info' on how to navigate Explore data page
+# -- Add right-click station data summary (change --> most recent 5 data; 10% and 90% q lines)
+# -- If more than 3 plots showing on a page, need to show x-axis on all of them
+# -- Give option to show data in 1-4 columns
+# -- Need an UNDEFINED threshold category...which is basically if threshold levels have not been defined
+# -- Percentile legend should say lowest X%, highest X%, etc. instead of below, above...
 # > Incorporate EPA data cleaning/standardization functions (TADAShiny)
+
 
 ### UPCOMING CHANGES:
 # > rnoaa is not available for R3.2. This package is going to be phased out in 2024, so keep an eye out
@@ -32,23 +45,23 @@ runtime: shiny
 # https://water.code-pages.usgs.gov/dataRetrieval/articles/Status.html
 # > Look for the site on efficient pulling of WQP data
 
-
-## NOTES 
-# > bslib accordion requires bootswatch themes that screw up flexdashboard formatting; shinyBS::bsCollapse does not work
-
-
 # Install and load packages
 rm(list=ls())
 
 pkgs <- c("flexdashboard", 
           "shiny", 
           "knitr",  
+          "readr",
           "here", 
           "plyr", 
-          "tidyverse", 
+          "dplyr",
+          "purrr",
+          "tools",
+          "ggplot2",
           "janitor", 
           "mgcv", 
           "scales", 
+          # "dataRetrieval", # grab WQP data
           "rlang", # check for empty variables <<<<<<<<<<<<
           "rtf", 
           "rmarkdown", 
@@ -63,6 +76,7 @@ pkgs <- c("flexdashboard",
           "bsicons",
           "RgoogleMaps", # to set map zoom
           "sf",
+          "tidyr",
           "magrittr", 
           "leaflet.extras", 
           "lubridate", 
@@ -81,11 +95,10 @@ pkgs <- c("flexdashboard",
           "zoo", # for year-month
           "cowplot", # to get legends from plots
           "gridExtra", # for arranging plots and adding plot annotations (ggplotly can't do captions or subtitles)
-          "RgoogleMaps", # for MaxZoom & MinZoom
           "geojsonio", # to test for presence of features
           "lemon", # for facet_rep_wrap
           "shinyBS", # for collapsible panels
-          "tigris", # for state boundaries
+          # "tigris", # for state boundaries
           # "rnoaa", # to get NOAA climate data <<<<< THIS PACKAGE WILL RETIRE SOON. KEEP AN EYE ON THIS.
           "leaflet.minicharts") 
 
@@ -397,7 +410,7 @@ FuncBreakDates <- function(dat_df) {
       MeteoYr = as.integer(lubridate::year(ActivityStartDate)), # for other types of summaries
       WaterYr = as.integer(FuncCalcWaterSeasons(ActivityStartDate)),
       Season = factor(cut(lubridate::yday(ActivityStartDate),
-                   breaks=c(-Inf, 59, 151, 243, 334, Inf),
+                   breaks=c(-Inf, 59, 151, 243, 334, Inf), # NOTE: DOES NOT CORRECT FOR LEAP YEAR
                    labels=c("Winter","Spring","Summer", "Fall", "Winter")), levels = c("Spring","Summer", "Fall", "Winter")), # Meteorological Seasons: Spring=March 1 - May 31; Summer=June 1 - Aug 31; Fall=Sept1 - Nov30; Winter=Dec1 - Feb28
       Mnth = lubridate::month(ActivityStartDate, label = TRUE, abbr = TRUE),
       Wk = factor(lubridate::week(ActivityStartDate), levels = 1:52),
@@ -746,57 +759,6 @@ FuncUpdateInputsOther <- function() {
                        selected = "none")
 }
 
-# FuncUpdateTSMap <- function() {
-#   if(!is.null(rv_param_temp$plotDat)) {
-#      updateSliderTextInput(session,
-#                         "sel_SurvYr",
-#                         selected = max(rv_param_temp$plotDat$Yr, na.rm = TRUE))
-#   }
-#    
-#   if(!is.null(rv$unitPoly)) {
-#     updateSliderInput(session,
-#                         "sel_ParamMapZoom",
-#                       selected = min(RgoogleMaps::MaxZoom(lonrange = c(st_bbox(rv$unitPoly)$xmin, st_bbox(rv$unitPoly)$xmax), latrange = c(st_bbox(rv$unitPoly)$ymin, st_bbox(rv$unitPoly)$ymax))) - 1)
-#   }
-# }
-
-# FuncUpdateTSPlots <- function() {
-#   updateSelectInput(session,
-#                     "sel_ShowThresholds",
-#                     selected = "showthresh_none")
-# 
-#   updateSelectInput(session,
-#                     "sel_AddGagePrecip",
-#                     selected = "none")
-# 
-#   updateSelectInput(session,
-#                     "sel_YScale",
-#                     selected = "identity")
-# 
-#   updateSelectInput(session,
-#                     "sel_Categ",
-#                     selected = "none")
-# 
-#   updateSelectInput(session,
-#                     "sel_ParamMapShow",
-#                     selected = "show")
-# 
-#   updateCheckboxInput(session,
-#                       "sel_FreeY",
-#                       selected = FALSE)
-# 
-#   updateCheckboxInput(session,
-#                       "sel_AddQuantile",
-#                       selected = TRUE)
-# 
-#   updateCheckboxInput(session,
-#                       "sel__PlotByStation",
-#                       selected = TRUE)
-# 
-#   updateSliderInput(session,
-#                     "sel_MapPointSize",
-#                     selected = 0)
-# }
 FuncUpdateImportSettings <- function(inputs_to_update) {
   shiny::req(!is.null(rv$dat))
   input_list <- isolate(reactiveValuesToList(input)) # difficulties indexing reactive list, so convert to unreactive list first
@@ -892,8 +854,6 @@ FuncInitFilter <- function() {
   # session$sendCustomMessage(type = "resetValue", message = list("sel_SummaryParam", sort(rv_param_temp$selectCharSampleType)))
 
 }
-
-# FuncAddCategLevels <- function(subdat, )
 
 FuncRefreshFilter <- function(sel_MinYrs, sel_SummaryParam, sel_SummaryOrg, sel_YrRange, sel_ActivityType, sel_ResultStatus, sel_DefineSeasons) {
   # Update filter data to create rv_param_temp$subDat
@@ -1041,18 +1001,18 @@ print("779")
 return(p)
 }
 
-FuncParamAvailSites <- function(sel) {
-  shiny::req(!is.null(rv$sitesPointsSub), !is.null(rv_param_temp$subDat))
-  if(sel == "by_station") {
-    avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier),]
-  } 
-  if(sel == "by_chartype") {
-    shiny::req(!is.null(input$sel_ShowCharType))
-    avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowCharType]),]
-    
-  }
-    return(avail_sites)
-}
+# FuncParamAvailSites <- function(sel) {
+#   shiny::req(!is.null(rv$sitesPointsSub), !is.null(rv_param_temp$subDat))
+#   if(sel == "by_station") {
+#     avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier),]
+#   } 
+#   if(sel == "by_chartype") {
+#     shiny::req(!is.null(input$sel_ShowCharType))
+#     avail_sites <- rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier %in% unique(rv_param_temp$subDat$MonitoringLocationIdentifier[rv_param_temp$subDat$CharacteristicName %in% input$sel_ShowCharType]),]
+#     
+#   }
+#     return(avail_sites)
+# }
 
 FuncPlotlyPieMatrix <- function(dat, discrete_cols, discrete_levels, plot_title) {
   # Function to create plotly pie chart matrix of Threshold or Percentile categories, grouped by monitoring site (row) and year (col)
@@ -2434,18 +2394,18 @@ FuncClearAll <- function() {
   
 }
 
-  FuncSelHUC <- function(huc, huc_sf, park_code, overlaps_list) {
-    # Function to generate HUC sf with only the HUCs that overlap the selected park unit
-    huc_on_park <- overlaps_list[[huc]] %>%
-    dplyr::filter(unit_code == park_code) %>%
-    dplyr::pull(tolower(huc))
-    
-    huc_sf_subset <- huc_sf %>% 
-      dplyr::rename(HUC = tolower(huc)) %>%
-      dplyr::filter(HUC %in% huc_on_park)
-    
-    return(huc_sf_subset)
-  }
+  # FuncSelHUC <- function(huc, huc_sf, park_code, overlaps_list) {
+  #   # Function to generate HUC sf with only the HUCs that overlap the selected park unit.
+  #   huc_on_park <- overlaps_list[[huc]] %>%
+  #   dplyr::filter(unit_code == park_code) %>%
+  #   dplyr::pull(tolower(huc))
+  #   
+  #   huc_sf_subset <- huc_sf %>% 
+  #     dplyr::rename(HUC = tolower(huc)) %>%
+  #     dplyr::filter(HUC %in% huc_on_park)
+  #   
+  #   return(huc_sf_subset)
+  # }
   
 # These are reactable functions
 bar_chart <- function(label, width = "100%", height = "14px", fill = "#00bfc4", background = NULL) {
@@ -2908,7 +2868,6 @@ observeEvent(eventExpr = input$button_highlightStations, {
     rv$selectedUpstreamStations <- NULL
     rv$selectedDownstreamStations <- NULL
 
-    # rv$selectedStations <- rv$sitesPointsSub[rv[[input$sel_HUClevel]][rv[[input$sel_HUClevel]]@data$HUC %in% rv$selectedHucs,],]@data %>% # data in selected HUCs
     rv$selectedStations <- rv$sitesPointsSub[rv[[input$sel_HUClevel]][rv[[input$sel_HUClevel]]$HUC %in% rv$selectedHucs,],] %>%
       dplyr::filter(OrganizationFormalName %in% input$sel_Organization) %>% # limit to selected orgs and site types
       dplyr::select(MonitoringLocationIdentifier, OrganizationFormalName) %>%
@@ -2982,7 +2941,7 @@ observeEvent(eventExpr = input$button_highlightStations, {
    
         shiny::validate(need(http_status(GET(tempURL))$category=="Success", message = FALSE)) # if not a valid service call, abort
         
-        checkhydro <- tryCatch(rgdal::readOGR(dsn = tempURL[[1]], verbose = FALSE), error=function(e) NULL)
+        checkhydro <- tryCatch(rgdal::readOGR(dsn = tempURL[[1]], verbose = FALSE), error=function(e) NULL) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<< PACKAGE DISCONTINUED?
     
         if(is.null(checkhydro)) {
         showModal(modalDialog(
@@ -3892,27 +3851,14 @@ print("line1988")
   
 # Highlight selected stations
 print("START OF HIGHLIGHT SELECTED")
-# if(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show")) {
+
 if(sel_param_map_show == "show") {
-    # if(all(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"), any(isolate(is.null(rv_param_temp$update_from_sidebar)), isolate(rv_param_temp$update_from_sidebar != FALSE)))) # may be TRUE or NULL
-# if(all(any(is.null(input$sel_ParamMapShow), input$sel_ParamMapShow == "show"), isolate(is.null(rv_param_temp$update_from_sidebar))))
-      # {
-            print("START UPDATE ON FIRST GO AROUND ONLY")
-    # isolate({
-    # if(is.null(rv_param_temp$param_map_highlight)) { # White outline on sites selected from left panel
 
     # Need to do this on first go-around because don't yet have a param_map to update with proxy.
       sel_sites <- switch((input$sel_SummarizeBy == "by_chartype") + 1, input$sel_ShowOneStation, input$sel_ShowStations)
 
-
-          # if(all(any(is.null(rv_param_temp$update_from_sidebar), rv_param_temp$update_from_sidebar==TRUE), !identical(rv_param_temp$param_map_highlight, sel_sites))) {
-          # if(!identical(rv_param_temp$param_map_highlight, sel_sites)) {
-                  # isolate({ # THIS isolate(local()) is the key to keeping the dashboard from blitzing out
-        # local(
         rv_param_temp$param_map_highlight <- sel_sites
         
-        # )
-      # })
       print("START CHANGING MAP")
       if(length(sel_sites) > 0) {
         # Add white border on selected stations
@@ -3920,10 +3866,6 @@ if(sel_param_map_show == "show") {
       addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier %in% sel_sites,], group = "Selected monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15 + 3*map_point_size, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations"))
       }
 
-    # } # selected WQ stations are shown as larger, white-outlined points
-    # })
-
-      # rv_param_temp$update_from_sidebar <- TRUE # so it's no longer NULL and can now be activated
     print("RENDERING SELECTED SITES IN FULL MAP\n")
           # }
 }
@@ -3943,7 +3885,6 @@ print("line3881")
       
       if(input$sel_MapByYr == TRUE) {
         pie_median %<>% 
-      # dplyr::filter(Yr == as.numeric(input$sel_SurvYr)) %>%
       dplyr::group_by(MonitoringLocationIdentifier, Yr)
   } else {
     pie_median %<>%
