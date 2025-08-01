@@ -14,8 +14,8 @@ library(leaflet)
 library(sf)
 library(htmlwidgets)
 library(shinyjs)
-library(purrr)      # NEW
-library(htmltools)  # NEW
+library(purrr)      
+library(htmltools)  
 library(dplyr) 
 
 debug_recent_data <- function(df) {
@@ -99,11 +99,49 @@ site_param_data <- setNames(
 
 full_data <- purrr::map_df(site_param_data, ~as.data.frame(.x), .id="MonitoringLocationIdentifier")
 
+# REPLACE your threshold_df with this version that has multiple categories per parameter:
+
 threshold_df <- data.frame(
-  MonitoringLocationIdentifier = c("Site_1", "Site_1", "Site_1", "Site_2", "Site_2", "Site_3", "Site_3", "Site_3", "Site_4", "Site_5"),
-  CharacteristicName = c("Dissolved Oxygen", "pH", "Temperature", "Dissolved Oxygen", "Temperature", "pH", "Nitrate", "Turbidity", "Nitrate", "Turbidity"),
-  ThreshCateg = c("good", "good", "good", "good", "good", "good", "caution", "poor", "good", "caution"),
-  n = c(16, 25, 30, 20, 28, 19, 4, 2, 15, 8)
+  MonitoringLocationIdentifier = c(
+    "Site_1", "Site_1", "Site_1",  # Dissolved Oxygen with 3 categories
+    "Site_1", "Site_1",            # pH with 2 categories  
+    "Site_2", "Site_2", "Site_2",  # Dissolved Oxygen with 3 categories
+    "Site_2",                      # Temperature with 1 category
+    "Site_3", "Site_3", "Site_3",  # pH with 3 categories
+    "Site_3", "Site_3",            # Nitrate with 2 categories
+    "Site_4", "Site_4", "Site_4",  # Nitrate with 3 categories
+    "Site_5", "Site_5"             # Turbidity with 2 categories
+  ),
+  CharacteristicName = c(
+    "Dissolved Oxygen", "Dissolved Oxygen", "Dissolved Oxygen",
+    "pH", "pH",
+    "Dissolved Oxygen", "Dissolved Oxygen", "Dissolved Oxygen", 
+    "Temperature",
+    "pH", "pH", "pH",
+    "Nitrate", "Nitrate",
+    "Nitrate", "Nitrate", "Nitrate",
+    "Turbidity", "Turbidity"
+  ),
+  ThreshCateg = c(
+    "good", "caution", "poor",     # Dissolved Oxygen at Site_1
+    "good", "caution",             # pH at Site_1
+    "good", "caution", "poor",     # Dissolved Oxygen at Site_2
+    "good",                        # Temperature at Site_2
+    "good", "caution", "poor",     # pH at Site_3
+    "good", "caution",             # Nitrate at Site_3
+    "good", "caution", "poor",     # Nitrate at Site_4
+    "good", "caution"              # Turbidity at Site_5
+  ),
+  n = c(
+    45, 8, 2,      # Dissolved Oxygen at Site_1: mostly good
+    30, 5,         # pH at Site_1: mostly good
+    38, 12, 5,     # Dissolved Oxygen at Site_2: mixed
+    25,            # Temperature at Site_2: all good
+    20, 15, 8,     # pH at Site_3: varied distribution
+    22, 6,         # Nitrate at Site_3: mostly good
+    18, 10, 4,     # Nitrate at Site_4: mixed
+    35, 12         # Turbidity at Site_5: mostly good
+  )
 )
 
 # ALSO FIX your observeEvent - remove the duplicate modal:
@@ -132,388 +170,194 @@ observeEvent(input$map_right_click, {
 # Function to generate table with horizontal bar
 # COMPLETE REPLACEMENT for your generate_param_table function
 
+# EFFICIENCY IMPROVEMENTS - Replace your generate_param_table function:
+
+# EFFICIENCY IMPROVEMENTS - Replace your generate_param_table function:
+
+# EFFICIENCY IMPROVEMENTS - Replace your generate_param_table function:
+
+# REPLACE your entire generate_param_table function with this WORKING version:
+
+# REPLACE your entire generate_param_table function with this WORKING version:
+
+# REPLACE your entire generate_param_table function with this WORKING version:
+
+# REPLACE your entire generate_param_table function with this WORKING version:
+
 generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier) {
   
-  # Helper function for safe null coalescing
-  `%||%` <- function(x, y) if (is.null(x) || length(x) == 0 || is.na(x)) y else x
+  # Pre-filter threshold data once
+  filtered_thresholds <- threshold_df %>%
+    dplyr::filter(tolower(as.character(MonitoringLocationIdentifier)) == tolower(as.character(!!MonitoringLocationIdentifier))) %>%
+    dplyr::mutate(CharacteristicName_lower = tolower(as.character(CharacteristicName)))
   
-  # Enhanced CSS donut (larger size)
+  # Enhanced CSS donut - OPTIMIZED
   build_css_donut <- function(parts, colors, categories) {
     total <- sum(parts, na.rm = TRUE)
-    
-    if (total == 0) {
-      return('<div style="width: 80px; height: 80px; border-radius: 50%; background: #cccccc; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px;">0</span></div>')
-    }
+    if (total == 0) return('<div style="width: 80px; height: 80px; border-radius: 50%; background: #cccccc; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px;">0</span></div>')
     
     if (length(parts) <= 3) {
       percentages <- cumsum(parts) / total * 100
-      stops <- character(length(parts))
-      for (i in seq_along(parts)) {
-        start_pct <- if (i == 1) 0 else percentages[i-1]
-        end_pct <- percentages[i]
-        stops[i] <- paste0(colors[i], " ", start_pct, "% ", end_pct, "%")
-      }
-      gradient_stops <- paste(stops, collapse = ", ")
+      stops <- paste0(colors, " ", c(0, head(percentages, -1)), "% ", percentages, "%")
       
       return(sprintf(
-        '<div style="width: 80px; height: 80px; border-radius: 50%%; background: conic-gradient(%s); position: relative; display: flex; align-items: center; justify-content: center;">
-           <div style="width: 35px; height: 35px; background: white; border-radius: 50%%; display: flex; align-items: center; justify-content: center;">
-             <span style="font-size: 12px; font-weight: 600;">%d</span>
-           </div>
-         </div>',
-        gradient_stops, total
+        '<div style="width: 80px; height: 80px; border-radius: 50%%; background: conic-gradient(%s); position: relative; display: flex; align-items: center; justify-content: center;"><div style="width: 35px; height: 35px; background: white; border-radius: 50%%; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px; font-weight: 600;">%d</span></div></div>',
+        paste(stops, collapse = ", "), total
       ))
     }
     
-    # SVG version for 4+ categories (larger)
-    circumference <- 2 * pi * 25  # Larger radius
+    # SVG fallback - condensed
+    circumference <- 157.08
     percentages <- parts / total * 100
-    cumulative <- 0
+    paths <- sprintf('<circle cx="40" cy="40" r="25" fill="none" stroke="%s" stroke-width="15" stroke-dasharray="%f %f" stroke-dashoffset="-%f" transform="rotate(-90 40 40)"/>', colors, (percentages / 100) * circumference, circumference, c(0, cumsum(head((percentages / 100) * circumference, -1))))
     
-    paths <- purrr::imap_chr(percentages, function(pct, i) {
-      stroke_length <- (pct / 100) * circumference
-      offset <- -cumulative
-      path <- sprintf(
-        '<circle cx="40" cy="40" r="25" fill="none" stroke="%s" stroke-width="15" 
-                 stroke-dasharray="%f %f" stroke-dashoffset="%f" transform="rotate(-90 40 40)"/>',
-        colors[i], stroke_length, circumference, offset
-      )
-      cumulative <<- cumulative + stroke_length
-      return(path)
-    })
-    
-    return(paste0(
-      '<svg width="80" height="80" viewBox="0 0 80 80">',
-      paste(paths, collapse=""),
-      sprintf('<text x="40" y="45" text-anchor="middle" font-size="12" font-weight="600">%d</text>', total),
-      '</svg>'
-    ))
+    paste0('<svg width="80" height="80" viewBox="0 0 80 80">', paste(paths, collapse=""), sprintf('<text x="40" y="45" text-anchor="middle" font-size="12" font-weight="600">%d</text>', total), '</svg>')
   }
 
-  # Extended bar with outlier zones - ENHANCED
+  # Bar chart builder
   build_css_bar <- function(low, high, recent_values_str, recent_dates_str, n) {
-    # Generate full sample for better statistics
-    all_values <- runif(n * 2, low, high)
-    
-    # Calculate key statistics - USING 15th-85th PERCENTILES
+    # Generate sample for percentiles
+    sample_size <- min(n, 200)
+    all_values <- runif(sample_size, low, high)
     q15 <- quantile(all_values, 0.15, na.rm = TRUE)
     q85 <- quantile(all_values, 0.85, na.rm = TRUE)
     med <- median(all_values, na.rm = TRUE)
     
-    # Parse recent data - SAFER VERSION
+    # Parse recent data
     recent_values <- tryCatch({
-      vals <- suppressWarnings(as.numeric(unlist(strsplit(as.character(recent_values_str), ","))))
+      vals <- as.numeric(unlist(strsplit(as.character(recent_values_str), ",")))
       vals[!is.na(vals)]
-    }, error = function(e) {
-      numeric(0)
-    })
+    }, error = function(e) numeric(0))
     
     recent_dates <- tryCatch({
-      dates <- as.character(unlist(strsplit(as.character(recent_dates_str), ",")))
+      dates <- unlist(strsplit(as.character(recent_dates_str), ","))
       dates[!is.na(dates) & dates != ""]
-    }, error = function(e) {
-      character(0)
-    })
+    }, error = function(e) character(0))
     
-    # Ensure we have matching pairs
-    min_length <- min(length(recent_values), length(recent_dates))
+    # Ensure matching pairs and limit to 5
+    min_length <- min(length(recent_values), length(recent_dates), 5)
     if (min_length > 0) {
-      recent_values <- head(recent_values, min_length)
-      recent_dates <- head(recent_dates, min_length)
-      # Take up to 5 most recent
-      if (length(recent_values) > 5) {
-        recent_values <- head(recent_values, 5)
-        recent_dates <- head(recent_dates, 5)
-      }
+      recent_values <- recent_values[1:min_length]
+      recent_dates <- recent_dates[1:min_length]
     } else {
-      # Fallback to median value
-      recent_values <- c(med)
-      recent_dates <- c("Recent")
+      recent_values <- med
+      recent_dates <- "Recent"
     }
     
-    # Categorize values - USING 15th-85th PERCENTILES
-    outliers_low <- which(recent_values < q15)
-    outliers_high <- which(recent_values > q85)
-    normal_values <- which(recent_values >= q15 & recent_values <= q85)
-    
-    # Create dots for each zone - ENHANCED SPACING
+    # Build dots - SIMPLIFIED
     dots_html <- ""
-    bar_height <- 80  # Match donut chart height
-    
     for (i in seq_along(recent_values)) {
       val <- recent_values[i]
       date <- recent_dates[i]
-      # Better vertical spacing for taller bar
-      y_pos <- 8 + (i-1) * 14  # 14px spacing between dots
-      opacity <- 1 - (i-1) * 0.1  # Fade older values slightly
+      y_pos <- 8 + (i-1) * 14
       
-      if (i %in% outliers_low) {
-        # LEFT ZONE (0-15% of bar width) - neutral color
-        if (length(outliers_low) == 1) {
-          x_pos <- 7.5  # Center of left zone
-        } else {
-          # Distribute multiple low values across left zone
-          low_idx <- which(outliers_low == i)
-          x_pos <- 2 + (low_idx - 1) * (11 / max(1, length(outliers_low) - 1))
-        }
-        
-        dots_html <- paste0(dots_html, sprintf(
-          '<div style="position: absolute; top: %dpx; left: %.1f%%; width: 12px; height: 12px; background: #6c757d; border: 2px solid white; border-radius: 50%%; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" title="LOWER 15%%: %s | %.1f"></div>',
-          y_pos, x_pos, date, val
-        ))
-        
-      } else if (i %in% outliers_high) {
-        # RIGHT ZONE (85-100% of bar width) - neutral color
-        if (length(outliers_high) == 1) {
-          x_pos <- 92.5  # Center of right zone
-        } else {
-          # Distribute multiple high values across right zone
-          high_idx <- which(outliers_high == i)
-          x_pos <- 87 + (high_idx - 1) * (11 / max(1, length(outliers_high) - 1))
-        }
-        
-        dots_html <- paste0(dots_html, sprintf(
-          '<div style="position: absolute; top: %dpx; left: %.1f%%; width: 12px; height: 12px; background: #6c757d; border: 2px solid white; border-radius: 50%%; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" title="UPPER 15%%: %s | %.1f"></div>',
-          y_pos, x_pos, date, val
-        ))
-        
+      # Simple categorization and positioning
+      if (val < q15) {
+        x_pos <- 7.5
+        color <- "#6c757d"
+      } else if (val > q85) {
+        x_pos <- 92.5
+        color <- "#6c757d"
       } else {
-        # NORMAL RANGE ZONE (15-85% of bar width)
-        normal_range_width <- 70  # 85% - 15% = 70%
-        normal_start <- 15  # Starts at 15%
-        
         if (q85 > q15) {
-          relative_pos <- (val - q15) / (q85 - q15)  # 0 to 1 within normal range
-          x_pos <- normal_start + (relative_pos * normal_range_width)
+          relative_pos <- (val - q15) / (q85 - q15)
+          x_pos <- 15 + relative_pos * 70
         } else {
-          x_pos <- normal_start + normal_range_width / 2  # Center if no range
+          x_pos <- 50
         }
-        
-        dots_html <- paste0(dots_html, sprintf(
-          '<div style="position: absolute; top: %dpx; left: %.1f%%; width: 12px; height: 12px; background: rgba(0, 123, 255, %.1f); border: 2px solid white; border-radius: 50%%; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" title="MIDDLE 70%%: %s | %.1f"></div>',
-          y_pos, x_pos, opacity, date, val
-        ))
+        color <- "#007BFF"  # Solid blue, no gradient
       }
+      
+      # FIXED: Simple hover format - value (date)
+      dots_html <- paste0(dots_html, sprintf(
+        '<div style="position: absolute; top: %dpx; left: %.1f%%; width: 12px; height: 12px; background: %s; border: 2px solid white; border-radius: 50%%; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" title="%.1f (%s)"></div>',
+        y_pos, x_pos, color, val, date
+      ))
     }
     
-    # Calculate median position in normal zone
-    median_pos <- if (q85 > q15) {
-      15 + ((med - q15) / (q85 - q15)) * 70
-    } else {
-      50  # Center if no range
-    }
+    # Calculate median position
+    median_pos <- if (q85 > q15) 15 + ((med - q15) / (q85 - q15)) * 70 else 50
     
-    # Count outliers for summary
-    num_low <- length(outliers_low)
-    num_high <- length(outliers_high)
-    num_normal <- length(normal_values)
+    # Count summary
+    num_low <- sum(recent_values < q15)
+    num_high <- sum(recent_values > q85)
+    num_normal <- length(recent_values) - num_low - num_high
     
-    summary_text <- if (num_low > 0 || num_high > 0) {
-      parts <- c()
-      if (num_low > 0) parts <- c(parts, sprintf("%d in lower 15%%", num_low))
-      if (num_normal > 0) parts <- c(parts, sprintf("%d in middle 70%%", num_normal))
-      if (num_high > 0) parts <- c(parts, sprintf("%d in upper 15%%", num_high))
-      paste(parts, collapse = ", ")
+    # Generate summary text
+    summary_parts <- c()
+    if (num_low > 0) summary_parts <- c(summary_parts, sprintf("%d in lower 15%%", num_low))
+    if (num_normal > 0) summary_parts <- c(summary_parts, sprintf("%d in middle 70%%", num_normal))
+    if (num_high > 0) summary_parts <- c(summary_parts, sprintf("%d in upper 15%%", num_high))
+    
+    summary_text <- if (length(summary_parts) > 0) {
+      paste(summary_parts, collapse = ", ")
     } else {
       "All values in middle 70% of historical data"
     }
     
     sprintf(
-  '<div style="position: relative; height: %dpx; background: linear-gradient(to right, #f0f4f8 0%%, #f0f4f8 15%%, #ffffff 15%%, #ffffff 85%%, #f0f4f8 85%%, #f0f4f8 100%%); border-radius: 8px; border: 1px solid #dee2e6; overflow: visible;">
-     <!-- Zone labels with values -->
-     <div style="position: absolute; top: -22px; left: 2%%; font-size: 8px; color: #6c757d; font-weight: 600; text-align: center; width: 13%%;">LOWER 15%%<br><span style="font-weight: normal;">(< %.1f)</span></div>
-     <div style="position: absolute; top: -22px; left: 15%%; font-size: 8px; color: #495057; font-weight: 600; text-align: center; width: 70%%;">MIDDLE 70%% OF DATA<br><span style="font-weight: normal;">(%.1f - %.1f)</span></div>
-     <div style="position: absolute; top: -22px; right: 2%%; font-size: 8px; color: #6c757d; font-weight: 600; text-align: center; width: 13%%;">UPPER 15%%<br><span style="font-weight: normal;">(> %.1f)</span></div>
-     
-     <!-- Zone separators -->
-     <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
-     <div style="position: absolute; top: 0; bottom: 0; left: 85%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
-     
-     <!-- 15th to 85th percentile shading -->
-     <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 70%%; background: rgba(0, 123, 255, 0.08); z-index: 1;" title="15th to 85th percentile range: %.1f - %.1f"></div>
-     
-     <!-- Median line -->
-     <div style="position: absolute; top: 0; bottom: 0; left: %.1f%%; width: 3px; background: #333; z-index: 2; border-radius: 2px;" title="Median (50th percentile): %.1f"></div>
-     
-     <!-- Recent value dots -->
-     %s
-   </div>
-   <div style="font-size: 8px; color: #666; margin-top: 4px; text-align: center;">
-     %s
-   </div>',
-  bar_height,
-  # Zone labels with actual values (15th and 85th percentiles)
-  q15, q15, q85, q85,
-  # 15th-85th percentile shading
-  q15, q85,
-  # Median position
-  median_pos, med,
-  # Dots
-  dots_html,
-  # Summary
-  summary_text
-)
+      '<div style="position: relative; height: 80px; background: linear-gradient(to right, #f0f4f8 0%%, #f0f4f8 15%%, #ffffff 15%%, #ffffff 85%%, #f0f4f8 85%%, #f0f4f8 100%%); border-radius: 8px; border: 1px solid #dee2e6; overflow: visible; margin-top: 12px;">
+         <div style="position: absolute; top: -18px; left: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: left; white-space: nowrap;">LOWER 15%% (< %.1f)</div>
+         <div style="position: absolute; top: -18px; left: 15%%; font-size: 10px; color: #495057; font-weight: 600; text-align: center; width: 70%%; white-space: nowrap;">MIDDLE 70%% OF DATA (%.1f - %.1f)</div>
+         <div style="position: absolute; top: -18px; right: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: right; white-space: nowrap;">UPPER 15%% (> %.1f)</div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 85%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 70%%; background: rgba(0, 123, 255, 0.08); z-index: 1;" title="15th to 85th percentile range: %.1f - %.1f"></div>
+         <div style="position: absolute; top: 0; bottom: 0; left: %.1f%%; width: 3px; background: #333; z-index: 2; border-radius: 2px;" title="Median (50th percentile): %.1f"></div>
+         %s
+       </div>',
+      q15, q15, q85, q85, q15, q85, median_pos, med, dots_html
+    )
   }
 
-  # Compact CSS for 3-column layout - ENHANCED
   css <- "
-    .compact-table {
-      border-collapse: separate;
-      border-spacing: 0 4px;
-      table-layout: fixed;
-      width: 100%;
-    }
-    .compact-table td {
-      padding: 8px 12px;
-      vertical-align: top;
-      border-bottom: 1px solid #f0f0f0;
-    }
-    .compact-table thead th {
-      background-color: #f8f9fa;
-      font-weight: 600;
-      padding: 12px;
-      border-bottom: 2px solid #dee2e6;
-      text-align: center;
-    }
-    .param-info {
-      text-align: left;
-      width: 220px;
-      word-wrap: break-word;
-    }
-    .param-name {
-      font-weight: 600;
-      font-size: 13px;
-      color: #333;
-      margin-bottom: 2px;
-      word-wrap: break-word;
-      line-height: 1.2;
-    }
-    .param-details {
-      font-size: 10px;
-      color: #666;
-      line-height: 1.3;
-    }
-    .bar-column {
-      width: 320px;
-      text-align: center;
-    }
-    .threshold-column {
-      width: 240px;
-      text-align: center;
-    }
-    .donut-container-large {
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 12px;
-      justify-content: center;
-    }
-    .legend-compact {
-      font-size: 9px;
-      text-align: left;
-      max-width: 140px;
-    }
+    .compact-table { border-collapse: separate; border-spacing: 0 8px; table-layout: fixed; width: 100%; }
+    .compact-table td { padding: 14px; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
+    .compact-table thead th { background-color: #f8f9fa; font-weight: 600; padding: 12px; border-bottom: 2px solid #dee2e6; text-align: center; }
+    .param-info { text-align: left; width: 220px; word-wrap: break-word; }
+    .param-name { font-weight: 600; font-size: 13px; color: #333; margin-bottom: 2px; word-wrap: break-word; line-height: 1.2; }
+    .param-details { font-size: 12px; color: #666; line-height: 1.4; }
+    .bar-column { width: 320px; text-align: center; }
+    .threshold-column { width: 240px; text-align: center; }
+    .donut-container-large { display: flex; flex-direction: row; align-items: center; gap: 12px; justify-content: center; }
+    .legend-compact { font-size: 11px; text-align: left; max-width: 140px; }
   "
 
-  color_map <- c(
-    "good" = "#28a745",
-    "caution" = "#ffc107", 
-    "poor" = "#dc3545",
-    "unknown" = "#999999"
-  )
+  color_map <- c("good" = "#28a745", "caution" = "#ffc107", "poor" = "#dc3545", "unknown" = "#999999")
 
-  # Process rows with safer approach - FIXED VERSION
-  rows <- lapply(1:nrow(df), function(row_idx) {
-    # Extract row data safely
-    row_data <- df[row_idx, , drop = FALSE]
+  # OPTIMIZED: Process rows with minimal overhead
+  rows <- lapply(1:nrow(df), function(i) {
+    row <- df[i, ]
     
-    # Convert to named list for easier access
-    row <- as.list(row_data)
+    # Extract values efficiently
+    low <- as.numeric(row$Lowest_Value)
+    high <- as.numeric(row$Highest_Value) 
+    val <- as.numeric(row$Most_Recent_Value)
+    n <- as.numeric(row$Sample_Size)
+    param <- as.character(row$CharacteristicName)
+    unit <- as.character(row$Unit)
     
-    # Safely extract values with defaults
-    low <- as.numeric(row$Lowest_Value %||% 0)
-    high <- as.numeric(row$Highest_Value %||% 10)
-    val <- as.numeric(row$Most_Recent_Value %||% 5)
-    n <- as.numeric(row$Sample_Size %||% 100)
-    param <- as.character(row$CharacteristicName %||% "Unknown Parameter")
-    unit <- as.character(row$Unit %||% "units")
-    year_range <- as.character(row$Year_Range %||% "Unknown")
-    most_recent_date <- as.character(row$Most_Recent_Sample_Date %||% "Unknown")
-    
-    # Get recent data safely
-    recent_values_str <- as.character(row$Recent_Values %||% val)
-    recent_dates_str <- as.character(row$Recent_Dates %||% most_recent_date)
+    # Single sprintf for parameter info
+    param_info <- sprintf('<div class="param-info"><div class="param-name">%s (%s)</div><div class="param-details"><div>N = %d samples</div><div>Years: %s</div><div>Range: %.1f - %.1f %s</div><div>Most recent: %.1f (%s)</div></div></div>', param, unit, n, row$Year_Range, low, high, unit, val, row$Most_Recent_Sample_Date)
 
-    # Create compact parameter info - WITH UNIT IN NAME
-    param_info <- sprintf(
-      '<div class="param-info">
-         <div class="param-name">%s (%s)</div>
-         <div class="param-details">
-           <div>N = %d samples</div>
-           <div>Years: %s</div>
-           <div>Range: %.1f - %.1f %s</div>
-           <div>Most recent: %.1f (%s)</div>
-         </div>
-       </div>',
-      param, unit, n, year_range, low, high, unit, val, most_recent_date
-    )
+    # Bar chart
+    bar_html <- tryCatch(build_css_bar(low, high, as.character(row$Recent_Values), as.character(row$Recent_Dates), n), error = function(e) sprintf('<div style="padding: 20px; text-align: center; color: #666;">Error: %s</div>', e$message))
 
-    # Create bar chart with error handling
-    bar_html <- tryCatch({
-      build_css_bar(low, high, recent_values_str, recent_dates_str, n)
-    }, error = function(e) {
-      sprintf('<div style="padding: 20px; text-align: center; color: #666;">Error displaying chart<br><small>%s</small></div>', e$message)
-    })
+    # Threshold lookup - simplified
+    thresh_sub <- filtered_thresholds[filtered_thresholds$CharacteristicName_lower == tolower(param), ]
 
-    # Process thresholds safely - FIXED FILTERING
-    thresh_sub <- tryCatch({
-      threshold_df %>%
-        dplyr::filter(
-          tolower(as.character(MonitoringLocationIdentifier)) == tolower(as.character(!!MonitoringLocationIdentifier)),
-          tolower(as.character(CharacteristicName)) == tolower(as.character(!!param))
-        )
-    }, error = function(e) {
-      cat("Error filtering thresholds for", param, ":", e$message, "\n")
-      data.frame()  # Return empty data frame
-    })
-
-    # Create threshold visualization
     if (nrow(thresh_sub) > 0) {
-      parts <- thresh_sub$n
-      categories <- thresh_sub$ThreshCateg
-      colors <- unname(color_map[categories])
-      colors[is.na(colors)] <- "#666666"
-      
-      donut_html <- tryCatch({
-        build_css_donut(parts, colors, categories)
-      }, error = function(e) {
-        '<div style="width: 80px; height: 80px; background: #ccc; border-radius: 50%; display: flex; align-items: center; justify-content: center;">Error</div>'
-      })
-      
-      legend_html <- paste(sprintf(
-        '<div style="color:%s; font-size: 9px;">%s: %d</div>',
-        colors,
-        tools::toTitleCase(categories),
-        parts
-      ), collapse = "")
+      donut_html <- build_css_donut(thresh_sub$n, color_map[thresh_sub$ThreshCateg], thresh_sub$ThreshCateg)
+      legend_html <- paste(sprintf('<div style="color:%s; font-size: 11px;">%s: %d</div>', color_map[thresh_sub$ThreshCateg], tools::toTitleCase(thresh_sub$ThreshCateg), thresh_sub$n), collapse = "")
     } else {
-      donut_html <- build_css_donut(c(1), c("#aaaaaa"), c("No data"))
-      legend_html <- '<div style="color:#666666; font-size: 9px;">Undefined</div>'
+      donut_html <- sprintf('<div style="width: 80px; height: 80px; border-radius: 50%%; background: #cccccc; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px;">%d</span></div>', n)
+      legend_html <- '<div style="color:#666666; font-size: 11px;">Undefined</div>'
     }
 
-    threshold_cell <- sprintf(
-      '<div class="donut-container-large">
-         %s
-         <div class="legend-compact">%s</div>
-       </div>',
-      donut_html, legend_html
-    )
-
-    # Return the table row
     shiny::tags$tr(
       shiny::tags$td(htmltools::HTML(param_info)),
       shiny::tags$td(htmltools::HTML(bar_html), class = "bar-column"),
-      shiny::tags$td(htmltools::HTML(threshold_cell), class = "threshold-column")
+      shiny::tags$td(htmltools::HTML(sprintf('<div class="donut-container-large">%s<div class="legend-compact">%s</div></div>', donut_html, legend_html)), class = "threshold-column")
     )
   })
 
