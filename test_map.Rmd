@@ -99,8 +99,7 @@ site_param_data <- setNames(
 
 full_data <- purrr::map_df(site_param_data, ~as.data.frame(.x), .id="MonitoringLocationIdentifier")
 
-# REPLACE your threshold_df with this version that has multiple categories per parameter:
-
+# Dummy threshold data
 threshold_df <- data.frame(
   MonitoringLocationIdentifier = c(
     "Site_1", "Site_1", "Site_1",  # Dissolved Oxygen with 3 categories
@@ -144,13 +143,11 @@ threshold_df <- data.frame(
   )
 )
 
-# ALSO FIX your observeEvent - remove the duplicate modal:
-
 observeEvent(input$map_right_click, {
   site <- input$map_right_click$MonitoringLocationIdentifier
   df <- full_data %>% dplyr::filter(MonitoringLocationIdentifier == site)
   
-  # TEMPORARY: Add this debug line
+  # TEMPORARY debug line
   debug_recent_data(df)
   
   shiny::showModal(
@@ -168,22 +165,6 @@ observeEvent(input$map_right_click, {
 })
 
 # Function to generate table with horizontal bar
-# COMPLETE REPLACEMENT for your generate_param_table function
-
-# EFFICIENCY IMPROVEMENTS - Replace your generate_param_table function:
-
-# EFFICIENCY IMPROVEMENTS - Replace your generate_param_table function:
-
-# EFFICIENCY IMPROVEMENTS - Replace your generate_param_table function:
-
-# REPLACE your entire generate_param_table function with this WORKING version:
-
-# REPLACE your entire generate_param_table function with this WORKING version:
-
-# REPLACE your entire generate_param_table function with this WORKING version:
-
-# REPLACE your entire generate_param_table function with this WORKING version:
-
 generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier) {
   
   # Pre-filter threshold data once
@@ -191,7 +172,7 @@ generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier)
     dplyr::filter(tolower(as.character(MonitoringLocationIdentifier)) == tolower(as.character(!!MonitoringLocationIdentifier))) %>%
     dplyr::mutate(CharacteristicName_lower = tolower(as.character(CharacteristicName)))
   
-  # Enhanced CSS donut - OPTIMIZED
+  # CSS donut
   build_css_donut <- function(parts, colors, categories) {
     total <- sum(parts, na.rm = TRUE)
     if (total == 0) return('<div style="width: 80px; height: 80px; border-radius: 50%; background: #cccccc; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px;">0</span></div>')
@@ -206,7 +187,7 @@ generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier)
       ))
     }
     
-    # SVG fallback - condensed
+    # SVG fallback 
     circumference <- 157.08
     percentages <- parts / total * 100
     paths <- sprintf('<circle cx="40" cy="40" r="25" fill="none" stroke="%s" stroke-width="15" stroke-dasharray="%f %f" stroke-dashoffset="-%f" transform="rotate(-90 40 40)"/>', colors, (percentages / 100) * circumference, circumference, c(0, cumsum(head((percentages / 100) * circumference, -1))))
@@ -268,7 +249,7 @@ generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier)
         color <- "#007BFF"  # Solid blue, no gradient
       }
       
-      # FIXED: Simple hover format - value (date)
+      # Simple hover format - value (date)
       dots_html <- paste0(dots_html, sprintf(
         '<div style="position: absolute; top: %dpx; left: %.1f%%; width: 12px; height: 12px; background: %s; border: 2px solid white; border-radius: 50%%; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" title="%.1f (%s)"></div>',
         y_pos, x_pos, color, val, date
@@ -325,7 +306,7 @@ generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier)
 
   color_map <- c("good" = "#28a745", "caution" = "#ffc107", "poor" = "#dc3545", "unknown" = "#999999")
 
-  # OPTIMIZED: Process rows with minimal overhead
+  # Process rows with minimal overhead
   rows <- lapply(1:nrow(df), function(i) {
     row <- df[i, ]
     
@@ -428,7 +409,7 @@ observeEvent(input$map_right_click, {
   site <- input$map_right_click$MonitoringLocationIdentifier
   df <- full_data %>% dplyr::filter(MonitoringLocationIdentifier == site)
   
-  # TEMPORARY: Add this debug line
+  # TEMPORARY debug line
   debug_recent_data(df)
   
   shiny::showModal(
