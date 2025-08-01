@@ -3038,8 +3038,13 @@ observeEvent(eventExpr = input$button_downloadData, {
   
   # datURL <- paste0("https://www.waterqualitydata.us/data/Result/search?siteType=", siteTypeChoiceString, "&organization=", orgChoiceString, "&siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&minactivities=", input$sel_MinActivities, "&startDateLo=", format(input$sel_ImportStartDate,"%m-%d-%Y"), "&sampleMedia=Water&mimeType=csv&zip=no") # could not find a way to use dataRetrieval for multiple HUCs or multiple sites
   
-  datURL <- paste0("https://www.waterqualitydata.us/data/Result/search?organization=", orgChoiceString, "&siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no") # REMOVED SITETYPE & MINACTIVITIES & START & END DATES AS AN OPTION AT THIS STAGE
+  # >>>>> PICK UP FROM HERE
+  searchURL <- paste0("search?organization=", orgChoiceString, "&siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no") # REMOVED SITETYPE & MINACTIVITIES & START & END DATES AS AN OPTION AT THIS STAGE)
   
+  summaryURL <- paste0("https://www.waterqualitydata.us/data/summary/monitoringLocation/", searchURL)
+  
+  datURL <- paste0("https://www.waterqualitydata.us/data/Result/", searchURL)
+  # <<<<<< PICK UP FROM HERE
   rv$wqp_url <- datURL
 
   if(http_status(GET(datURL))$category!="Success") { # make sure the service call is valid
@@ -4344,6 +4349,21 @@ shinyjs::hidden( # initially hide this well panel
              selected = unique(rv$sitesPointsSub$MonitoringLocationTypeName))
     }),
     
+    checkboxGroupInput("sel_CharType",
+                       label = h6("Import WQP data only from these characteristic groups: "),
+                       choices = c("Biological",
+                                   "Inorganics, Major, Metals",
+                                   "Inorganics, Major, Non-metals",
+                                   "Microbiological",
+                                   "Nutrient",
+                                   "Organics, Other",
+                                   "Organics, PCBs",
+                                   "Organics, Pesticide",
+                                   "Physical",
+                                   "Sediment",
+                                   "Toxicity"),
+                       selected = c("Inorganics, Major, Metals", "Inorganics, Major, Non-metals", "Microbiological", "Nutrient", "Physical")
+    
     actionButton("button_highlightStations", "Highlight Selected Sites", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px")
     ) # end subset-stations panel
   ) # end hide for subset-stations panel
@@ -4379,20 +4399,7 @@ shinyjs::hidden( # initially hide this well panel
     id = "new_data_P4",
     p(strong("4. Filter characteristic groups to download")),
 
-    checkboxGroupInput("sel_CharType",
-                       label = h6("Import WQP data only from these characteristic groups: "),
-                       choices = c("Biological",
-                                   "Inorganics, Major, Metals",
-                                   "Inorganics, Major, Non-metals",
-                                   "Microbiological",
-                                   "Nutrient",
-                                   "Organics, Other",
-                                   "Organics, PCBs",
-                                   "Organics, Pesticide",
-                                   "Physical",
-                                   "Sediment",
-                                   "Toxicity"),
-                       selected = c("Inorganics, Major, Metals", "Inorganics, Major, Non-metals", "Microbiological", "Nutrient", "Physical")),
+    ),
   
     actionButton("button_downloadData", "DOWNLOAD SELECTED DATA", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px"),
     
