@@ -2876,6 +2876,9 @@ observeEvent(eventExpr = input$button_highlightStations, {
       as.data.frame
     
     shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0)
+    
+    # Get statistics about the parameters and number of data records for the selected sites
+    
   
     showModal(modalDialog(
     title = "Done",
@@ -2973,7 +2976,7 @@ observeEvent(eventExpr = input$button_highlightStations, {
 
     showModal(modalDialog(
     title = "Done",
-    "Selected monitoring sites are shown as larger, white-outlined circles on the map. The origin site is outlined in red. The selected streamlines upstream of the origin are shown in white; downstream, in brown. Filter weather stations (if available) and characteristic groups to download, then press the green 'DOWNLOAD SELECTED DATA' button to get the selected data"
+    "Selected monitoring sites are shown as larger, white-outlined circles on the map. The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in white; downstream, in brown. Select gage and weather stations to download (if available) and select characteristic groups to download, then press the green 'DOWNLOAD SELECTED DATA' button to import the water quality data"
     ))
 } # end of methodDist
   
