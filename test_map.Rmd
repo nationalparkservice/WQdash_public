@@ -8,6 +8,9 @@ runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
+# TO DO:
+# > Add col subtitle saying most recent at top of bar and hover over point to see dates.
+
 library(flexdashboard)
 library(shiny)
 library(leaflet)
