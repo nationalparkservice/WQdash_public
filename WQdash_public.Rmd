@@ -79,6 +79,7 @@ pkgs <- c("flexdashboard",
           "magrittr", 
           "leaflet.extras", 
           "lubridate", 
+          "stringr",
           "fontawesome", 
           "viridisLite", 
           "ggpubr", # for drawing separate legends
@@ -1531,7 +1532,7 @@ if(x_nam == "ActivityStartDate") {
     print("line623")
     # ...if coloring by a categorical characteristic, set up the data...
     if(sel_categ != "none" & !is.null(categ_df)) {
-      levs <- unlist(base::strsplit(str_replace_all(categ_df$CategOrder[categ_df$CharSampleType == sel_categ], "[()]", ""), split="//")) # these are the categorical levels from the category import file--pull from there rather than from data to ensure no levels are omitted just because they were not in the data
+      levs <- unlist(base::strsplit(stringr::str_replace_all(categ_df$CategOrder[categ_df$CharSampleType == sel_categ], "[()]", ""), split="//")) # these are the categorical levels from the category import file--pull from there rather than from data to ensure no levels are omitted just because they were not in the data
       levels_ok <- all(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == sel_categ])) %in% levs)
       shiny::req(!is.null(levels_ok))
       if(!levels_ok) { # Discontinue if category levels in data don't match levels in imported category file
@@ -1540,7 +1541,7 @@ if(x_nam == "ActivityStartDate") {
           paste0("At least one categorical level found in the data (", paste(sort(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == sel_categ]))), collapse = ", "), ") is not included in the levels imported from the  category file (", paste(sort(levs), collapse = ", "), "). Please amend the category file to match the data."))
         )}
       dat_df$CategResultMeasureValue <- factor(dat_df$CategResultMeasureValue, levels = levs)
-      cols <- unlist(base::strsplit(str_replace_all(categ_df$CategColor[categ_df$CharSampleType == sel_categ], "[()]", ""), split="//"))
+      cols <- unlist(base::strsplit(stringr::str_replace_all(categ_df$CategColor[categ_df$CharSampleType == sel_categ], "[()]", ""), split="//"))
       names(cols) <- levs # create a named color vector to use as palette
       print("line1488")
       p_points <- p_points +
@@ -2997,11 +2998,7 @@ observeEvent(eventExpr = input$button_summarizeStations, {
   cat("line2991")
   rv$wqp_url <- paste0("https://www.waterqualitydata.us/data/Result/", searchURL)
 cat("line2993")
-  # Create tab with the summary info after downloading it. Add totas to message. Check what generates the white highligh.
-  
-saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+  # Create tab with the summary info after downloading it. Add totas to message. Check what generates the white highlight.
 
 showModal(modalDialog(
   title = "Done",
@@ -3319,8 +3316,8 @@ observeEvent(eventExpr = input$saved_thresh_file, {
       tempThresh_list[[threshID]]$ResultSampleFractionText <- tempThresh_df$SampleFraction[i]
       tempThresh_list[[threshID]]$ResultMeasure.MeasureUnitCode <- tempThresh_df$MeasureUnit[i]
       tempThresh_list[[threshID]]$Notes <- tempThresh_df$Notes[i]
-      tempThresh_list[[threshID]]$cut_breaks <- as.numeric(unlist(base::strsplit(str_replace_all(tempThresh_df$ThreshBreaks[i], "[()]", ""), split="//")))
-      tempThresh_list[[threshID]]$cut_categ <- unlist(base::strsplit(str_replace_all(tempThresh_df$ThreshCateg[i], "[()]", ""), split="//"))
+      tempThresh_list[[threshID]]$cut_breaks <- as.numeric(unlist(base::strsplit(stringr::str_replace_all(tempThresh_df$ThreshBreaks[i], "[()]", ""), split="//")))
+      tempThresh_list[[threshID]]$cut_categ <- unlist(base::strsplit(stringr::str_replace_all(tempThresh_df$ThreshCateg[i], "[()]", ""), split="//"))
     }
     
     rv_param_temp$threshList <- tempThresh_list
@@ -5312,6 +5309,10 @@ shinyBS::bsCollapse(
 renderUI({
   shiny::req(!is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$subDat), !is.null(rv_param_temp$subDatTypes))
   shiny::req(input$sel_SummarizeBy == "by_chartype")
+
+  saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
 
   char_choices <- sort(intersect(unique(rv_param_temp$subDat$CharSampleType), rv_param_temp$subDatTypes$CharSampleType[rv_param_temp$subDatTypes$DataType == "numeric"]))
 

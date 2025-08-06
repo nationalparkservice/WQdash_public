@@ -3,9 +3,6 @@
 # > Incorporate this into dashboard. I moved the characteristic selection up so it's done, then user can select to "Summarize Selected Data" (instead of "Highlight..."). Then it should show information on the tabs. Then user can select the stream and weather data. Then download everything. For efficiency, just create this searchURL then for summary vs download result I can just append the appropriate URL prefix. May work also for getting the station info.
 
 ## I PUT THIS INTO DASHBOARD...CONTINUE WORKING FROM THERE.
-searchURL <- paste0("search?organization=", orgChoiceString, "&siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no") # REMOVED SITETYPE & MINACTIVITIES & START & END DATES AS AN OPTION AT THIS STAGE)
-
-summaryURL <- paste0("https://www.waterqualitydata.us/data/summary/monitoringLocation/", searchURL, "&summaryYears=all&count=no&dataProfile=periodOfRecord")
 
 
 
@@ -24,3 +21,14 @@ View(summary_dat <- dat %>%
 
 # This one gives count per char
 View(char_table <- dat %>% dplyr::group_by(CharacteristicType, CharacteristicName) %>% summarize(total_activity_count = sum(ActivityCount, na.rm = TRUE), total_result_count = sum(ResultCount, na.rm = TRUE), .groups = "drop"))
+
+
+
+
+
+
+
+
+rv$importDataSummary
+
+
