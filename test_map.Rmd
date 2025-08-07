@@ -21,22 +21,22 @@ library(purrr)
 library(htmltools)  
 library(dplyr) 
 
-debug_recent_data <- function(df) {
-  cat("\n=== DEBUGGING RECENT DATA ===\n")
-  for (i in 1:min(3, nrow(df))) {
-    row <- df[i, ]
-    cat("Row", i, "- Param:", row$CharacteristicName, "\n")
-    cat("  Recent_Values:", row$Recent_Values, "\n")
-    cat("  Recent_Dates:", row$Recent_Dates, "\n")
-    
-    # Test parsing
-    vals <- suppressWarnings(as.numeric(unlist(strsplit(as.character(row$Recent_Values), ","))))
-    dates <- as.character(unlist(strsplit(as.character(row$Recent_Dates), ",")))
-    cat("  Parsed values:", paste(vals, collapse = ", "), "\n")
-    cat("  Parsed dates:", paste(dates, collapse = ", "), "\n")
-    cat("  Valid pairs:", sum(!is.na(vals) & dates != ""), "\n\n")
-  }
-}
+# debug_recent_data <- function(df) {
+#   cat("\n=== DEBUGGING RECENT DATA ===\n")
+#   for (i in 1:min(3, nrow(df))) {
+#     row <- df[i, ]
+#     cat("Row", i, "- Param:", row$CharacteristicName, "\n")
+#     cat("  Recent_Values:", row$Recent_Values, "\n")
+#     cat("  Recent_Dates:", row$Recent_Dates, "\n")
+#     
+#     # Test parsing
+#     vals <- suppressWarnings(as.numeric(unlist(strsplit(as.character(row$Recent_Values), ","))))
+#     dates <- as.character(unlist(strsplit(as.character(row$Recent_Dates), ",")))
+#     cat("  Parsed values:", paste(vals, collapse = ", "), "\n")
+#     cat("  Parsed dates:", paste(dates, collapse = ", "), "\n")
+#     cat("  Valid pairs:", sum(!is.na(vals) & dates != ""), "\n\n")
+#   }
+# }
 
 # Dummy site coordinates
 set.seed(1)
@@ -150,8 +150,8 @@ observeEvent(input$map_right_click, {
   site <- input$map_right_click$MonitoringLocationIdentifier
   df <- full_data %>% dplyr::filter(MonitoringLocationIdentifier == site)
   
-  # TEMPORARY debug line
-  debug_recent_data(df)
+  # # TEMPORARY debug line
+  # debug_recent_data(df)
   
   shiny::showModal(
     shiny::modalDialog(
@@ -190,11 +190,11 @@ generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier)
       ))
     }
     
-    # SVG fallback 
+    # SVG fallback if there are more than 3 categories in the future....
     circumference <- 157.08
     percentages <- parts / total * 100
     paths <- sprintf('<circle cx="40" cy="40" r="25" fill="none" stroke="%s" stroke-width="15" stroke-dasharray="%f %f" stroke-dashoffset="-%f" transform="rotate(-90 40 40)"/>', colors, (percentages / 100) * circumference, circumference, c(0, cumsum(head((percentages / 100) * circumference, -1))))
-    
+
     paste0('<svg width="80" height="80" viewBox="0 0 80 80">', paste(paths, collapse=""), sprintf('<text x="40" y="45" text-anchor="middle" font-size="12" font-weight="600">%d</text>', total), '</svg>')
   }
 
