@@ -10,9 +10,9 @@ runtime: shiny
 ---
 
 ```{r global, include=FALSE}
-### NEW PACKAGES FOR BRIAN MITCHELL TO INSTALL:
-remotes::install_github("mikejohnson51/AOI") 
-remotes::install_github("mikejohnson51/climateR")
+### NEW PACKAGES TO INSTALL:
+# remotes::install_github("mikejohnson51/AOI") 
+# remotes::install_github("mikejohnson51/climateR")
 
 
 
@@ -75,7 +75,7 @@ pkgs <- c("flexdashboard",
           "GGally", 
           "plotly", 
           "httr", 
-          "climateR",
+          # "climateR",
           "sp",
           "bslib", 
           "bsicons",
@@ -331,6 +331,225 @@ tags$style(HTML("
 observeEvent(eventExpr = input$button_cancelModal, {
   removeModal()
   })
+```
+
+```{r TEST_POPUP}
+observeEvent(input$param_map_right_click, {
+    saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
+saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
+saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
+
+  shiny::req(!is.null(rv_param_temp$popupSiteSummary))
+  site <- input$param_map_right_click$MonitoringLocationIdentifier
+  df <- rv_param_temp$popupSiteSummary %>% dplyr::filter(Site == site)  # Changed: use popupSiteSummary and Site column
+  
+  shiny::showModal(
+    shiny::modalDialog(
+      title = paste("Summary for", site),
+      generate_param_table(
+        df = df,
+        threshold_df =  rv_param_temp$threshDF %>% dplyr::filter(Site == site),  
+        MonitoringLocationIdentifier = site
+      ),
+      easyClose = TRUE,
+      size = "l"
+    )
+  )
+})
+
+# Function to generate table with horizontal bar
+generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier) {
+  
+  # CSS donut
+  build_css_donut <- function(parts, colors, categories) {
+    total <- sum(parts, na.rm = TRUE)
+    if (total == 0) return('<div style="width: 80px; height: 80px; border-radius: 50%; background: #cccccc; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px;">0</span></div>')
+    
+    if (length(parts) <= 3) {
+      percentages <- cumsum(parts) / total * 100
+      stops <- paste0(colors, " ", c(0, head(percentages, -1)), "% ", percentages, "%")
+      
+      return(sprintf(
+        '<div style="width: 80px; height: 80px; border-radius: 50%%; background: conic-gradient(%s); position: relative; display: flex; align-items: center; justify-content: center;"><div style="width: 35px; height: 35px; background: white; border-radius: 50%%; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px; font-weight: 600;">%d</span></div></div>',
+        paste(stops, collapse = ", "), total
+      ))
+    }
+    
+    # SVG fallback if there are more than 3 categories in the future....
+    circumference <- 157.08
+    percentages <- parts / total * 100
+    paths <- sprintf('<circle cx="40" cy="40" r="25" fill="none" stroke="%s" stroke-width="15" stroke-dasharray="%f %f" stroke-dashoffset="-%f" transform="rotate(-90 40 40)"/>', colors, (percentages / 100) * circumference, circumference, c(0, cumsum(head((percentages / 100) * circumference, -1))))
+
+    paste0('<svg width="80" height="80" viewBox="0 0 80 80">', paste(paths, collapse=""), sprintf('<text x="40" y="45" text-anchor="middle" font-size="12" font-weight="600">%d</text>', total), '</svg>')
+  }
+
+  # Bar chart builder
+  build_css_bar <- function(low, high, recent_values_str, recent_dates_str, n) {
+    # Generate sample for percentiles
+    sample_size <- min(n, 200)
+    all_values <- runif(sample_size, low, high)
+    q15 <- quantile(all_values, 0.15, na.rm = TRUE)
+    q85 <- quantile(all_values, 0.85, na.rm = TRUE)
+    med <- median(all_values, na.rm = TRUE)
+    
+    # Parse recent data
+    recent_values <- tryCatch({
+      vals <- as.numeric(unlist(strsplit(as.character(recent_values_str), ",")))
+      vals[!is.na(vals)]
+    }, error = function(e) numeric(0))
+    
+    recent_dates <- tryCatch({
+      dates <- unlist(strsplit(as.character(recent_dates_str), ","))
+      dates[!is.na(dates) & dates != ""]
+    }, error = function(e) character(0))
+    
+    # Ensure matching pairs and limit to 5
+    min_length <- min(length(recent_values), length(recent_dates), 5)
+    if (min_length > 0) {
+      recent_values <- recent_values[1:min_length]
+      recent_dates <- recent_dates[1:min_length]
+    } else {
+      recent_values <- med
+      recent_dates <- "Recent"
+    }
+    
+    # Build dots - SIMPLIFIED
+    dots_html <- ""
+    for (i in seq_along(recent_values)) {
+      val <- recent_values[i]
+      date <- recent_dates[i]
+      y_pos <- 8 + (i-1) * 14
+      
+      # Simple categorization and positioning
+      if (val < q15) {
+        x_pos <- 7.5
+        color <- "#6c757d"
+      } else if (val > q85) {
+        x_pos <- 92.5
+        color <- "#6c757d"
+      } else {
+        if (q85 > q15) {
+          relative_pos <- (val - q15) / (q85 - q15)
+          x_pos <- 15 + relative_pos * 70
+        } else {
+          x_pos <- 50
+        }
+        color <- "#007BFF"  # Solid blue, no gradient
+      }
+      
+      # Simple hover format - value (date)
+      dots_html <- paste0(dots_html, sprintf(
+        '<div style="position: absolute; top: %dpx; left: %.1f%%; width: 12px; height: 12px; background: %s; border: 2px solid white; border-radius: 50%%; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" title="%.1f (%s)"></div>',
+        y_pos, x_pos, color, val, date
+      ))
+    }
+    
+    # Calculate median position
+    median_pos <- if (q85 > q15) 15 + ((med - q15) / (q85 - q15)) * 70 else 50
+    
+    # Count summary
+    num_low <- sum(recent_values < q15)
+    num_high <- sum(recent_values > q85)
+    num_normal <- length(recent_values) - num_low - num_high
+    
+    # Generate summary text
+    summary_parts <- c()
+    if (num_low > 0) summary_parts <- c(summary_parts, sprintf("%d in lower 15%%", num_low))
+    if (num_normal > 0) summary_parts <- c(summary_parts, sprintf("%d in middle 70%%", num_normal))
+    if (num_high > 0) summary_parts <- c(summary_parts, sprintf("%d in upper 15%%", num_high))
+    
+    summary_text <- if (length(summary_parts) > 0) {
+      paste(summary_parts, collapse = ", ")
+    } else {
+      "All values in middle 70% of historical data"
+    }
+    
+    sprintf(
+      '<div style="position: relative; height: 80px; background: linear-gradient(to right, #f0f4f8 0%%, #f0f4f8 15%%, #ffffff 15%%, #ffffff 85%%, #f0f4f8 85%%, #f0f4f8 100%%); border-radius: 8px; border: 1px solid #dee2e6; overflow: visible; margin-top: 12px;">
+         <div style="position: absolute; top: -18px; left: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: left; white-space: nowrap;">LOWER 15%% (< %.1f)</div>
+         <div style="position: absolute; top: -18px; left: 15%%; font-size: 10px; color: #495057; font-weight: 600; text-align: center; width: 70%%; white-space: nowrap;">MIDDLE 70%% OF DATA (%.1f - %.1f)</div>
+         <div style="position: absolute; top: -18px; right: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: right; white-space: nowrap;">UPPER 15%% (> %.1f)</div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 85%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 70%%; background: rgba(0, 123, 255, 0.08); z-index: 1;" title="15th to 85th percentile range: %.1f - %.1f"></div>
+         <div style="position: absolute; top: 0; bottom: 0; left: %.1f%%; width: 3px; background: #333; z-index: 2; border-radius: 2px;" title="Median (50th percentile): %.1f"></div>
+         %s
+       </div>',
+      q15, q15, q85, q85, q15, q85, median_pos, med, dots_html
+    )
+  }
+
+  css <- "
+    .compact-table { border-collapse: separate; border-spacing: 0 8px; table-layout: fixed; width: 100%; }
+    .compact-table td { padding: 14px; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
+    .compact-table thead th { background-color: #f8f9fa; font-weight: 600; padding: 12px; border-bottom: 2px solid #dee2e6; text-align: center; }
+    .param-info { text-align: left; width: 220px; word-wrap: break-word; }
+    .param-name { font-weight: 600; font-size: 13px; color: #333; margin-bottom: 2px; word-wrap: break-word; line-height: 1.2; }
+    .param-details { font-size: 12px; color: #666; line-height: 1.4; }
+    .bar-column { width: 320px; text-align: center; }
+    .threshold-column { width: 240px; text-align: center; }
+    .donut-container-large { display: flex; flex-direction: row; align-items: center; gap: 12px; justify-content: center; }
+    .legend-compact { font-size: 11px; text-align: left; max-width: 140px; }
+  "
+
+  color_map <- c("good" = "#28a745", "caution" = "#ffc107", "poor" = "#dc3545", "unknown" = "#999999")
+
+  # Process rows with minimal overhead
+  rows <- lapply(1:nrow(df), function(i) {
+    row <- df[i, ]
+    
+    # Extract values efficiently
+    low <- as.numeric(row$Lowest_Value)
+    high <- as.numeric(row$Highest_Value) 
+    val <- as.numeric(row$Most_Recent_Value)
+    n <- as.numeric(row$Sample_Size)
+    param <- as.character(row$Characteristic)
+    unit <- as.character(row$Unit)
+    
+    # Single sprintf for parameter info
+    param_info <- sprintf('<div class="param-info"><div class="param-name">%s (%s)</div><div class="param-details"><div>N = %d samples</div><div>Years: %s</div><div>Range: %.1f - %.1f %s</div><div>Most recent: %.1f (%s)</div></div></div>', param, unit, n, row$Year_Range, low, high, unit, val, row$Most_Recent_Sample_Date)
+
+    # Bar chart
+    bar_html <- tryCatch(build_css_bar(low, high, as.character(row$Recent_Values), as.character(row$Recent_Dates), n), error = function(e) sprintf('<div style="padding: 20px; text-align: center; color: #666;">Error: %s</div>', e$message))
+
+    # Threshold lookup - simplified
+    thresh_sub <- if (is.null(threshold_df)||nrow(threshold_df)==0) {
+      data.frame()
+    } else {
+      threshold_df[tolower(threshold_df$Characteristic) == tolower(param), ]
+    }
+
+    if (nrow(thresh_sub) > 0) {
+      donut_html <- build_css_donut(thresh_sub$n, color_map[thresh_sub$ThreshCateg], thresh_sub$ThreshCateg)
+      legend_html <- paste(sprintf('<div style="color:%s; font-size: 11px;">%s: N=%d</div>', color_map[thresh_sub$ThreshCateg], thresh_sub$ThreshCateg_Label, thresh_sub$n), collapse = "")
+    } else {
+      donut_html <- sprintf('<div style="width: 80px; height: 80px; border-radius: 50%%; background: #cccccc; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px;">%d</span></div>', n)
+      legend_html <- '<div style="color:#666666; font-size: 11px;">Undefined</div>'
+    }
+
+    shiny::tags$tr(
+      shiny::tags$td(htmltools::HTML(param_info)),
+      shiny::tags$td(htmltools::HTML(bar_html), class = "bar-column"),
+      shiny::tags$td(htmltools::HTML(sprintf('<div class="donut-container-large">%s<div class="legend-compact">%s</div></div>', donut_html, legend_html)), class = "threshold-column")
+    )
+  })
+
+  shiny::tagList(
+    shiny::tags$style(htmltools::HTML(css)),
+    shiny::tags$table(
+      class = "compact-table",
+      style = "width: 100%; font-size: 12px;",
+      shiny::tags$thead(
+        shiny::tags$tr(
+          shiny::tags$th("Parameter Details", style = "text-align: left; width: 220px;"),
+          shiny::tags$th("Recent Values (up to 5 shown)", style = "width: 320px;"),
+          shiny::tags$th("Threshold Assessment", style = "width: 240px;")
+        )
+      ),
+      shiny::tags$tbody(rows)
+    )
+  )
+}
 ```
 
 ```{r functions}
@@ -834,6 +1053,7 @@ FuncInitFilter <- function() {
   # Set initial plot input values
   print("SETTING INITIAL THRESHOLD VALUES")
   rv_param_temp$threshList <- NULL
+  rv_param_temp$threshDF <- NULL
   print("SET THRESHLIST TO NULL")
   
   rv_param_temp$currentInputs$sel_SummaryParam <- init_param_select
@@ -2347,7 +2567,7 @@ final_plot_summary
 FuncClearAll <- function() {
   rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, importDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) # summary_url = NULL
   
-  rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
+  rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
   
   # Hide filter wellPanels
   restart_panels_filter <- c("new_data_P1", "new_data_P2", "new_data_P3", "new_data_P4", "create_categfile_P1", "create_categfile_P2", "create_categfile_P3", "create_categfile_P4") 
@@ -2405,7 +2625,7 @@ grabit <- function(url) {
 
 rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, importDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) # summary_url = NULL
    
-rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
+rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
 ```
 
 ```{r observe_inputs}
@@ -2506,6 +2726,7 @@ observeEvent(eventExpr = input$saved_data_file, {
   
   rv_param_temp$plotDat <- NULL # Just to make doubly sure everything is cleared out
   rv_param_temp$threshList <- NULL
+  rv_param_temp$threshDF <- NULL
   rv_param_temp$categLevelsPlot <- NULL
   
   showModal(modalDialog(
@@ -3140,75 +3361,75 @@ observeEvent(eventExpr = input$button_downloadData, {
   # Get precipitation data from selected weather stations ----
 
 rv$meteoDat <- NULL
-if(all(!is.null(rv$meteoStations), !is.null(rv$selectedMeteo))) {
-  if(all(nrow(rv$meteoStations) > 0, length(rv$selectedMeteo) > 0)) {
-    setProgress(3/4, detail = "Getting precipitation data from selected weather stations")
-    
-    tempMeteoDat <- NULL
-    
-    tryCatch({
-      # Create spatial points from selected weather stations
-      # rv$selectedMeteo has longitude/latitude columns
-      stations_sf <- rv$selectedMeteo %>%
-        # Make sure have coordinates - adjust column names as needed
-        filter(!is.na(longitude), !is.na(latitude)) %>%
-        st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
-      
-      if(nrow(stations_sf) > 0) {
-        # Get precipitation data using climateR (no token needed!)
-        precip_raw <- getGridMET(
-          AOI = stations_sf,
-          param = "pr",  # precipitation
-          startDate = as.Date(range(rv$dat$ActivityStartDate)[1]),
-          endDate = as.Date(range(rv$dat$ActivityStartDate)[2])
-        )
-        
-        # Transform to match existing data structure
-        if(!is.null(precip_raw) && nrow(precip_raw) > 0) {
-          tempMeteoDat <- precip_raw %>%
-            # Adjust column names based on what climateR returns
-            select(
-              ActivityStartDate = date,
-              prcp = pr,  # precipitation in mm
-              station_id = id  # or whatever identifier climateR provides
-            ) %>%
-            filter(!is.na(prcp)) %>%
-            mutate(
-              prcp = as.numeric(prcp),
-              PRCP_cm = prcp / 10,  # Convert mm to cm
-              qflag_prcp = " ",  # climateR data is quality controlled
-              # Match with station metadata
-              MeteoShortID = station_id
-            ) %>%
-            # Join with station names
-            left_join(
-              rv$selectedMeteo %>% select(MeteoName, MeteoShortID), 
-              by = "MeteoShortID"
-            ) %>%
-            select(MeteoShortID, ActivityStartDate, PRCP_cm, MeteoName)
-          
-          # Clean and process as before
-          tempMeteoDat2 <- tempMeteoDat[complete.cases(tempMeteoDat), ]
-          tempMeteoDat2$ActivityStartDate <- base::as.Date(tempMeteoDat2$ActivityStartDate)
-          rv$meteoDat <- FuncBreakDates(tempMeteoDat2)
-          rm(tempMeteoDat, tempMeteoDat2)
-        }
-      }
-    }, error = function(e) {
-      warning("Failed to get precipitation data: ", e$message)
-      rv$meteoDat <- NULL
-      rv$meteoStations <- NULL
-      rv$selectedMeteo <- NULL
-    })
-    
-    # Fallback if no data retrieved
-    if(is.null(rv$meteoDat)) {
-      rv$meteoDat <- NULL
-      rv$meteoStations <- NULL
-      rv$selectedMeteo <- NULL
-    }
-  }
-}
+# if(all(!is.null(rv$meteoStations), !is.null(rv$selectedMeteo))) {
+#   if(all(nrow(rv$meteoStations) > 0, length(rv$selectedMeteo) > 0)) {
+#     setProgress(3/4, detail = "Getting precipitation data from selected weather stations")
+#     
+#     tempMeteoDat <- NULL
+#     
+#     tryCatch({
+#       # Create spatial points from selected weather stations
+#       # rv$selectedMeteo has longitude/latitude columns
+#       stations_sf <- rv$selectedMeteo %>%
+#         # Make sure have coordinates - adjust column names as needed
+#         filter(!is.na(longitude), !is.na(latitude)) %>%
+#         st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+#       
+#       if(nrow(stations_sf) > 0) {
+#         # Get precipitation data using climateR (no token needed!)
+#         precip_raw <- getGridMET(
+#           AOI = stations_sf,
+#           param = "pr",  # precipitation
+#           startDate = as.Date(range(rv$dat$ActivityStartDate)[1]),
+#           endDate = as.Date(range(rv$dat$ActivityStartDate)[2])
+#         )
+#         
+#         # Transform to match existing data structure
+#         if(!is.null(precip_raw) && nrow(precip_raw) > 0) {
+#           tempMeteoDat <- precip_raw %>%
+#             # Adjust column names based on what climateR returns
+#             select(
+#               ActivityStartDate = date,
+#               prcp = pr,  # precipitation in mm
+#               station_id = id  # or whatever identifier climateR provides
+#             ) %>%
+#             filter(!is.na(prcp)) %>%
+#             mutate(
+#               prcp = as.numeric(prcp),
+#               PRCP_cm = prcp / 10,  # Convert mm to cm
+#               qflag_prcp = " ",  # climateR data is quality controlled
+#               # Match with station metadata
+#               MeteoShortID = station_id
+#             ) %>%
+#             # Join with station names
+#             left_join(
+#               rv$selectedMeteo %>% select(MeteoName, MeteoShortID), 
+#               by = "MeteoShortID"
+#             ) %>%
+#             select(MeteoShortID, ActivityStartDate, PRCP_cm, MeteoName)
+#           
+#           # Clean and process as before
+#           tempMeteoDat2 <- tempMeteoDat[complete.cases(tempMeteoDat), ]
+#           tempMeteoDat2$ActivityStartDate <- base::as.Date(tempMeteoDat2$ActivityStartDate)
+#           rv$meteoDat <- FuncBreakDates(tempMeteoDat2)
+#           rm(tempMeteoDat, tempMeteoDat2)
+#         }
+#       }
+#     }, error = function(e) {
+#       warning("Failed to get precipitation data: ", e$message)
+#       rv$meteoDat <- NULL
+#       rv$meteoStations <- NULL
+#       rv$selectedMeteo <- NULL
+#     })
+#     
+#     # Fallback if no data retrieved
+#     if(is.null(rv$meteoDat)) {
+#       rv$meteoDat <- NULL
+#       rv$meteoStations <- NULL
+#       rv$selectedMeteo <- NULL
+#     }
+#   }
+# }
   
   ### Save query
   
@@ -3234,6 +3455,7 @@ if(all(!is.null(rv$meteoStations), !is.null(rv$selectedMeteo))) {
   rv_param_temp$subDat <- NULL  
   rv_param_temp$plotDat <- NULL # Just to make doubly sure everything is cleared out
   rv_param_temp$threshList <- NULL
+  rv_param_temp$threshDF <- NULL
   rv_param_temp$categLevelsPlot <- NULL
  
     showModal(modalDialog(
@@ -3280,7 +3502,7 @@ observe({
 # Show or hide the well panels based on checkbox selection, but enable them as soon as rv$dat is available ----
 
 # Action to attach a thresholds file ----
-observeEvent(eventExpr = input$button_getThreshFile, { 
+observeEvent(eventExpr = input$button_getThreshFile, {
   if(is.null(rv$dat)) { # can't print validation message within observeEvent, so use modalDialogs
     rv_param_temp$threshList <- NULL
     showModal(modalDialog(
@@ -3288,14 +3510,14 @@ observeEvent(eventExpr = input$button_getThreshFile, {
       "Could not find any water quality data to associate with a threshold limits file. To import or load water quality data, use the dashboard page titled 'Get WQP Data'."
     ))
   }
-  
+
   # if(is.null(rv_param_temp$subDat)) {
   #   showModal(modalDialog(
   #     title = "No Filter Selection",
   #     "From the left sidebar, please choose a subset of data to work with."
   #   ))
   #   }
-  
+
   # shiny::req(!is.null(input$sel_GetThreshFile))
   # if (input$sel_GetThreshFile == "existing_data") {
     showModal(modalDialog(
@@ -3320,25 +3542,73 @@ observeEvent(eventExpr = input$saved_thresh_file, {
 
     tryCatch(out_thresh_file <- read_csv(input$saved_thresh_file$datapath),
              error = function(e) {out_categ_file <- NULL; print("Cannot import the selected file")})
-    
-  shiny::req(!is.null(out_thresh_file))
-  
-  out_thresh_file[] <- lapply(out_thresh_file, as.character) # convert all cols to character.
-  tempThresh_df <- out_thresh_file %>%
-      dplyr::mutate(CharSampleType = paste0(CharacteristicName, " (", ifelse(is.na(SampleFraction), MeasureUnit, paste(SampleFraction, MeasureUnit, sep = "; ")), ")")) # unique characteristic ID, for user choice
 
-    tempThresh_list <- list()
-    for (i in 1:nrow(tempThresh_df)) {
-      threshID <- unlist(tempThresh_df[i, "CharSampleType"])
-      tempThresh_list[[threshID]]$CharacteristicName <- tempThresh_df$CharacteristicName[i]
-      tempThresh_list[[threshID]]$ResultSampleFractionText <- tempThresh_df$SampleFraction[i]
-      tempThresh_list[[threshID]]$ResultMeasure.MeasureUnitCode <- tempThresh_df$MeasureUnit[i]
-      tempThresh_list[[threshID]]$Notes <- tempThresh_df$Notes[i]
-      tempThresh_list[[threshID]]$cut_breaks <- as.numeric(unlist(base::strsplit(stringr::str_replace_all(tempThresh_df$ThreshBreaks[i], "[()]", ""), split="//")))
-      tempThresh_list[[threshID]]$cut_categ <- unlist(base::strsplit(stringr::str_replace_all(tempThresh_df$ThreshCateg[i], "[()]", ""), split="//"))
-    }
-    
-    rv_param_temp$threshList <- tempThresh_list
+  shiny::req(!is.null(out_thresh_file))
+
+#   out_thresh_file[] <- lapply(out_thresh_file, as.character) # convert all cols to character.
+#   tempThresh_df <- out_thresh_file %>%
+#       dplyr::mutate(CharSampleType = paste0(CharacteristicName, " (", ifelse(is.na(SampleFraction), MeasureUnit, paste(SampleFraction, MeasureUnit, sep = "; ")), ")")) # unique characteristic ID, for user choice
+# 
+#     tempThresh_list <- list()
+#     for (i in 1:nrow(tempThresh_df)) {
+#       threshID <- unlist(tempThresh_df[i, "CharSampleType"])
+#       tempThresh_list[[threshID]]$CharacteristicName <- tempThresh_df$CharacteristicName[i]
+#       tempThresh_list[[threshID]]$ResultSampleFractionText <- tempThresh_df$SampleFraction[i]
+#       tempThresh_list[[threshID]]$ResultMeasure.MeasureUnitCode <- tempThresh_df$MeasureUnit[i]
+#       tempThresh_list[[threshID]]$Notes <- tempThresh_df$Notes[i]
+#       tempThresh_list[[threshID]]$cut_breaks <- as.numeric(unlist(base::strsplit(stringr::str_replace_all(tempThresh_df$ThreshBreaks[i], "[()]", ""), split="//")))
+#       tempThresh_list[[threshID]]$cut_categ <- unlist(base::strsplit(stringr::str_replace_all(tempThresh_df$ThreshCateg[i], "[()]", ""), split="//"))
+#     }
+#     
+#     rv_param_temp$threshList <- tempThresh_list
+# >>>>>>>>>>>>> NEW BELOW
+out_thresh_file[] <- lapply(out_thresh_file, as.character) # convert all cols to character.
+tempThresh_df <- out_thresh_file %>%
+    dplyr::mutate(CharSampleType = paste0(CharacteristicName, " (", ifelse(is.na(SampleFraction), MeasureUnit, paste(SampleFraction, MeasureUnit, sep = "; ")), ")")) %>% # unique characteristic ID, for user choice
+    dplyr::mutate(
+      # Vectorized creation of cut_categ_label
+      cut_categ_label = purrr::map2(ThreshBreaks, ThreshCateg, function(breaks_str, categ_str) {
+        # Parse breaks and categories
+        breaks <- as.numeric(unlist(base::strsplit(stringr::str_replace_all(breaks_str, "[()]", ""), split="//")))
+        categ <- unlist(base::strsplit(stringr::str_replace_all(categ_str, "[()]", ""), split="//"))
+        
+        # Create custom labels for each interval
+        custom_labels <- character(length(categ))
+        
+        for (i in seq_along(categ)) {
+          lower <- breaks[i]
+          upper <- breaks[i + 1]
+          
+          if (is.infinite(lower) && lower < 0) {
+            # -Inf to upper
+            custom_labels[i] <- paste0(tools::toTitleCase(categ[i]), " (≤", upper, ")")
+          } else if (is.infinite(upper) && upper > 0) {
+            # lower to +Inf  
+            custom_labels[i] <- paste0(tools::toTitleCase(categ[i]), " (>", lower, ")")
+          } else {
+            # finite range
+            custom_labels[i] <- paste0(tools::toTitleCase(categ[i]), " (>", lower, " to ", upper, ")")
+          }
+        }
+        
+        return(custom_labels)
+      })
+    )
+
+tempThresh_list <- list()
+for (i in 1:nrow(tempThresh_df)) {
+  threshID <- unlist(tempThresh_df[i, "CharSampleType"])
+  tempThresh_list[[threshID]]$CharacteristicName <- tempThresh_df$CharacteristicName[i]
+  tempThresh_list[[threshID]]$ResultSampleFractionText <- tempThresh_df$SampleFraction[i]
+  tempThresh_list[[threshID]]$ResultMeasure.MeasureUnitCode <- tempThresh_df$MeasureUnit[i]
+  tempThresh_list[[threshID]]$Notes <- tempThresh_df$Notes[i]
+  tempThresh_list[[threshID]]$cut_breaks <- as.numeric(unlist(base::strsplit(stringr::str_replace_all(tempThresh_df$ThreshBreaks[i], "[()]", ""), split="//")))
+  tempThresh_list[[threshID]]$cut_categ <- unlist(base::strsplit(stringr::str_replace_all(tempThresh_df$ThreshCateg[i], "[()]", ""), split="//"))
+  tempThresh_list[[threshID]]$cut_categ_label <- tempThresh_df$cut_categ_label[[i]]
+}
+
+rv_param_temp$threshList <- tempThresh_list
+#>>>>>>>>>>>>>>>>>>>> NEW ABOVE
     
     showModal(modalDialog(
       title = "Done",
@@ -3347,17 +3617,114 @@ observeEvent(eventExpr = input$saved_thresh_file, {
   }
 }, ignoreInit = TRUE) # end of observeEvent
 
-
 # Reactively update whenever rv_param_temp$subDat or rv_param_temp$threshList change
-# renderUI({
 observe({
   shiny::req(all(!is.null(rv_param_temp$subDat), !is.null(rv_param_temp$threshList)))
+  
   for (t in names(rv_param_temp$threshList)) {
     which_rows <- which(tolower(rv_param_temp$subDat$CharSampleType) == tolower(t)) # Don't require case to match
     if(length(which_rows) > 0) {
       rv_param_temp$subDat$ThreshCateg[which_rows] <- as.character(cut(as.numeric(rv_param_temp$subDat$ResultMeasureValue_replaced[which_rows]), breaks = rv_param_temp$threshList[[t]]$cut_breaks, labels = rv_param_temp$threshList[[t]]$cut_categ)) # assign the threshold category to each record
     }
   }
+  
+  # Calculate threshold counts with labels
+  rv_param_temp$threshDF <- rv_param_temp$subDat %>%
+  dplyr::filter(!is.na(ResultMeasureValue_replaced) & !is.na(ThreshCateg)) %>%
+  dplyr::group_by(MonitoringLocationIdentifier, CharSampleType, ResultMeasure.MeasureUnitCode, ThreshCateg) %>%
+  dplyr::summarise(n = n(), .groups = 'drop') %>%
+  dplyr::mutate(threshold_key = paste0(CharSampleType, " (", ResultMeasure.MeasureUnitCode, ")")) %>%
+  dplyr::left_join(
+    # Create lookup table from threshList
+    do.call(rbind, lapply(names(rv_param_temp$threshList), function(key) {
+      if (!is.null(rv_param_temp$threshList[[key]]$cut_categ_label)) {
+        data.frame(
+          threshold_key = key,
+          ThreshCateg = rv_param_temp$threshList[[key]]$cut_categ,
+          ThreshCateg_Label = rv_param_temp$threshList[[key]]$cut_categ_label,
+          stringsAsFactors = FALSE
+        )
+      }
+    })),
+    by = c("threshold_key", "ThreshCateg")
+  ) %>%
+  dplyr::mutate(ThreshCateg_Label = ifelse(is.na(ThreshCateg_Label), tools::toTitleCase(ThreshCateg), ThreshCateg_Label)) %>%
+  dplyr::select(Site = MonitoringLocationIdentifier, Characteristic = CharSampleType, Unit = ResultMeasure.MeasureUnitCode, ThreshCateg, ThreshCateg_Label, n)
+
+  # Create pop-up table for map clicks
+if(!is.null(rv_param_temp$subDat)) {
+  rv_param_temp$popupSiteSummary <- rv_param_temp$subDat %>% 
+    dplyr::select(MonitoringLocationIdentifier, CharSampleType, Yr, ActivityStartDate, ResultMeasureValue_replaced, ResultMeasure.MeasureUnitCode, ResultDetectionConditionText, ThreshCateg) %>%
+    dplyr::filter(!is.na(ResultMeasureValue_replaced)) %>%
+    dplyr::group_by(MonitoringLocationIdentifier, CharSampleType, ResultMeasure.MeasureUnitCode) %>%
+    dplyr::arrange(MonitoringLocationIdentifier, CharSampleType, desc(ActivityStartDate)) %>%
+    dplyr::summarise(
+      Sample_Size = n(),
+      Year_Range = if(min(Yr, na.rm = TRUE) == max(Yr, na.rm = TRUE)) {
+        as.character(min(Yr, na.rm = TRUE))
+      } else {
+        paste0(min(Yr, na.rm = TRUE), "–", max(Yr, na.rm = TRUE))
+      },
+      Lowest_Value = {
+        min_val <- min(ResultMeasureValue_replaced, na.rm = TRUE)
+        min_conditions <- unique(ResultDetectionConditionText[ResultMeasureValue_replaced == min_val & !is.na(ResultDetectionConditionText)])
+        min_conditions <- min_conditions[min_conditions != ""]
+        if(length(min_conditions) > 0) {
+          paste0(min_val, " (", paste(min_conditions, collapse = "/"), ")")
+        } else {
+          as.character(min_val)
+        }
+      },
+      Highest_Value = {
+        max_val <- max(ResultMeasureValue_replaced, na.rm = TRUE)
+        max_conditions <- unique(ResultDetectionConditionText[ResultMeasureValue_replaced == max_val & !is.na(ResultDetectionConditionText)])
+        max_conditions <- max_conditions[max_conditions != ""]
+        if(length(max_conditions) > 0) {
+          paste0(max_val, " (", paste(max_conditions, collapse = "/"), ")")
+        } else {
+          as.character(max_val)
+        }
+      },
+      
+      Most_Recent_Value = first(ResultMeasureValue_replaced),
+      Most_Recent_Sample_Date = first(ActivityStartDate),
+      
+      Recent_Values = {
+        recent_vals <- head(ResultMeasureValue_replaced, 5)
+        paste(recent_vals[!is.na(recent_vals)], collapse = ",")
+      },
+      
+      Recent_Dates = {
+        recent_dates <- head(ActivityStartDate, 5)
+        paste(format(recent_dates[!is.na(recent_dates)], "%Y-%m-%d"), collapse = ",")
+      },
+      
+      Recent_Detection_Conditions = {
+        recent_conditions <- head(ResultDetectionConditionText, 5)
+        recent_conditions <- recent_conditions[!is.na(recent_conditions) & recent_conditions != ""]
+        paste(recent_conditions, collapse = ",")
+      },
+      
+      .groups = 'drop'
+    ) %>%
+    
+    select(
+      Site = MonitoringLocationIdentifier,
+      Characteristic = CharSampleType,
+      Unit = ResultMeasure.MeasureUnitCode,
+      Sample_Size,
+      Year_Range,
+      Lowest_Value,
+      Highest_Value,
+      Most_Recent_Value,
+      Most_Recent_Sample_Date,
+      Recent_Values,
+      Recent_Dates,
+      Recent_Detection_Conditions
+    )
+}
+  
+  
 })
 ```
 
@@ -3974,8 +4341,40 @@ print("line3881")
       baseGroups = c("Street", "Satellite"),
       overlayGroups = show_layers$layer[show_layers$show == TRUE],
       options = layersControlOptions(collapsed = TRUE)) %>% # set map view at current settings or, if initial map viewing, set to initial defaults. Irritating that it blinks every time, but it seems this can't be easily addressed with leaflet (html-based) outputs
-    setView(lng = switch(any(is.null(isolate(input$param_map_center$lng)), isolate(input$param_map_center$lng) == 0, isolate(input$param_map_center$lng) > st_bbox(rv[["HUC10"]])$xmax, isolate(input$param_map_center$lng) < st_bbox(rv[["HUC10"]])$xmin)+1, isolate(input$param_map_center$lng), mean(c(st_bbox(rv$sitesPointsSub)$xmin, st_bbox(rv$sitesPointsSub)$xmax))), lat = switch(any(is.null(isolate(input$param_map_center$lat)), isolate(input$param_map_center$lat) == 0, isolate(input$param_map_center$lat) > st_bbox(rv[["HUC10"]])$ymax, isolate(input$param_map_center$lat) < st_bbox(rv[["HUC10"]])$ymin)+1, isolate(input$param_map_center$lat), mean(c(st_bbox(rv$sitesPointsSub)$ymin, st_bbox(rv$sitesPointsSub)$ymax))), zoom = input$sel_ParamMapZoom)
-  }) # end of renderLeaflet
+    setView(lng = switch(any(is.null(isolate(input$param_map_center$lng)), isolate(input$param_map_center$lng) == 0, isolate(input$param_map_center$lng) > st_bbox(rv[["HUC10"]])$xmax, isolate(input$param_map_center$lng) < st_bbox(rv[["HUC10"]])$xmin)+1, isolate(input$param_map_center$lng), mean(c(st_bbox(rv$sitesPointsSub)$xmin, st_bbox(rv$sitesPointsSub)$xmax))), lat = switch(any(is.null(isolate(input$param_map_center$lat)), isolate(input$param_map_center$lat) == 0, isolate(input$param_map_center$lat) > st_bbox(rv[["HUC10"]])$ymax, isolate(input$param_map_center$lat) < st_bbox(rv[["HUC10"]])$ymin)+1, isolate(input$param_map_center$lat), mean(c(st_bbox(rv$sitesPointsSub)$ymin, st_bbox(rv$sitesPointsSub)$ymax))), zoom = input$sel_ParamMapZoom) %>% 
+    htmlwidgets::onRender("
+      function(el, x) {
+        this.on('contextmenu', function(e) {
+          var clicked = null;
+          // Only check layers in the specified groups
+          if (this._layers) {
+          Object.values(this._layers).forEach(function(layer) {console.log('Checking layer:', layer.options);
+          if (layer.options && (layer.options group === 'Imported monitoring sites'||layer.options.group ==='Selected monitoring sites') && layer.options.layerId) {
+          console.log('Found matching layer with layerId:', layer.options.layerId);
+              var latlng = layer.getLatLng();
+              var dist = Math.sqrt(
+                Math.pow(e.latlng.lat - latlng.lat, 2) +
+                Math.pow(e.latlng.lng - latlng.lng, 2)
+              );
+              console.log('Distance:', dist);
+              if (dist < 0.01) {
+              clicked = layer.options.layerId;
+              console.log('Clicked site:', clicked);
+              }
+            }
+          });
+          if (clicked) {
+            Shiny.setInputValue('param_map_right_click', {
+              MonitoringLocationIdentifier: clicked,
+              nonce: Math.random()
+            });
+          } else {
+          console.log('No clicked site found');
+          }
+        });
+      }
+    ") # end of renderLeaflet
+}) 
 
 tags$style("#param_map {height: calc(100vh - 210px) !important;}") # expand map to fill screen
 ```
@@ -5311,10 +5710,6 @@ renderUI({
   shiny::req(!is.null(input$sel_SummarizeBy), !is.null(rv_param_temp$subDat), !is.null(rv_param_temp$subDatTypes))
   shiny::req(input$sel_SummarizeBy == "by_chartype")
 
-  saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
-
   char_choices <- sort(intersect(unique(rv_param_temp$subDat$CharSampleType), rv_param_temp$subDatTypes$CharSampleType[rv_param_temp$subDatTypes$DataType == "numeric"]))
 
   selectInput("sel_ShowCharType",
@@ -5576,7 +5971,7 @@ explore_map_card <-
     style = "resize:vertical;",
     full_screen = FALSE,
     card_header(
-      HTML('<span style="color: red;">Select sites via the map or sidebar, then click REFRESH PLOT DATA to generate plots</span>')
+      HTML('<span style="color: red;">Select sites via the map or sidebar, then click REFRESH PLOT DATA to generate plots. RIGHT CLICK on a site for quick-peek parameter summaries.</span>')
       ),
     card_body(
       class = "p-0",

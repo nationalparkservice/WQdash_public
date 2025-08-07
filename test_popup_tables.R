@@ -73,4 +73,25 @@ popup_main_data <- rv_param_temp$subDat %>%
     Recent_Detection_Conditions
   )
 
-popup_thresh_data <- 
+# Calculate threshold counts with labels
+threshold_data <- rv_param_temp$subDat %>%
+  dplyr::filter(!is.na(ResultMeasureValue_replaced) & !is.na(ThreshCateg)) %>%
+  dplyr::group_by(MonitoringLocationIdentifier, CharSampleType, ResultMeasure.MeasureUnitCode, ThreshCateg) %>%
+  dplyr::summarise(n = n(), .groups = 'drop') %>%
+  dplyr::mutate(threshold_key = paste0(CharSampleType, " (", ResultMeasure.MeasureUnitCode, ")")) %>%
+  dplyr::left_join(
+    # Create lookup table from threshList
+    do.call(rbind, lapply(names(rv_param_temp$threshList), function(key) {
+      if (!is.null(rv_param_temp$threshList[[key]]$cut_categ_label)) {
+        data.frame(
+          threshold_key = key,
+          ThreshCateg = rv_param_temp$threshList[[key]]$cut_categ,
+          ThreshCateg_Label = rv_param_temp$threshList[[key]]$cut_categ_label,
+          stringsAsFactors = FALSE
+        )
+      }
+    })),
+    by = c("threshold_key", "ThreshCateg")
+  ) %>%
+  dplyr::mutate(ThreshCateg_Label = ifelse(is.na(ThreshCateg_Label), tools::toTitleCase(ThreshCateg), ThreshCateg_Label)) %>%
+  dplyr::select(Site = MonitoringLocationIdentifier, Characteristic = CharSampleType, Unit = ResultMeasure.MeasureUnitCode, ThreshCateg, ThreshCateg_Label, n)

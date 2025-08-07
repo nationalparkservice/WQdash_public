@@ -21,22 +21,22 @@ library(purrr)
 library(htmltools)  
 library(dplyr) 
 
-# debug_recent_data <- function(df) {
-#   cat("\n=== DEBUGGING RECENT DATA ===\n")
-#   for (i in 1:min(3, nrow(df))) {
-#     row <- df[i, ]
-#     cat("Row", i, "- Param:", row$CharacteristicName, "\n")
-#     cat("  Recent_Values:", row$Recent_Values, "\n")
-#     cat("  Recent_Dates:", row$Recent_Dates, "\n")
-#     
-#     # Test parsing
-#     vals <- suppressWarnings(as.numeric(unlist(strsplit(as.character(row$Recent_Values), ","))))
-#     dates <- as.character(unlist(strsplit(as.character(row$Recent_Dates), ",")))
-#     cat("  Parsed values:", paste(vals, collapse = ", "), "\n")
-#     cat("  Parsed dates:", paste(dates, collapse = ", "), "\n")
-#     cat("  Valid pairs:", sum(!is.na(vals) & dates != ""), "\n\n")
-#   }
-# }
+debug_recent_data <- function(df) {
+  cat("\n=== DEBUGGING RECENT DATA ===\n")
+  for (i in 1:min(3, nrow(df))) {
+    row <- df[i, ]
+    cat("Row", i, "- Param:", row$CharacteristicName, "\n")
+    cat("  Recent_Values:", row$Recent_Values, "\n")
+    cat("  Recent_Dates:", row$Recent_Dates, "\n")
+
+    # Test parsing
+    vals <- suppressWarnings(as.numeric(unlist(strsplit(as.character(row$Recent_Values), ","))))
+    dates <- as.character(unlist(strsplit(as.character(row$Recent_Dates), ",")))
+    cat("  Parsed values:", paste(vals, collapse = ", "), "\n")
+    cat("  Parsed dates:", paste(dates, collapse = ", "), "\n")
+    cat("  Valid pairs:", sum(!is.na(vals) & dates != ""), "\n\n")
+  }
+}
 
 # Dummy site coordinates
 set.seed(1)
@@ -146,19 +146,20 @@ threshold_df <- data.frame(
   )
 )
 
-observeEvent(input$map_right_click, {
+
+
+
+
+observeEvent(input$popupmap_right_click, {
   site <- input$map_right_click$MonitoringLocationIdentifier
-  df <- full_data %>% dplyr::filter(MonitoringLocationIdentifier == site)
-  
-  # # TEMPORARY debug line
-  # debug_recent_data(df)
+  df <- popupSiteSummary %>% dplyr::filter(Site == site)  # Changed: use popupSiteSummary and Site column
   
   shiny::showModal(
     shiny::modalDialog(
       title = paste("Summary for", site),
       generate_param_table(
         df = df,
-        threshold_df = threshold_df,
+        threshold_df = threshold_data %>% dplyr::filter(Site == site),  
         MonitoringLocationIdentifier = site
       ),
       easyClose = TRUE,
@@ -169,11 +170,6 @@ observeEvent(input$map_right_click, {
 
 # Function to generate table with horizontal bar
 generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier) {
-  
-  # Pre-filter threshold data once
-  filtered_thresholds <- threshold_df %>%
-    dplyr::filter(tolower(as.character(MonitoringLocationIdentifier)) == tolower(as.character(!!MonitoringLocationIdentifier))) %>%
-    dplyr::mutate(CharacteristicName_lower = tolower(as.character(CharacteristicName)))
   
   # CSS donut
   build_css_donut <- function(parts, colors, categories) {
@@ -318,7 +314,7 @@ generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier)
     high <- as.numeric(row$Highest_Value) 
     val <- as.numeric(row$Most_Recent_Value)
     n <- as.numeric(row$Sample_Size)
-    param <- as.character(row$CharacteristicName)
+    param <- as.character(row$Characteristic)
     unit <- as.character(row$Unit)
     
     # Single sprintf for parameter info
@@ -328,11 +324,15 @@ generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier)
     bar_html <- tryCatch(build_css_bar(low, high, as.character(row$Recent_Values), as.character(row$Recent_Dates), n), error = function(e) sprintf('<div style="padding: 20px; text-align: center; color: #666;">Error: %s</div>', e$message))
 
     # Threshold lookup - simplified
-    thresh_sub <- filtered_thresholds[filtered_thresholds$CharacteristicName_lower == tolower(param), ]
+    thresh_sub <- if (is.null(threshold_df)||nrow(threshold_df)==0) {
+      data.frame()
+    } else {
+      threshold_df[tolower(threshold_df$Characteristic) == tolower(param), ]
+    }
 
     if (nrow(thresh_sub) > 0) {
       donut_html <- build_css_donut(thresh_sub$n, color_map[thresh_sub$ThreshCateg], thresh_sub$ThreshCateg)
-      legend_html <- paste(sprintf('<div style="color:%s; font-size: 11px;">%s: %d</div>', color_map[thresh_sub$ThreshCateg], tools::toTitleCase(thresh_sub$ThreshCateg), thresh_sub$n), collapse = "")
+      legend_html <- paste(sprintf('<div style="color:%s; font-size: 11px;">%s: N=%d</div>', color_map[thresh_sub$ThreshCateg], thresh_sub$ThreshCateg_Label, thresh_sub$n), collapse = "")
     } else {
       donut_html <- sprintf('<div style="width: 80px; height: 80px; border-radius: 50%%; background: #cccccc; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px;">%d</span></div>', n)
       legend_html <- '<div style="color:#666666; font-size: 11px;">Undefined</div>'
