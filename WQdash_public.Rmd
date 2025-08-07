@@ -338,17 +338,22 @@ observeEvent(input$param_map_right_click, {
     saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
 saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
 saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
-
+cat("RIGHT CLICKED MAP")
   shiny::req(!is.null(rv_param_temp$popupSiteSummary))
   site <- input$param_map_right_click$MonitoringLocationIdentifier
-  df <- rv_param_temp$popupSiteSummary %>% dplyr::filter(Site == site)  # Changed: use popupSiteSummary and Site column
-  
+  df <- isolate(rv_param_temp$popupSiteSummary) %>% dplyr::filter(Site == site)  # Changed: use popupSiteSummary and Site column
+  site_threshold_df <- if(is.null(isolate(rv_param_temp$threshDF))) {
+    NULL
+  } else {
+    isolate(rv_param_temp$threshDF) %>% dplyr::filter(Site == site)
+  }
+
   shiny::showModal(
     shiny::modalDialog(
       title = paste("Summary for", site),
       generate_param_table(
         df = df,
-        threshold_df =  rv_param_temp$threshDF %>% dplyr::filter(Site == site),  
+        threshold_df =  site_threshold_df,
         MonitoringLocationIdentifier = site
       ),
       easyClose = TRUE,
@@ -4349,7 +4354,7 @@ print("line3881")
           // Only check layers in the specified groups
           if (this._layers) {
           Object.values(this._layers).forEach(function(layer) {console.log('Checking layer:', layer.options);
-          if (layer.options && (layer.options group === 'Imported monitoring sites'||layer.options.group ==='Selected monitoring sites') && layer.options.layerId) {
+          if (layer.options && (layer.options.group === 'Imported monitoring sites'||layer.options.group ==='Selected monitoring sites') && layer.options.layerId) {
           console.log('Found matching layer with layerId:', layer.options.layerId);
               var latlng = layer.getLatLng();
               var dist = Math.sqrt(
@@ -4363,6 +4368,7 @@ print("line3881")
               }
             }
           });
+          }
           if (clicked) {
             Shiny.setInputValue('param_map_right_click', {
               MonitoringLocationIdentifier: clicked,
