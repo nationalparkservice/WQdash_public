@@ -10,15 +10,14 @@ runtime: shiny
 ---
 
 ```{r global, include=FALSE}
-### NEW PACKAGES TO INSTALL:
-# remotes::install_github("mikejohnson51/AOI") 
-# remotes::install_github("mikejohnson51/climateR")
-
-
+### HIGH PRIORITY
+# > Filter and Explore should auto-show default
+# > Pop-up table should work without threhodsl list
+# > Offer an EPA threshold list??
+# > Rename data summary tabs on import page
 
 ### NEXT CHANGES:
 # > Import
-# -- Switch to dataRetrieval--WAS NOT WORKING
 # -- Prior to import, show number of sites and data records. DONE--FIX THE TABLES A BIT, THEN ADD TEXT IN POP-UP GIVING TOTALS AND DIRECTING THEM TO TABS. THEN TEST REST, INCLUDING FINAL SITES SUMMARY.
 # -- Allow user to upload a shapefile or select a state (instead of park)
 # -- *****Allow selection of stations within the unit shape only (not overlapping watersheds)
@@ -133,6 +132,29 @@ options(shiny.maxRequestSize = 30*1024^2, # increases download limit to 30MB fro
 ```
 
 ```{r css}
+# Make all progress bars larger
+tags$style(HTML("
+.shiny-progress {
+  width: 500px !important;
+  height: auto !important;
+}
+
+.progress {
+  height: 30px !important;
+  width: 100% !important;
+}
+
+.shiny-progress, .shiny-progress * {
+  font-size: 20px !important;
+  font-weight: bold !important;
+}
+"))
+tags$style(HTML("
+.section.level3 {
+  overflow: visible !important;
+  height: auto !important;
+}
+"))
 
 # This forces datatable to fill height of modal
 tags$style(".dataTables_scrollBody {
@@ -207,6 +229,17 @@ tag.map.title <- tags$style(HTML("
     color: darkred;
   }
 ")) # add title to leaflet map
+
+# Fix map losing focus issue
+tags$style(HTML("
+.leaflet-container {
+  position: relative !important;
+}
+
+.tab-content {
+  overflow: visible !important;
+}
+"))
 
 tags$style(".map-unitcode {
            font-weight: bold;
@@ -331,230 +364,6 @@ tags$style(HTML("
 observeEvent(eventExpr = input$button_cancelModal, {
   removeModal()
   })
-```
-
-```{r TEST_POPUP}
-observeEvent(input$param_map_right_click, {
-    saveRDS(isolate(reactiveValuesToList(rv_param_temp)), "TEMP_rv_param_temp.RDS")
-saveRDS(isolate(reactiveValuesToList(rv)), "TEMP_rv.RDS")
-saveRDS(isolate(reactiveValuesToList(input)), "TEMP_input.RDS")
-cat("RIGHT CLICKED MAP")
-  shiny::req(!is.null(rv_param_temp$popupSiteSummary))
-  site <- input$param_map_right_click$MonitoringLocationIdentifier
-  df <- isolate(rv_param_temp$popupSiteSummary) %>% dplyr::filter(Site == site)  # Changed: use popupSiteSummary and Site column
-  site_threshold_df <- if(is.null(isolate(rv_param_temp$threshDF))) {
-    NULL
-  } else {
-    isolate(rv_param_temp$threshDF) %>% dplyr::filter(Site == site)
-  }
-
-  shiny::showModal(
-    shiny::modalDialog(
-      title = paste("Summary for", site),
-      generate_param_table(
-        df = df,
-        threshold_df =  site_threshold_df,
-        MonitoringLocationIdentifier = site
-      ),
-      easyClose = TRUE,
-      size = "l"
-    )
-  )
-})
-
-# Function to generate table with horizontal bar
-generate_param_table <- function(df, threshold_df, MonitoringLocationIdentifier) {
-  
-  # CSS donut
-  build_css_donut <- function(parts, colors, categories) {
-    total <- sum(parts, na.rm = TRUE)
-    if (total == 0) return('<div style="width: 80px; height: 80px; border-radius: 50%; background: #cccccc; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px;">0</span></div>')
-    
-    if (length(parts) <= 3) {
-      percentages <- cumsum(parts) / total * 100
-      stops <- paste0(colors, " ", c(0, head(percentages, -1)), "% ", percentages, "%")
-      
-      return(sprintf(
-        '<div style="width: 80px; height: 80px; border-radius: 50%%; background: conic-gradient(%s); position: relative; display: flex; align-items: center; justify-content: center;"><div style="width: 35px; height: 35px; background: white; border-radius: 50%%; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px; font-weight: 600;">%d</span></div></div>',
-        paste(stops, collapse = ", "), total
-      ))
-    }
-    
-    # SVG fallback if there are more than 3 categories in the future....
-    circumference <- 157.08
-    percentages <- parts / total * 100
-    paths <- sprintf('<circle cx="40" cy="40" r="25" fill="none" stroke="%s" stroke-width="15" stroke-dasharray="%f %f" stroke-dashoffset="-%f" transform="rotate(-90 40 40)"/>', colors, (percentages / 100) * circumference, circumference, c(0, cumsum(head((percentages / 100) * circumference, -1))))
-
-    paste0('<svg width="80" height="80" viewBox="0 0 80 80">', paste(paths, collapse=""), sprintf('<text x="40" y="45" text-anchor="middle" font-size="12" font-weight="600">%d</text>', total), '</svg>')
-  }
-
-  # Bar chart builder
-  build_css_bar <- function(low, high, recent_values_str, recent_dates_str, n) {
-    # Generate sample for percentiles
-    sample_size <- min(n, 200)
-    all_values <- runif(sample_size, low, high)
-    q15 <- quantile(all_values, 0.15, na.rm = TRUE)
-    q85 <- quantile(all_values, 0.85, na.rm = TRUE)
-    med <- median(all_values, na.rm = TRUE)
-    
-    # Parse recent data
-    recent_values <- tryCatch({
-      vals <- as.numeric(unlist(strsplit(as.character(recent_values_str), ",")))
-      vals[!is.na(vals)]
-    }, error = function(e) numeric(0))
-    
-    recent_dates <- tryCatch({
-      dates <- unlist(strsplit(as.character(recent_dates_str), ","))
-      dates[!is.na(dates) & dates != ""]
-    }, error = function(e) character(0))
-    
-    # Ensure matching pairs and limit to 5
-    min_length <- min(length(recent_values), length(recent_dates), 5)
-    if (min_length > 0) {
-      recent_values <- recent_values[1:min_length]
-      recent_dates <- recent_dates[1:min_length]
-    } else {
-      recent_values <- med
-      recent_dates <- "Recent"
-    }
-    
-    # Build dots - SIMPLIFIED
-    dots_html <- ""
-    for (i in seq_along(recent_values)) {
-      val <- recent_values[i]
-      date <- recent_dates[i]
-      y_pos <- 8 + (i-1) * 14
-      
-      # Simple categorization and positioning
-      if (val < q15) {
-        x_pos <- 7.5
-        color <- "#6c757d"
-      } else if (val > q85) {
-        x_pos <- 92.5
-        color <- "#6c757d"
-      } else {
-        if (q85 > q15) {
-          relative_pos <- (val - q15) / (q85 - q15)
-          x_pos <- 15 + relative_pos * 70
-        } else {
-          x_pos <- 50
-        }
-        color <- "#007BFF"  # Solid blue, no gradient
-      }
-      
-      # Simple hover format - value (date)
-      dots_html <- paste0(dots_html, sprintf(
-        '<div style="position: absolute; top: %dpx; left: %.1f%%; width: 12px; height: 12px; background: %s; border: 2px solid white; border-radius: 50%%; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" title="%.1f (%s)"></div>',
-        y_pos, x_pos, color, val, date
-      ))
-    }
-    
-    # Calculate median position
-    median_pos <- if (q85 > q15) 15 + ((med - q15) / (q85 - q15)) * 70 else 50
-    
-    # Count summary
-    num_low <- sum(recent_values < q15)
-    num_high <- sum(recent_values > q85)
-    num_normal <- length(recent_values) - num_low - num_high
-    
-    # Generate summary text
-    summary_parts <- c()
-    if (num_low > 0) summary_parts <- c(summary_parts, sprintf("%d in lower 15%%", num_low))
-    if (num_normal > 0) summary_parts <- c(summary_parts, sprintf("%d in middle 70%%", num_normal))
-    if (num_high > 0) summary_parts <- c(summary_parts, sprintf("%d in upper 15%%", num_high))
-    
-    summary_text <- if (length(summary_parts) > 0) {
-      paste(summary_parts, collapse = ", ")
-    } else {
-      "All values in middle 70% of historical data"
-    }
-    
-    sprintf(
-      '<div style="position: relative; height: 80px; background: linear-gradient(to right, #f0f4f8 0%%, #f0f4f8 15%%, #ffffff 15%%, #ffffff 85%%, #f0f4f8 85%%, #f0f4f8 100%%); border-radius: 8px; border: 1px solid #dee2e6; overflow: visible; margin-top: 12px;">
-         <div style="position: absolute; top: -18px; left: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: left; white-space: nowrap;">LOWER 15%% (< %.1f)</div>
-         <div style="position: absolute; top: -18px; left: 15%%; font-size: 10px; color: #495057; font-weight: 600; text-align: center; width: 70%%; white-space: nowrap;">MIDDLE 70%% OF DATA (%.1f - %.1f)</div>
-         <div style="position: absolute; top: -18px; right: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: right; white-space: nowrap;">UPPER 15%% (> %.1f)</div>
-         <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
-         <div style="position: absolute; top: 0; bottom: 0; left: 85%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
-         <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 70%%; background: rgba(0, 123, 255, 0.08); z-index: 1;" title="15th to 85th percentile range: %.1f - %.1f"></div>
-         <div style="position: absolute; top: 0; bottom: 0; left: %.1f%%; width: 3px; background: #333; z-index: 2; border-radius: 2px;" title="Median (50th percentile): %.1f"></div>
-         %s
-       </div>',
-      q15, q15, q85, q85, q15, q85, median_pos, med, dots_html
-    )
-  }
-
-  css <- "
-    .compact-table { border-collapse: separate; border-spacing: 0 8px; table-layout: fixed; width: 100%; }
-    .compact-table td { padding: 14px; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
-    .compact-table thead th { background-color: #f8f9fa; font-weight: 600; padding: 12px; border-bottom: 2px solid #dee2e6; text-align: center; }
-    .param-info { text-align: left; width: 220px; word-wrap: break-word; }
-    .param-name { font-weight: 600; font-size: 13px; color: #333; margin-bottom: 2px; word-wrap: break-word; line-height: 1.2; }
-    .param-details { font-size: 12px; color: #666; line-height: 1.4; }
-    .bar-column { width: 320px; text-align: center; }
-    .threshold-column { width: 240px; text-align: center; }
-    .donut-container-large { display: flex; flex-direction: row; align-items: center; gap: 12px; justify-content: center; }
-    .legend-compact { font-size: 11px; text-align: left; max-width: 140px; }
-  "
-
-  color_map <- c("good" = "#28a745", "caution" = "#ffc107", "poor" = "#dc3545", "unknown" = "#999999")
-
-  # Process rows with minimal overhead
-  rows <- lapply(1:nrow(df), function(i) {
-    row <- df[i, ]
-    
-    # Extract values efficiently
-    low <- as.numeric(row$Lowest_Value)
-    high <- as.numeric(row$Highest_Value) 
-    val <- as.numeric(row$Most_Recent_Value)
-    n <- as.numeric(row$Sample_Size)
-    param <- as.character(row$Characteristic)
-    unit <- as.character(row$Unit)
-    
-    # Single sprintf for parameter info
-    param_info <- sprintf('<div class="param-info"><div class="param-name">%s (%s)</div><div class="param-details"><div>N = %d samples</div><div>Years: %s</div><div>Range: %.1f - %.1f %s</div><div>Most recent: %.1f (%s)</div></div></div>', param, unit, n, row$Year_Range, low, high, unit, val, row$Most_Recent_Sample_Date)
-
-    # Bar chart
-    bar_html <- tryCatch(build_css_bar(low, high, as.character(row$Recent_Values), as.character(row$Recent_Dates), n), error = function(e) sprintf('<div style="padding: 20px; text-align: center; color: #666;">Error: %s</div>', e$message))
-
-    # Threshold lookup - simplified
-    thresh_sub <- if (is.null(threshold_df)||nrow(threshold_df)==0) {
-      data.frame()
-    } else {
-      threshold_df[tolower(threshold_df$Characteristic) == tolower(param), ]
-    }
-
-    if (nrow(thresh_sub) > 0) {
-      donut_html <- build_css_donut(thresh_sub$n, color_map[thresh_sub$ThreshCateg], thresh_sub$ThreshCateg)
-      legend_html <- paste(sprintf('<div style="color:%s; font-size: 11px;">%s: N=%d</div>', color_map[thresh_sub$ThreshCateg], thresh_sub$ThreshCateg_Label, thresh_sub$n), collapse = "")
-    } else {
-      donut_html <- sprintf('<div style="width: 80px; height: 80px; border-radius: 50%%; background: #cccccc; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px;">%d</span></div>', n)
-      legend_html <- '<div style="color:#666666; font-size: 11px;">Undefined</div>'
-    }
-
-    shiny::tags$tr(
-      shiny::tags$td(htmltools::HTML(param_info)),
-      shiny::tags$td(htmltools::HTML(bar_html), class = "bar-column"),
-      shiny::tags$td(htmltools::HTML(sprintf('<div class="donut-container-large">%s<div class="legend-compact">%s</div></div>', donut_html, legend_html)), class = "threshold-column")
-    )
-  })
-
-  shiny::tagList(
-    shiny::tags$style(htmltools::HTML(css)),
-    shiny::tags$table(
-      class = "compact-table",
-      style = "width: 100%; font-size: 12px;",
-      shiny::tags$thead(
-        shiny::tags$tr(
-          shiny::tags$th("Parameter Details", style = "text-align: left; width: 220px;"),
-          shiny::tags$th("Recent Values (up to 5 shown)", style = "width: 320px;"),
-          shiny::tags$th("Threshold Assessment", style = "width: 240px;")
-        )
-      ),
-      shiny::tags$tbody(rows)
-    )
-  )
-}
 ```
 
 ```{r functions}
@@ -2514,7 +2323,201 @@ FuncPieMap <- function(pie_map, map_by_yr = input$sel_MapByYr, limit_type, limit
         return(pie_map)
       }
 
-FuncSummaryStats <- function(dat, plot_summarize_by) { # <<<<<<<<<<<<<<<<<<<<< PICK UP FROM HERE--CALCULATE THESE ON FILTER PAGE. ALLOW USER TO GROUP BY STATION OR CHAR??
+# Function to generate table with horizontal bar (pop-up map)
+FuncParamTable <- function(df, threshold_df, MonitoringLocationIdentifier) {
+  
+  # CSS donut
+  build_css_donut <- function(parts, colors, categories) {
+    total <- sum(parts, na.rm = TRUE)
+    if (total == 0) return('<div style="width: 80px; height: 80px; border-radius: 50%; background: #cccccc; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px;">0</span></div>')
+    
+    if (length(parts) <= 3) {
+      percentages <- cumsum(parts) / total * 100
+      stops <- paste0(colors, " ", c(0, head(percentages, -1)), "% ", percentages, "%")
+      
+      return(sprintf(
+        '<div style="width: 80px; height: 80px; border-radius: 50%%; background: conic-gradient(%s); position: relative; display: flex; align-items: center; justify-content: center;"><div style="width: 35px; height: 35px; background: white; border-radius: 50%%; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px; font-weight: 600;">%d</span></div></div>',
+        paste(stops, collapse = ", "), total
+      ))
+    }
+    
+    # SVG fallback if there are more than 3 categories in the future....
+    circumference <- 157.08
+    percentages <- parts / total * 100
+    paths <- sprintf('<circle cx="40" cy="40" r="25" fill="none" stroke="%s" stroke-width="15" stroke-dasharray="%f %f" stroke-dashoffset="-%f" transform="rotate(-90 40 40)"/>', colors, (percentages / 100) * circumference, circumference, c(0, cumsum(head((percentages / 100) * circumference, -1))))
+
+    paste0('<svg width="80" height="80" viewBox="0 0 80 80">', paste(paths, collapse=""), sprintf('<text x="40" y="45" text-anchor="middle" font-size="12" font-weight="600">%d</text>', total), '</svg>')
+  }
+
+  # Bar chart builder
+  build_css_bar <- function(low, high, recent_values_str, recent_dates_str, n) {
+    # Generate sample for percentiles
+    sample_size <- min(n, 200)
+    all_values <- runif(sample_size, low, high)
+    q15 <- quantile(all_values, 0.05, na.rm = TRUE)
+    q85 <- quantile(all_values, 0.95, na.rm = TRUE)
+    med <- median(all_values, na.rm = TRUE)
+    
+    # Parse recent data
+    recent_values <- tryCatch({
+      vals <- as.numeric(unlist(strsplit(as.character(recent_values_str), ",")))
+      vals[!is.na(vals)]
+    }, error = function(e) numeric(0))
+    
+    recent_dates <- tryCatch({
+      dates <- unlist(strsplit(as.character(recent_dates_str), ","))
+      dates[!is.na(dates) & dates != ""]
+    }, error = function(e) character(0))
+    
+    # Ensure matching pairs and limit to 5
+    min_length <- min(length(recent_values), length(recent_dates), 5)
+    if (min_length > 0) {
+      recent_values <- recent_values[1:min_length]
+      recent_dates <- recent_dates[1:min_length]
+    } else {
+      recent_values <- med
+      recent_dates <- "Recent"
+    }
+    
+    # Build dots 
+    dots_html <- ""
+    for (i in seq_along(recent_values)) {
+      val <- recent_values[i]
+      date <- recent_dates[i]
+      y_pos <- 8 + (i-1) * 14
+      
+      # Simple categorization and positioning
+      if (val < q15) {
+        x_pos <- 7.5
+        color <- "#6c757d"
+      } else if (val > q85) {
+        x_pos <- 92.5
+        color <- "#6c757d"
+      } else {
+        if (q85 > q15) {
+          relative_pos <- (val - q15) / (q85 - q15)
+          x_pos <- 15 + relative_pos * 70
+        } else {
+          x_pos <- 50
+        }
+        color <- "#007BFF"  # Solid blue, no gradient
+      }
+      
+      # Simple hover format - value (date)
+      dots_html <- paste0(dots_html, sprintf(
+        '<div style="position: absolute; top: %dpx; left: %.1f%%; width: 12px; height: 12px; background: %s; border: 2px solid white; border-radius: 50%%; z-index: 10; box-shadow: 0 1px 3px rgba(0,0,0,0.3);" title="%.1f (%s)"></div>',
+        y_pos, x_pos, color, val, date
+      ))
+    }
+    
+    # Calculate median position
+    median_pos <- if (q85 > q15) 15 + ((med - q15) / (q85 - q15)) * 70 else 50
+    
+    # Count summary
+    num_low <- sum(recent_values < q15)
+    num_high <- sum(recent_values > q85)
+    num_normal <- length(recent_values) - num_low - num_high
+    
+    # Generate summary text
+    summary_parts <- c()
+    if (num_low > 0) summary_parts <- c(summary_parts, sprintf("%d in lower 15%%", num_low))
+    if (num_normal > 0) summary_parts <- c(summary_parts, sprintf("%d in middle 70%%", num_normal))
+    if (num_high > 0) summary_parts <- c(summary_parts, sprintf("%d in upper 15%%", num_high))
+    
+    summary_text <- if (length(summary_parts) > 0) {
+      paste(summary_parts, collapse = ", ")
+    } else {
+      "All values in middle 70% of historical data"
+    }
+    
+    sprintf(
+      '<div style="position: relative; height: 80px; background: linear-gradient(to right, #f0f4f8 0%%, #f0f4f8 15%%, #ffffff 15%%, #ffffff 85%%, #f0f4f8 85%%, #f0f4f8 100%%); border-radius: 8px; border: 1px solid #dee2e6; overflow: visible; margin-top: 12px;">
+         <div style="position: absolute; top: -18px; left: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: left; white-space: nowrap;">LOWER 15%% (< %.1f)</div>
+         <div style="position: absolute; top: -18px; left: 15%%; font-size: 10px; color: #495057; font-weight: 600; text-align: center; width: 70%%; white-space: nowrap;">MIDDLE 70%% OF DATA (%.1f - %.1f)</div>
+         <div style="position: absolute; top: -18px; right: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: right; white-space: nowrap;">UPPER 15%% (> %.1f)</div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 85%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 70%%; background: rgba(0, 123, 255, 0.08); z-index: 1;" title="15th to 85th percentile range: %.1f - %.1f"></div>
+         <div style="position: absolute; top: 0; bottom: 0; left: %.1f%%; width: 3px; background: #333; z-index: 2; border-radius: 2px;" title="Median (50th percentile): %.1f"></div>
+         %s
+       </div>',
+      q15, q15, q85, q85, q15, q85, median_pos, med, dots_html
+    )
+  }
+
+  css <- "
+    .compact-table { border-collapse: separate; border-spacing: 0 8px; table-layout: fixed;}
+    .compact-table td { padding: 14px; vertical-align: top; border-bottom: 1px solid #f0f0f0; }
+    .compact-table thead th { background-color: #f8f9fa; font-weight: 600; padding: 12px; border-bottom: 2px solid #dee2e6; text-align: center; }
+    .param-info { text-align: left; width: 220px; word-wrap: break-word; white-space: normal;}
+    .param-name { font-weight: 600; font-size: 13px; color: #333; margin-bottom: 2px; word-wrap: break-word; line-height: 1.2; white-space: normal;}
+    .param-details { font-size: 12px; color: #666; line-height: 1.4; white-space: normal;}
+    .bar-column { width: 32opx; text-align: center; white-space: normal;}
+    .threshold-column { width: 240px; text-align: center; white-space: normal;}
+    .donut-container-large { display: flex; flex-direction: row; align-items: center; gap: 12px; justify-content: center; }
+    .legend-compact { font-size: 11px; text-align: left; max-width: 140px; }
+  "
+
+  color_map <- c("good" = "#56B4E9", "caution" = "#F0E442", "poor" = "#E69F00", "unknown" = "#999999")
+
+  # Process rows with minimal overhead
+  rows <- lapply(1:nrow(df), function(i) {
+    row <- df[i, ]
+    
+    # Extract values efficiently
+    low <- as.numeric(row$Lowest_Value_Numeric)
+    high <- as.numeric(row$Highest_Value_Numeric) 
+    val <- as.numeric(row$Most_Recent_Value)
+    n <- as.numeric(row$Sample_Size)
+    param <- as.character(row$Characteristic)
+    unit <- as.character(row$Unit)
+    
+    # Single sprintf for parameter info
+    param_info <- sprintf('<div class="param-info"><div class="param-name">%s (%s)</div><div class="param-details"><div>N = %d samples</div><div>Years: %s</div><div>Range: %.1f - %.1f %s</div><div>Most recent: %.1f (%s)</div></div></div>', param, unit, n, row$Year_Range, low, high, unit, val, row$Most_Recent_Sample_Date)
+
+    # Bar chart
+    bar_html <- tryCatch(build_css_bar(low, high, as.character(row$Recent_Values), as.character(row$Recent_Dates), n), error = function(e) sprintf('<div style="padding: 20px; text-align: center; color: #666;">Error: %s</div>', e$message))
+
+    # Threshold lookup
+    thresh_sub <- if (is.null(threshold_df)||nrow(threshold_df)==0) {
+      data.frame()
+    } else {
+      threshold_df[tolower(threshold_df$Characteristic) == tolower(param), ]
+    }
+
+    if (nrow(thresh_sub) > 0) {
+      donut_html <- build_css_donut(thresh_sub$n, color_map[thresh_sub$ThreshCateg], thresh_sub$ThreshCateg)
+      legend_html <- paste(sprintf('<div style="color:%s; font-size: 11px;">%s: N=%d</div>', color_map[thresh_sub$ThreshCateg], thresh_sub$ThreshCateg_Label, thresh_sub$n), collapse = "")
+    } else {
+      donut_html <- sprintf('<div style="width: 80px; height: 80px; border-radius: 50%%; background: #cccccc; display: flex; align-items: center; justify-content: center;"><span style="font-size: 12px;">%d</span></div>', n)
+      legend_html <- '<div style="color:#666666; font-size: 11px;">Undefined</div>'
+    }
+
+    shiny::tags$tr(
+      shiny::tags$td(htmltools::HTML(param_info)),
+      shiny::tags$td(htmltools::HTML(bar_html), class = "bar-column"),
+      shiny::tags$td(htmltools::HTML(sprintf('<div class="donut-container-large">%s<div class="legend-compact">%s</div></div>', donut_html, legend_html)), class = "threshold-column")
+    )
+  })
+
+  shiny::tagList(
+    shiny::tags$style(htmltools::HTML(css)),
+    shiny::tags$table(
+      class = "compact-table",
+      style = "width: 100%; font-size: 12px;",
+      shiny::tags$thead(
+        shiny::tags$tr(
+          shiny::tags$th("Parameter Details", style = "text-align: left; width: 220px;"),
+          shiny::tags$th("Recent Data Values (up to 5 shown)", style = "width: 320px;"),
+          shiny::tags$th("Threshold Breakdown for ALL Data", style = "width: 240px;")
+        )
+      ),
+      shiny::tags$tbody(rows)
+    )
+  )
+}
+
+FuncSummaryStats <- function(dat, plot_summarize_by) {
   
   if(plot_summarize_by == "by_station") {
     temp_dat <- dat %>%
@@ -2565,7 +2568,7 @@ for (i in c("ResultDetectionConditionText", "ThreshCateg", "PercCateg")) {
       dplyr::rename("Site"="GroupingVar")
   }
     
-final_plot_summary
+    final_plot_summary
 }
 
 
@@ -2627,7 +2630,6 @@ grabit <- function(url) {
 ```
 
 ```{r startup}
-
 rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, importDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) # summary_url = NULL
    
 rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
@@ -3019,10 +3021,10 @@ print("line2635")
   # rv_param_temp$resetFilter <- FALSE # make sure these are still set to FALSE. User can't filter or plot data until they are downloaded/imported.
 
 
-  showModal(modalDialog(
-    title = "Done",
-    "In the '2. Filter sites to download' panel of the left sidebar, select monitoring sites by HUC or by distance from an origin site, then click the 'Summarize Selected Sites' button."
-  ))
+showModal(modalDialog(
+ title = "Done",
+ HTML("In the <strong>'2. Filter sites to download'</strong> panel, select your filtering method and options, then click <strong>'Summarize Selected Sites'</strong> to preview the data before downloading.")
+))
 
 }, ignoreInit = TRUE) # end of run search button
 ```
@@ -3189,11 +3191,14 @@ observeEvent(eventExpr = input$button_summarizeStations, {
     shiny::req(http_status(GET(summaryURL))$category=="Success") # if not a valid service call, abort
 
     download.file(summaryURL, "tempSummary.csv", mode = "w")
-    rv$importDataSummary <- read_csv("tempSummary.csv", trim_ws = TRUE)
+    rv$importDataSummary <- read_csv("tempSummary.csv", trim_ws = TRUE) %>%
+      dplyr::select(-MonitoringLocationUrl, -CountyName, -StateName, -MonitoringLocationLatitude, -MonitoringLocationLongitude)
     
     rv$summary_url <- summaryURL
     
-    
+    saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
+    saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+    saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
     
     
   cat("line2991")
@@ -3203,11 +3208,20 @@ cat("line2993")
 
 showModal(modalDialog(
   title = "Done",
-  switch((input$sel_SelectMethod == "methodHuc")+1, 
-         "Selected monitoring sites are shown as larger, white-outlined circles on the map. The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in white; downstream, in brown. Select gage and weather stations to download (if available) and select characteristic groups to download, then press the green 'DOWNLOAD SELECTED DATA' button to import the water quality data",
-         "Selected monitoring sites are shown as larger, white-outlined circles on the map. Select gage and weather stations to download (if available) and select characteristic groups to download, then press the green 'DOWNLOAD SELECTED DATA' button to import the water quality data"
-  )
+  HTML(paste0("<strong>You have selected ", sum(rv$importDataSummary$ResultCount), " data records from ", length(unique(rv$importDataSummary$MonitoringLocationIdentifier)), " sites.</strong> Review your selection in the 'Selected Sites' and 'Selected Characteristic Groups' tabs. <br><br>Selected monitoring sites are shown as larger, white-outlined circles on the map.", 
+              ifelse(input$sel_SelectMethod == "methodHuc", " The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in white; downstream, in brown.", ""),
+              "<br><br>Select gage and weather stations (if available), then press the <strong>DOWNLOAD SELECTED DATA</strong> button to import the water quality data."))
 ))
+
+
+# showModal(modalDialog(
+#   title = "Done",
+#   switch((input$sel_SelectMethod == "methodHuc")+1, 
+#          HTML(paste0("You will be downloading ", sum(rv$importDataSummary$ResultCount), "data records from ", length(unique(rv$importDataSummary$MonitoringLocationIdentifier)), " sites for download. See the 'Selected Sites' and 'Selected Characteristic Groups' tabs for summaries of the data. <br><br>Selected monitoring sites are shown as larger, white-outlined circles on the map. The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in white; downstream, in brown. Select gage and weather stations to download (if available), then press the green <span style='color: green;'>'DOWNLOAD SELECTED DATA'</span> button to import the water quality data")),
+#          HTML(paste0("You will be downloading ", sum(rv$importDataSummary$ResultCount), "data records from ", length(unique(rv$importDataSummary$MonitoringLocationIdentifier)), " sites for download. See the 'Selected Sites' and 'Selected Characteristic Groups' tabs for summaries of the data. <br><br>Selected monitoring sites are shown as larger, white-outlined circles on the map. Select gage and weather stations to download (if available), then press the green <span style='color: green;'>'DOWNLOAD SELECTED DATA'</span> button to import the water quality data"
+#   ))
+#   )
+# ))
   
   if(!is.null(rv$meteoStations)|!is.null(rv$gageStations)) {
     shiny::req(!is.null(rv$importDataSummary))
@@ -3465,7 +3479,7 @@ rv$meteoDat <- NULL
  
     showModal(modalDialog(
       title = "Done",
-      paste0("Data import SUCCESSFUL. OPTIONAL: To download the formatted data file (.RDS) to your computer, press the `Save RDS to Computer` button in the left side panel. You may now navigate to the other dashboard pages. ") 
+      HTML(paste0("Data import SUCCESSFUL. OPTIONAL: To download the formatted data file (.RDS) to your computer, press the <strong>`Save RDS to Computer` </strong> button in the left side panel. You may now navigate to the other dashboard pages. ")) 
     ))
   })
 }, ignoreInit = TRUE) # end of observeEvent
@@ -3670,6 +3684,8 @@ if(!is.null(rv_param_temp$subDat)) {
       } else {
         paste0(min(Yr, na.rm = TRUE), "–", max(Yr, na.rm = TRUE))
       },
+        Lowest_Value_Numeric = min(ResultMeasureValue_replaced, na.rm = TRUE),   
+  Highest_Value_Numeric = max(ResultMeasureValue_replaced, na.rm = TRUE),  
       Lowest_Value = {
         min_val <- min(ResultMeasureValue_replaced, na.rm = TRUE)
         min_conditions <- unique(ResultDetectionConditionText[ResultMeasureValue_replaced == min_val & !is.na(ResultDetectionConditionText)])
@@ -3719,6 +3735,8 @@ if(!is.null(rv_param_temp$subDat)) {
       Unit = ResultMeasure.MeasureUnitCode,
       Sample_Size,
       Year_Range,
+      Lowest_Value_Numeric,
+      Highest_Value_Numeric,
       Lowest_Value,
       Highest_Value,
       Most_Recent_Value,
@@ -3862,15 +3880,7 @@ observeEvent(eventExpr = input$button_okDeleteCategLevelsModal, {
   })
 
 # Action to show color palette options ----
-# observeEvent(eventExpr = input$button_showPalettes, {
-#   removeModal()
-#   showModal(
-#     modalDialog(
-#       renderPlot({display.brewer.all()}, height = 700),
-#       size = "l"
-#     )
-#   )
-# }) # originally tried bsModal() from package 'shinyBS' but it seems to have problems with the current shiny version
+
 observeEvent(input$button_showPalettes, {
   shinyjs::show("palette_popup")
 })
@@ -3983,6 +3993,42 @@ observeEvent(eventExpr = input$button_noStationChars, {
   }, ignoreInit = TRUE) # end of observeEvent
       
 
+
+
+```
+
+```{r action_click_map_popup}
+# Action to show summary statistics for map site on right click----
+observeEvent(input$param_map_right_click, {
+  shiny::req(!is.null(rv_param_temp$popupSiteSummary))
+  site <- input$param_map_right_click$MonitoringLocationIdentifier
+  df <- isolate(rv_param_temp$popupSiteSummary) %>% dplyr::filter(Site == site) 
+  site_threshold_df <- if(is.null(isolate(rv_param_temp$threshDF))) {
+    NULL
+  } else {
+    isolate(rv_param_temp$threshDF) %>% dplyr::filter(Site == site)
+  }
+
+shiny::showModal(
+  shiny::modalDialog(
+    title = div(
+      paste("Summary for", site),
+      div(style = "float: right;", 
+          actionButton("dismiss_modal", "Dismiss", class = "btn btn-secondary btn-sm",
+                      onclick = "$('.modal').modal('hide');"))
+    ),
+        tags$style(HTML(".modal-dialog { max-width: 2400px !important; }")),
+    FuncParamTable(
+      df = df,
+      threshold_df = site_threshold_df,
+      MonitoringLocationIdentifier = site
+    ),
+    easyClose = TRUE,
+    size = "l",
+    footer = NULL  
+  )
+)
+})
 
 
 ```
@@ -4743,7 +4789,7 @@ shinyjs::hidden( # initially hide this well panel
     renderUI({
       shiny::req(!is.null(rv$sitesPointsSub))
       checkboxGroupInput("sel_Organization",
-                         label = h6("Import WQP data only from these organizations: "),
+                         label = h6("Import data only from these organizations: "),
                          choices = sort(unique(rv$sitesPointsSub$OrganizationFormalName)),
                          selected = unique(rv$sitesPointsSub$OrganizationFormalName)
                          )
@@ -4752,13 +4798,13 @@ shinyjs::hidden( # initially hide this well panel
         renderUI({
       shiny::req(!is.null(rv$sitesPointsSub))
       checkboxGroupInput("sel_SiteType",
-             label = h6("Type(s) of water body to map: "),
+             label = h6("Import data only from these water body types: "),
              choices = sort(unique(rv$sitesPointsSub$MonitoringLocationTypeName)),
              selected = unique(rv$sitesPointsSub$MonitoringLocationTypeName))
     }),
     
     checkboxGroupInput("sel_CharType",
-                       label = h6("Import WQP data only from these characteristic groups: "),
+                       label = h6("Import data only from these characteristic groups: "),
                        choices = c("Biological",
                                    "Inorganics, Major, Metals",
                                    "Inorganics, Major, Non-metals",
@@ -4879,7 +4925,13 @@ output$map <- renderLeaflet({
         
         print("FINISHED INITIAL MAP")
       }
-  map
+  map %>%
+  htmlwidgets::onRender("
+      function(el, x) {
+        this.on('focus', function() {
+          this.invalidateSize();
+        });
+      }")
 })
 
 leafletOutput("map", width = "100%")
@@ -4919,13 +4971,15 @@ output$table_import_summary <- DT::renderDT({
     options = list(
           dom = 'Blrtp',
           buttons = list('csv', 'excel'),
+          lengthMenu = list(c(15,30,40,-1),
+                          c(15,30,40,"All")),
           colReorder=TRUE,
-          pageLength = -1,
-        columnDefs = list(list(className = 'dt_center', targets = "_all")),
-          autoWidth = FALSE
+          autoWidth = FALSE,
+          columnDefs = list(list(className = 'dt_center', targets = "_all"))
         )
-  )
-})
+  ) %>%
+  DT::formatStyle(columns = c(1:9), width = "auto")
+  })
 
 DTOutput("table_import_summary")
 ```
@@ -4944,138 +4998,139 @@ output$table_char_summary <- DT::renderDT({
     selection = "none",
     class="compact stripe",
     extensions=c('Buttons','ColReorder'),
-    options = list(
+options = list(
           dom = 'Blrtp',
           buttons = list('csv', 'excel'),
-          # lengthMenu = list(c(10, 20,30,40,-1),
-          #                 c(10, 20,30,40,"All")),
+          lengthMenu = list(c(15,30,40,-1),
+                          c(15,30,40,"All")),
+          paging = FALSE,
           colReorder=TRUE,
-          # pageLength = -1,
-        columnDefs = list(list(className = 'dt_center', targets = "_all")),
-          autoWidth = FALSE
+          autoWidth = FALSE,
+          columnDefs = list(list(className = 'dt_center', targets = "_all"))
         )
-  )
-})
+  ) %>%
+  DT::formatStyle(columns = c(1:4), width = "auto")
+  })
 
 DTOutput("table_char_summary")
 ```
 
-### Selected Sites -- TEMP
+### Selected Sites
 
 ```{r summarize_locations}
-# output$table_selected_orgs <- renderReactable({
-#   shiny::validate(
-#   need(!is.null(rv$dat), message = "No data available. Please first import or load water quality data.")) # can't call FuncOrderCheck from in here
-#   shiny::req(!is.null(rv$dat), !is.null(rv$sitesPointsSub), !is.null(rv$importSettings$sel_Organization))
-#       print("Line4336")    
-#   df_site <- rv$sitesPointsSub %>%
-#     dplyr::filter(MonitoringLocationIdentifier %in% rv$selectedStations$MonitoringLocationIdentifier & OrganizationFormalName %in% rv$importSettings$sel_Organization) %>%
-#     dplyr::mutate(Longitude = sf::st_coordinates(.)[,1],
-#                 Latitude = sf::st_coordinates(.)[,2]) %>%
-#         sf::st_drop_geometry() %>%
-#     dplyr::select(OrganizationFormalName, MonitoringLocationIdentifier, MonitoringLocationName, MonitoringLocationTypeName, Latitude, Longitude) %>%
-#     dplyr::inner_join(rv$dat %>% dplyr::select(MonitoringLocationIdentifier, MeteoYr, CharacteristicName), by = "MonitoringLocationIdentifier") %>%
-#     dplyr::distinct() %>%
-#     dplyr::group_by(across(c(-MeteoYr, -CharacteristicName))) %>%
-#     dplyr::mutate(SiteStartYr = min(MeteoYr, na.rm = TRUE),
-#            SiteEndYr = max(MeteoYr, na.rm = TRUE),
-#            TotalSurveyYrs = dplyr::n_distinct(MeteoYr)) %>%
-#     dplyr::group_by(across(c(-MeteoYr))) %>%
-#     dplyr::mutate(PercParamYrs = n()/TotalSurveyYrs) %>%
-#     dplyr::filter(PercParamYrs >=.8) %>% # only keep parameters that were surveyed in at least 80% of years the site was surveyed
-#     dplyr::select(-MeteoYr, -PercParamYrs) %>%
-#     dplyr::distinct() %>%
-#     dplyr::arrange(CharacteristicName) %>%
-#     dplyr::group_by(across(c(-CharacteristicName))) %>%
-#     dplyr::summarise(across(everything(), ~paste(na.omit(.), collapse = " // "))) %>% # for each site, the characteristics surveyed in at least 80% of survey years
-#     dplyr::rename(TopCharacteristics = CharacteristicName) 
-#   
-#   df_site$TopCharacteristics[df_site$TotalSurveyYrs < 3] <- NA # if a site was surveyed less than 3 years, TopCharacteristics is NA (otherwise can get, e.g., huge list of characteristics surveyed only once because site surveyed only once)
-#   print("Line4360")
-#     df_org <- rv$orgs %>% # alternatively, these column calculations can all be done within reactable()
-#       dplyr::filter(OrganizationFormalName %in% rv$importSettings$sel_Organization) %>%
-#       dplyr::select(-Selected) %>%
-#       left_join(df_site %>% ungroup() %>% dplyr::select(OrganizationFormalName, TotalSurveyYrs), by = "OrganizationFormalName") %>%
-#       dplyr::add_count(OrganizationFormalName) %>%
-#       dplyr::rename(NumSites = n) %>%
-#       dplyr::group_by(across(c(-TotalSurveyYrs))) %>%
-#       dplyr::mutate(MinYrsSiteSurveyed = min(TotalSurveyYrs, na.rm = TRUE),
-#                     MedianYrsSiteSurveyed = median(TotalSurveyYrs, na.rm = TRUE),
-#                     MaxYrsSiteSurveyed = max(TotalSurveyYrs, na.rm = TRUE)) %>%
-#       dplyr::select(-TotalSurveyYrs) %>%
-#       dplyr::distinct() %>%
-#       arrange(OrganizationFormalName)
-#     
-#   reactable(
-#     df_org,
-#     columns = list(
-#       OrganizationFormalName = colDef(name = "Organization", minWidth = 200),
-#       Description = colDef(show = FALSE),
-#       Phone = colDef(minWidth = 170),
-#       NumSites = colDef(header = with_tooltip("# of Sites", "# of sites with data imported (based on user-defined import filters)"), width = 100, align = "center"),
-#       MinYrsSiteSurveyed = colDef(header = with_tooltip("Min", "Minimum # of years surveyed at a site"), width = 70, align = "center"),
-#       MedianYrsSiteSurveyed = colDef(header = with_tooltip("Median", "Median # of years surveyed at a site (50% of sites have been surveyed for longer)"), width = 75, align = "center"),
-#       MaxYrsSiteSurveyed = colDef(header = with_tooltip("Max", "Maximum # of years surveyed at a site"), width = 70, align = "center")
-#       ),
-#     columnGroups = list(
-#       colGroup(name = "# of Years Surveyed", columns = c("MinYrsSiteSurveyed", "MedianYrsSiteSurveyed", "MaxYrsSiteSurveyed"))
-#       ),
-#     details = function(index) {
-#       site_info <- df_site[df_site$OrganizationFormalName == df_org$OrganizationFormalName[index], ]
-#       htmltools::div(style = "padding: 50px",
-#                      reactable(site_info, 
-#                                columns = list(
-#                                  OrganizationFormalName = colDef(show = FALSE),
-#                                  MonitoringLocationIdentifier = colDef(name = "Site ID", minWidth = 110),
-#                                  MonitoringLocationName = colDef(name = "Site", minWidth = 140),
-#                                  MonitoringLocationTypeName = colDef(name = "Type", width = 110, align = "center"),
-#                                  Latitude = colDef(show = FALSE),
-#                                  Longitude = colDef(show = FALSE),
-#                                  SiteStartYr = colDef(name = "Start", width = 85, align = "center"),
-#                                  SiteEndYr = colDef(name = "End", width = 85, align = "center"),
-#                                  TotalSurveyYrs = colDef(
-#                                    header = with_tooltip("# of Years Site Surveyed", "Full (gray) bar length is maximum # of years among all (imported) sites surveyed by the organization, red bar length is # of years this site surveyed (a site may not be surveyed every year)"),
-#                                    align = "center",
-#                                    width = 150,
-#                                    cell = function(value) {
-#                                      width <- paste0(value * 100 / max(site_info$TotalSurveyYrs), "%")
-#                                      bar_chart(value, width = width, fill = "#fc5185", background = "#e1e1e1")
-#                                      }),
-#                                  TopCharacteristics = colDef(
-#                                    header = with_tooltip("Top Characteristics Surveyed", "These characteristics were surveyed in at least 80% of site's survey years. If site has been surveyed less than 3 years, then characteristics are not listed"),
-#                                    minWidth = 250)
-#                                ),
-#                                columnGroups = list(
-#                                  colGroup(name = "Calendar Years Surveyed", columns = c("SiteStartYr", "SiteEndYr"))),
-#                                defaultSorted = list(TotalSurveyYrs = "desc"),
-#                                defaultExpanded = TRUE, # <<<<<<<<<<<<<<< ADDED THIS
-#                                resizable = TRUE,
-#                                filterable = TRUE,
-#                                striped = FALSE,
-#                                highlight = TRUE,
-#                                showSortIcon = TRUE, 
-#                                compact = TRUE,
-#                                pagination = FALSE,
-#                                outlined = FALSE,
-#                                bordered = FALSE,
-#                                theme = reactableTheme(backgroundColor = "hsl(186, 56%, 94%)")
-#                                )
-#       )
-#     },
-#     resizable = TRUE, 
-#     filterable = FALSE,
-#     striped = FALSE,
-#     highlight = TRUE,
-#     showSortIcon = TRUE,
-#     compact = FALSE,
-#     bordered = TRUE,
-#     defaultExpanded = TRUE, # <<<<<<<<<<<<<<<<<< ADDED THIS
-#     # showPageSizeOptions = TRUE, 
-#     onClick = "select")
-# })
-# 
-# reactableOutput("table_selected_orgs")
-# # tags$style("#table_selected_orgs{height:100vh;overflow-x:scroll;overflow-y:scroll}")
+output$table_selected_orgs <- renderReactable({
+  shiny::validate(
+  need(!is.null(rv$dat), message = "No data available. Please first import or load water quality data.")) # can't call FuncOrderCheck from in here
+  shiny::req(!is.null(rv$dat), !is.null(rv$sitesPointsSub), !is.null(rv$importSettings$sel_Organization))
+      print("Line4336")
+  df_site <- rv$sitesPointsSub %>%
+    dplyr::filter(MonitoringLocationIdentifier %in% rv$selectedStations$MonitoringLocationIdentifier & OrganizationFormalName %in% rv$importSettings$sel_Organization) %>%
+    dplyr::mutate(Longitude = sf::st_coordinates(.)[,1],
+                Latitude = sf::st_coordinates(.)[,2]) %>%
+        sf::st_drop_geometry() %>%
+    dplyr::select(OrganizationFormalName, MonitoringLocationIdentifier, MonitoringLocationName, MonitoringLocationTypeName, Latitude, Longitude) %>%
+    dplyr::inner_join(rv$dat %>% dplyr::select(MonitoringLocationIdentifier, MeteoYr, CharacteristicName), by = "MonitoringLocationIdentifier") %>%
+    dplyr::distinct() %>%
+    dplyr::group_by(across(c(-MeteoYr, -CharacteristicName))) %>%
+    dplyr::mutate(SiteStartYr = min(MeteoYr, na.rm = TRUE),
+           SiteEndYr = max(MeteoYr, na.rm = TRUE),
+           TotalSurveyYrs = dplyr::n_distinct(MeteoYr)) %>%
+    dplyr::group_by(across(c(-MeteoYr))) %>%
+    dplyr::mutate(PercParamYrs = n()/TotalSurveyYrs) %>%
+    dplyr::filter(PercParamYrs >=.8) %>% # only keep parameters that were surveyed in at least 80% of years the site was surveyed
+    dplyr::select(-MeteoYr, -PercParamYrs) %>%
+    dplyr::distinct() %>%
+    dplyr::arrange(CharacteristicName) %>%
+    dplyr::group_by(across(c(-CharacteristicName))) %>%
+    dplyr::summarise(across(everything(), ~paste(na.omit(.), collapse = " // "))) %>% # for each site, the characteristics surveyed in at least 80% of survey years
+    dplyr::rename(TopCharacteristics = CharacteristicName)
+
+  df_site$TopCharacteristics[df_site$TotalSurveyYrs < 3] <- NA # if a site was surveyed less than 3 years, TopCharacteristics is NA (otherwise can get, e.g., huge list of characteristics surveyed only once because site surveyed only once)
+  print("Line4360")
+    df_org <- rv$orgs %>% # alternatively, these column calculations can all be done within reactable()
+      dplyr::filter(OrganizationFormalName %in% rv$importSettings$sel_Organization) %>%
+      dplyr::select(-Selected) %>%
+      left_join(df_site %>% ungroup() %>% dplyr::select(OrganizationFormalName, TotalSurveyYrs), by = "OrganizationFormalName") %>%
+      dplyr::add_count(OrganizationFormalName) %>%
+      dplyr::rename(NumSites = n) %>%
+      dplyr::group_by(across(c(-TotalSurveyYrs))) %>%
+      dplyr::mutate(MinYrsSiteSurveyed = min(TotalSurveyYrs, na.rm = TRUE),
+                    MedianYrsSiteSurveyed = median(TotalSurveyYrs, na.rm = TRUE),
+                    MaxYrsSiteSurveyed = max(TotalSurveyYrs, na.rm = TRUE)) %>%
+      dplyr::select(-TotalSurveyYrs) %>%
+      dplyr::distinct() %>%
+      arrange(OrganizationFormalName)
+
+  reactable(
+    df_org,
+    columns = list(
+      OrganizationFormalName = colDef(name = "Organization", minWidth = 200),
+      Description = colDef(show = FALSE),
+      Phone = colDef(minWidth = 170),
+      NumSites = colDef(header = with_tooltip("# of Sites", "# of sites with data imported (based on user-defined import filters)"), width = 100, align = "center"),
+      MinYrsSiteSurveyed = colDef(header = with_tooltip("Min", "Minimum # of years surveyed at a site"), width = 70, align = "center"),
+      MedianYrsSiteSurveyed = colDef(header = with_tooltip("Median", "Median # of years surveyed at a site (50% of sites have been surveyed for longer)"), width = 75, align = "center"),
+      MaxYrsSiteSurveyed = colDef(header = with_tooltip("Max", "Maximum # of years surveyed at a site"), width = 70, align = "center")
+      ),
+    columnGroups = list(
+      colGroup(name = "# of Years Surveyed", columns = c("MinYrsSiteSurveyed", "MedianYrsSiteSurveyed", "MaxYrsSiteSurveyed"))
+      ),
+    details = function(index) {
+      site_info <- df_site[df_site$OrganizationFormalName == df_org$OrganizationFormalName[index], ]
+      htmltools::div(style = "padding: 50px",
+                     reactable(site_info,
+                               columns = list(
+                                 OrganizationFormalName = colDef(show = FALSE),
+                                 MonitoringLocationIdentifier = colDef(name = "Site ID", minWidth = 110),
+                                 MonitoringLocationName = colDef(name = "Site", minWidth = 140),
+                                 MonitoringLocationTypeName = colDef(name = "Type", width = 110, align = "center"),
+                                 Latitude = colDef(show = FALSE),
+                                 Longitude = colDef(show = FALSE),
+                                 SiteStartYr = colDef(name = "Start", width = 85, align = "center"),
+                                 SiteEndYr = colDef(name = "End", width = 85, align = "center"),
+                                 TotalSurveyYrs = colDef(
+                                   header = with_tooltip("# of Years Site Surveyed", "Full (gray) bar length is maximum # of years among all (imported) sites surveyed by the organization, red bar length is # of years this site surveyed (a site may not be surveyed every year)"),
+                                   align = "center",
+                                   width = 150,
+                                   cell = function(value) {
+                                     width <- paste0(value * 100 / max(site_info$TotalSurveyYrs), "%")
+                                     bar_chart(value, width = width, fill = "#fc5185", background = "#e1e1e1")
+                                     }),
+                                 TopCharacteristics = colDef(
+                                   header = with_tooltip("Top Characteristics Surveyed", "These characteristics were surveyed in at least 80% of site's survey years. If site has been surveyed less than 3 years, then characteristics are not listed"),
+                                   minWidth = 250)
+                               ),
+                               columnGroups = list(
+                                 colGroup(name = "Calendar Years Surveyed", columns = c("SiteStartYr", "SiteEndYr"))),
+                               defaultSorted = list(TotalSurveyYrs = "desc"),
+                               defaultExpanded = TRUE, # <<<<<<<<<<<<<<< ADDED THIS
+                               resizable = TRUE,
+                               filterable = TRUE,
+                               striped = FALSE,
+                               highlight = TRUE,
+                               showSortIcon = TRUE,
+                               compact = TRUE,
+                               pagination = FALSE,
+                               outlined = FALSE,
+                               bordered = FALSE,
+                               theme = reactableTheme(backgroundColor = "hsl(186, 56%, 94%)")
+                               )
+      )
+    },
+    resizable = TRUE,
+    filterable = FALSE,
+    striped = FALSE,
+    highlight = TRUE,
+    showSortIcon = TRUE,
+    compact = FALSE,
+    bordered = TRUE,
+    defaultExpanded = TRUE, 
+    # showPageSizeOptions = TRUE,
+    onClick = "select")
+})
+
+reactableOutput("table_selected_orgs")
+# tags$style("#table_selected_orgs{height:100vh;overflow-x:scroll;overflow-y:scroll}")
 ```
 
 Filter WQP Data
@@ -5102,7 +5157,7 @@ wellPanel(
     br(),
     actionButton("button_defineCategs", "Define Categorical Characters", 
              style = "color: black; background-color: lightblue; border: 1px solid black;width:100%;")
-) # end of 'wp_filter_threshfile'
+) # end of 'wp_filter_`threshfile`'
 
   wellPanel(
     id = "wp_filter_yr_season",

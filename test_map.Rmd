@@ -408,19 +408,17 @@ output$param_map <- renderLeaflet({
     ")
 })
 
-observeEvent(input$map_right_click, {
-  site <- input$map_right_click$MonitoringLocationIdentifier
-  df <- full_data %>% dplyr::filter(MonitoringLocationIdentifier == site)
+observeEvent(input$param_map_right_click, {
+  site <- input$param_map_right_click$MonitoringLocationIdentifier
+  df <- rv_param_temp$popupSiteSummary %>% dplyr::filter(MonitoringLocationIdentifier == site)
   
-  # TEMPORARY debug line
-  debug_recent_data(df)
   
   shiny::showModal(
     shiny::modalDialog(
       title = paste("Summary for", site),
       generate_param_table(
         df = df,
-        threshold_df = threshold_df,
+        threshold_df = rv_param_temp$threshDF %>% dplyr::filter(Site == site),
         MonitoringLocationIdentifier = site
       ),
       easyClose = TRUE,
