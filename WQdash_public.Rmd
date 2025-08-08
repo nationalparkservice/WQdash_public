@@ -12,15 +12,15 @@ runtime: shiny
 ```{r global, include=FALSE}
 ### HIGH PRIORITY
 # > Filter and Explore should auto-show default
+# > Pop-up should work from clicking outside of center
 # > Pop-up table should work without threhodsl list
 # > Offer an EPA threshold list??
-# > Rename data summary tabs on import page
+
 
 ### NEXT CHANGES:
+# Rename all table columns nicely and consistently
 # > Import
-# -- Prior to import, show number of sites and data records. DONE--FIX THE TABLES A BIT, THEN ADD TEXT IN POP-UP GIVING TOTALS AND DIRECTING THEM TO TABS. THEN TEST REST, INCLUDING FINAL SITES SUMMARY.
 # -- Allow user to upload a shapefile or select a state (instead of park)
-# -- *****Allow selection of stations within the unit shape only (not overlapping watersheds)
 # -- NOAA precip data
 # -- Upstream/downstream selection
 # -- Start date for filter
@@ -29,10 +29,8 @@ runtime: shiny
 # > if a categorical parameter is selected, a warning/option to define categorical should show
 # > Explore data page
 # -- Add map toggle to show site labels; legend for colors
-# -- *****Add right-click station data summary (change --> most recent 5 data; 10% and 90% q lines)
 #If more than 3 plots showing on a page, need to show x-axis on all of them
 # -- Give option to show data in 1-4 columns
-# -- *****Need an UNDEFINED threshold category...which is basically if threshold levels have not been defined
 # -- Percentile legend should say lowest X%, highest X%, etc. instead of below, above...
 # > Incorporate EPA data cleaning/standardization functions (TADAShiny)
 
@@ -140,7 +138,7 @@ tags$style(HTML("
 }
 
 .progress {
-  height: 30px !important;
+  height: 25px !important;
   width: 100% !important;
 }
 
@@ -160,6 +158,27 @@ tags$style(HTML("
 tags$style(".dataTables_scrollBody {
     height: calc(100vh - 180px) !important;
 }")
+
+# For datatables, custom CSS to move page options to top 
+tags$head(tags$style(HTML("
+  .dataTables_wrapper .top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  
+  .dataTables_wrapper .top .left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .dataTables_wrapper .top .right {
+    display: flex;
+    align-items: center;
+  }
+")))
 
 # This sizes and positions the custom gif loading images
 tags$style("dropdown-toggle {
@@ -842,6 +861,7 @@ FuncFilterSelectCharSampleType <- function(sel_NPSparam, sel_YrRange, sel_Summar
 
 FuncInitFilter <- function() {
   shiny::req(!is.null(rv$dat))
+  cat("defining filter defaults")
   # Initial default filtering of data so user can bypass filter page
   rv_param_temp$defaultInputs$sel_YrRange <- c(min(rv$dat$MeteoYr, na.rm = TRUE), max(rv$dat$MeteoYr, na.rm = TRUE))
   rv_param_temp$defaultInputs$sel_MinYrs <- 3
@@ -874,9 +894,8 @@ FuncInitFilter <- function() {
   rv_param_temp$currentInputs$sel_ThreshLower <- NA
   rv_param_temp$currentInputs$sel_ThreshUpper <- NA
   rv_param_temp$currentInputs$sel_ThreshCateg1 <- rv_param_temp$currentInputs$sel_ThreshCateg2 <- rv_param_temp$currentInputs$sel_ThreshCateg3 <- "good"
-  
+  cat("end of define filter defaults")
   # session$sendCustomMessage(type = "resetValue", message = list("sel_SummaryParam", sort(rv_param_temp$selectCharSampleType)))
-
 }
 
 FuncRefreshFilter <- function(sel_MinYrs, sel_SummaryParam, sel_SummaryOrg, sel_YrRange, sel_ActivityType, sel_ResultStatus, sel_DefineSeasons) {
@@ -2573,7 +2592,7 @@ for (i in c("ResultDetectionConditionText", "ThreshCateg", "PercCateg")) {
 
 
 FuncClearAll <- function() {
-  rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, importDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) # summary_url = NULL
+  rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) # summary_url = NULL
   
   rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
   
@@ -2630,7 +2649,7 @@ grabit <- function(url) {
 ```
 
 ```{r startup}
-rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, importDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) # summary_url = NULL
+rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) # summary_url = NULL
    
 rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
 ```
@@ -2791,7 +2810,7 @@ observeEvent(eventExpr = input$button_showStations, {
 
     if(http_status(GET(hucURL))$category!="Success") { # make sure the service call is valid
       showModal(
-         urlModal(hucURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving ", hucName, " boundary data from the National Watershed Boundary Dataset. The message from the web service is: `", http_status(GET(hucURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
+         urlModal(hucURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving ", hucName, " boundary data from the National Watershed Boundary Dataset. The message from the web service is: `", http_status(GET(hucURL))$message, "`.\n\n<strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public"))
        )
       }
    
@@ -2842,7 +2861,7 @@ observeEvent(eventExpr = input$button_showStations, {
    
     if(http_status(GET(sitesURL))$category!="Success") { # make sure the service call is valid
       showModal(
-        urlModal(sitesURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving monitoring sites information from the Water Quality Portal. The message from the web service is: `", http_status(GET(sitesURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
+        urlModal(sitesURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving monitoring sites information from the Water Quality Portal. The message from the web service is: `", http_status(GET(sitesURL))$message, "`.\n\n<strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public"))
       )
     }
     
@@ -3022,8 +3041,13 @@ print("line2635")
 
 
 showModal(modalDialog(
- title = "Done",
- HTML("In the <strong>'2. Filter sites to download'</strong> panel, select your filtering method and options, then click <strong>'Summarize Selected Sites'</strong> to preview the data before downloading.")
+  title = "Done",
+  HTML("In the <strong>'2. Filter Sites to Download'</strong> panel, choose the monitoring sites you want to download data from. You can:<ul>
+    <li>Download data for the entire park,</li>
+    <li>Select specific watersheds, or</li>
+    <li>Specify an origin station and distance upstream/downstream.</li>
+  </ul>
+  You can also apply additional filters using the other options in the panel. When you're ready, click <strong>'Summarize Selected Sites'</strong> to preview a summary of the data before downloading.")
 ))
 
 }, ignoreInit = TRUE) # end of run search button
@@ -3054,10 +3078,28 @@ observeEvent(eventExpr = input$button_summarizeStations, {
     shiny::req(!is.null(input$sel_CharType))
   }
   
-  rv$importDataSummary <- NULL
+  rv$selectedDataSummary <- NULL
+  
+  # Select stations by Park
+  if(input$sel_SelectMethod == "methodPark") {
+    
+    rv$selectedOriginStation <- rv$selectedUpstreamLines <- rv$selectedDownstreamLines <- rv$selectedUpstreamStations <- rv$selectedDownstreamStations <- NULL
 
+    rv$selectedStations <- rv$sitesPointsSub[rv$unitPoly,] %>%
+            dplyr::filter(OrganizationFormalName %in% input$sel_Organization & MonitoringLocationTypeName %in% input$sel_SiteType) %>% # limit to selected orgs and site types
+      dplyr::select(MonitoringLocationIdentifier, OrganizationFormalName, MonitoringLocationTypeName) %>%
+      dplyr::distinct() %>%
+      dplyr::arrange(MonitoringLocationIdentifier) %>%
+      as.data.frame(.)
+    
+    cat("Identified stations within park unit")
+
+    shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0)
+    } # end of methodPark
+  
   # Select stations by HUC
   if(input$sel_SelectMethod == "methodHuc") {
+    
     if(is.null(rv$selectedHucs)) {
       showModal(modalDialog(
         title = "No HUCs selected",
@@ -3065,19 +3107,15 @@ observeEvent(eventExpr = input$button_summarizeStations, {
       ))
       shiny::req(!is.null(rv$selectedHucs))
     }
-
-    rv$selectedOriginStation <- NULL
-    rv$selectedUpstreamLines <- NULL
-    rv$selectedDownstreamLines <- NULL
-    rv$selectedUpstreamStations <- NULL
-    rv$selectedDownstreamStations <- NULL
+    
+    rv$selectedOriginStation <- rv$selectedUpstreamLines <- rv$selectedDownstreamLines <- rv$selectedUpstreamStations <- rv$selectedDownstreamStations <- NULL
 
     rv$selectedStations <- rv$sitesPointsSub[rv[[input$sel_HUClevel]][rv[[input$sel_HUClevel]]$HUC %in% rv$selectedHucs,],] %>%
             dplyr::filter(OrganizationFormalName %in% input$sel_Organization & MonitoringLocationTypeName %in% input$sel_SiteType) %>% # limit to selected orgs and site types
       dplyr::select(MonitoringLocationIdentifier, OrganizationFormalName, MonitoringLocationTypeName) %>%
       dplyr::distinct() %>%
       dplyr::arrange(MonitoringLocationIdentifier) %>%
-      as.data.frame
+      as.data.frame(.)
     
     shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0)
     } # end of methodHuc
@@ -3134,7 +3172,7 @@ observeEvent(eventExpr = input$button_summarizeStations, {
       
         if(http_status(GET(tempURL))$category!="Success") { # make sure the service call is valid
           showModal(
-            urlModal(tempURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving data from the Hydro Network-Linked Data Index for the `", n, "` query. The message from the web service is: `", http_status(GET(tempURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
+            urlModal(tempURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving data from the Hydro Network-Linked Data Index for the `", n, "` query. The message from the web service is: `", http_status(GET(tempURL))$message, "`.\n\n<strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public"))
             )
           }
    
@@ -3158,6 +3196,7 @@ observeEvent(eventExpr = input$button_summarizeStations, {
     }
     }) # end of with Progress
 # 
+      
     rv$selectedStations <- 
       rbind.fill(data.frame(rv$selectedOriginStation), if(!is.null(rv$selectedUpstreamStations)) data.frame(rv$selectedUpstreamStations), if(!is.null(rv$selectedDownstreamStations)) data.frame(rv$selectedDownstreamStations)) %>% # combine into one data frame
       dplyr::rename(MonitoringLocationIdentifier = identifier) %>%
@@ -3165,11 +3204,12 @@ observeEvent(eventExpr = input$button_summarizeStations, {
       dplyr::filter(OrganizationFormalName %in% input$sel_Organization & MonitoringLocationTypeName %in% input$sel_SiteType) %>% # limit to selected orgs and site types
       dplyr::distinct() %>%
       dplyr::arrange(MonitoringLocationIdentifier) %>%
-      as.data.frame
+      as.data.frame(.)
     
     shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0)
 } # end of methodDist
   
+  withProgress(message = "Summarizing selected data...", detail = "You're gonna love this!", value = 0, { 
   # Get statistics about the parameters and number of data records for the selected sites and characteristic types
   
   stationChoiceString <- paste0(unique(rv$selectedStations$MonitoringLocationIdentifier), collapse = "&siteid=")
@@ -3180,55 +3220,41 @@ observeEvent(eventExpr = input$button_summarizeStations, {
   
   searchURL <- paste0("search?siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no") # REMOVED SITETYPE & MINACTIVITIES & START & END DATES AS AN OPTION AT THIS STAGE)
   
-    summaryURL <- paste0("https://www.waterqualitydata.us/data/summary/monitoringLocation/", searchURL, "&summaryYears=all&count=no&dataProfile=periodOfRecord") # this is an alternative to above
+    summaryURL <- paste0("https://www.waterqualitydata.us/data/summary/monitoringLocation/", searchURL, "&summaryYears=all&count=no&dataProfile=periodOfRecord")
     
         if(http_status(GET(summaryURL))$category!="Success") { # make sure the service call is valid
       showModal(
-        urlModal(summaryURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving data selection information from the Water Quality Portal. The message from the web service is: `", http_status(GET(summaryURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
+        urlModal(summaryURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving data selection information from the Water Quality Portal. The message from the web service is: `", http_status(GET(summaryURL))$message, "`.\n\n<strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public"))
       )
     }
     
     shiny::req(http_status(GET(summaryURL))$category=="Success") # if not a valid service call, abort
 
     download.file(summaryURL, "tempSummary.csv", mode = "w")
-    rv$importDataSummary <- read_csv("tempSummary.csv", trim_ws = TRUE) %>%
+    rv$selectedDataSummary <- read_csv("tempSummary.csv", trim_ws = TRUE) %>%
       dplyr::select(-MonitoringLocationUrl, -CountyName, -StateName, -MonitoringLocationLatitude, -MonitoringLocationLongitude)
     
     rv$summary_url <- summaryURL
     
-    saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
-    saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
-    saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
-    
-    
   cat("line2991")
   rv$wqp_url <- paste0("https://www.waterqualitydata.us/data/Result/", searchURL)
 cat("line2993")
-  # Create tab with the summary info after downloading it. Add totas to message. Check what generates the white highlight.
+  # Create tab with the summary info after downloading it. Add totals to message. Check what generates the white highlight.
 
 showModal(modalDialog(
   title = "Done",
-  HTML(paste0("<strong>You have selected ", sum(rv$importDataSummary$ResultCount), " data records from ", length(unique(rv$importDataSummary$MonitoringLocationIdentifier)), " sites.</strong> Review your selection in the 'Selected Sites' and 'Selected Characteristic Groups' tabs. <br><br>Selected monitoring sites are shown as larger, white-outlined circles on the map.", 
-              ifelse(input$sel_SelectMethod == "methodHuc", " The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in white; downstream, in brown.", ""),
+  HTML(paste0("<strong>You have selected ", sum(rv$selectedDataSummary$ResultCount), " data records from ", length(unique(rv$selectedDataSummary$MonitoringLocationIdentifier)), " sites.</strong> Review your selection in the 'Summary of Selected Data' and 'Summary of Selected Characteristics' tabs. <br><br>Selected monitoring sites are shown as larger, white-outlined circles on the map.", 
+              switch((input$sel_SelectMethod == "methodDist")+1, "", "The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in white; downstream, in brown."),
               "<br><br>Select gage and weather stations (if available), then press the <strong>DOWNLOAD SELECTED DATA</strong> button to import the water quality data."))
 ))
-
-
-# showModal(modalDialog(
-#   title = "Done",
-#   switch((input$sel_SelectMethod == "methodHuc")+1, 
-#          HTML(paste0("You will be downloading ", sum(rv$importDataSummary$ResultCount), "data records from ", length(unique(rv$importDataSummary$MonitoringLocationIdentifier)), " sites for download. See the 'Selected Sites' and 'Selected Characteristic Groups' tabs for summaries of the data. <br><br>Selected monitoring sites are shown as larger, white-outlined circles on the map. The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in white; downstream, in brown. Select gage and weather stations to download (if available), then press the green <span style='color: green;'>'DOWNLOAD SELECTED DATA'</span> button to import the water quality data")),
-#          HTML(paste0("You will be downloading ", sum(rv$importDataSummary$ResultCount), "data records from ", length(unique(rv$importDataSummary$MonitoringLocationIdentifier)), " sites for download. See the 'Selected Sites' and 'Selected Characteristic Groups' tabs for summaries of the data. <br><br>Selected monitoring sites are shown as larger, white-outlined circles on the map. Select gage and weather stations to download (if available), then press the green <span style='color: green;'>'DOWNLOAD SELECTED DATA'</span> button to import the water quality data"
-#   ))
-#   )
-# ))
   
   if(!is.null(rv$meteoStations)|!is.null(rv$gageStations)) {
-    shiny::req(!is.null(rv$importDataSummary))
+    shiny::req(!is.null(rv$selectedDataSummary))
     shinyjs::showElement("new_data_P3")
     shinyjs::showElement("new_data_P4")
     cat("line3006")
   }
+})
   }, ignoreInit = TRUE) # end of observeEvent
 ```
 
@@ -3271,7 +3297,7 @@ observeEvent(eventExpr = input$button_downloadData, {
 
   if(http_status(GET(rv$wqp_url))$category!="Success") { # make sure the service call is valid
       showModal(
-        urlModal(rv$wqp_url, title = "Data Retrieval Error", subtitle = paste0("Error retrieving data from the Water Quality Portal for the requested query. The message from the web service is: `", http_status(GET(rv$wqp_url))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads. If an error results, email WQP support (wqx@epa.gov) for assistance."))
+        urlModal(rv$wqp_url, title = "Data Retrieval Error", subtitle = paste0("Error retrieving data from the Water Quality Portal for the requested query. The message from the web service is: `", http_status(GET(rv$wqp_url))$message, "`.\n\n<strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If an error results, email WQP support (wqx@epa.gov) for assistance. If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public"))
         )
       }
 
@@ -3325,7 +3351,7 @@ observeEvent(eventExpr = input$button_downloadData, {
 
   if(http_status(GET(orgURL))$category!="Success") { # make sure the service call is valid
     showModal(
-      urlModal(orgURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving organization information from the Water Quality Portal. The message from the web service is: `", http_status(GET(orgURL))$message, "`.\n\nTo confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads."))
+      urlModal(orgURL, title = "Data Retrieval Error", subtitle = paste0("Error retrieving organization information from the Water Quality Portal. The message from the web service is: `", http_status(GET(orgURL))$message, "`.\n\n<strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public"))
       )
   }
     
@@ -4750,15 +4776,15 @@ shinyjs::hidden( # initially hide this well panel
     huc_vec <- c("HUC10" = "HUC10 (watershed)", "HUC12" = "HUC12 (subwatershed)")
     huc_choice_names <- huc_vec[intersect(c("HUC10", "HUC12"), names(isolate(reactiveValuesToList(rv)) %>% purrr::discard(is.null)))]
     
-    radioButtons("sel_HUClevel", label = h6("Display HUC level: "),
+    radioButtons("sel_HUClevel", label = h6("On map, display HUC level: "),
                  choiceNames = unname(huc_choice_names),
                  choiceValues = names(huc_choice_names),
                  selected = names(huc_choice_names)[1])
     }),
     
     radioButtons("sel_SelectMethod", label = h6("Select WQP monitoring sites based on: "),
-                 choiceNames = c("HUCs (click on map to select)", "Distance from origin site (enter query filters below)"),
-                 choiceValues = c("methodHuc", "methodDist"),
+                 choiceNames = c("Park (include all data collected within the park unit)", "HUCs (click on map to select)", "Distance from origin site (enter query filters below)"),
+                 choiceValues = c("methodPark", "methodHuc", "methodDist"),
                  selected = "methodHuc"),
     
     renderUI({ # conditional panel if user selects from origin station
@@ -4816,7 +4842,7 @@ shinyjs::hidden( # initially hide this well panel
                                    "Physical",
                                    "Sediment",
                                    "Toxicity"),
-                       selected = c("Inorganics, Major, Metals", "Inorganics, Major, Non-metals", "Microbiological", "Nutrient", "Physical")),
+                       selected = c("Microbiological", "Nutrient", "Physical")),
     
     actionButton("button_summarizeStations", "Summarize Selected Sites", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px")
     ) # end subset-stations panel
@@ -4887,8 +4913,6 @@ Data for Import {.tabset .tabset-fade}
 -------------------------------------
 <center>*NOTE:  Data collected by NPS Inventory & Monitoring are listed as 'National Park Service Water Resources Division'*</center>
 
-<br>
-
 ### Map
 ```{r initial_map}
 
@@ -4952,15 +4976,15 @@ observeEvent(input$map_shape_click, {
   }, ignoreInit = TRUE) # end of observeEvent
 ```
 
-### Selected Sites
+### Summary of Selected Data
 
 ```{r}
 output$table_import_summary <- DT::renderDT({
 
-  shiny::req(!is.null(rv$importDataSummary))
+  shiny::req(!is.null(rv$selectedDataSummary))
 
   DT::datatable(
-    rv$importDataSummary %>%
+    rv$selectedDataSummary %>%
       dplyr::group_by(OrganizationFormalName, MonitoringLocationIdentifier, MonitoringLocationTypeName, CharacteristicType, CharacteristicName) %>%
       dplyr::summarize(first_yr = min(YearSummarized, na.rm = TRUE), last_yr = max(YearSummarized, na.rm = TRUE), total_activity_count = sum(ActivityCount, na.rm = TRUE), total_result_count = sum(ResultCount, na.rm = TRUE), .groups = "drop"),
     rownames = FALSE,
@@ -4969,7 +4993,8 @@ output$table_import_summary <- DT::renderDT({
     class="compact stripe",
     extensions=c('Buttons','ColReorder'),
     options = list(
-          dom = 'Blrtp',
+          # Modified dom structure: B = buttons, l = length menu, p = pagination, r = processing, t = table
+          dom = '<"top"<"left"Bl><"right"p>>rt',
           buttons = list('csv', 'excel'),
           lengthMenu = list(c(15,30,40,-1),
                           c(15,30,40,"All")),
@@ -4984,26 +5009,25 @@ output$table_import_summary <- DT::renderDT({
 DTOutput("table_import_summary")
 ```
 
-### Selected Characteristic Groups
+### Summary of Selected Characteristics
 
 ```{r}
 output$table_char_summary <- DT::renderDT({
 
-  shiny::req(!is.null(rv$importDataSummary))
+  shiny::req(!is.null(rv$selectedDataSummary))
 
   DT::datatable(
-    rv$importDataSummary %>% dplyr::group_by(CharacteristicType, CharacteristicName) %>% dplyr::summarize(total_activity_count = sum(ActivityCount, na.rm = TRUE), total_result_count = sum(ResultCount, na.rm = TRUE), .groups = "drop"),
+    rv$selectedDataSummary %>% dplyr::group_by(CharacteristicType, CharacteristicName) %>% dplyr::summarize(total_activity_count = sum(ActivityCount, na.rm = TRUE), total_result_count = sum(ResultCount, na.rm = TRUE), .groups = "drop"),
     rownames = FALSE,
     filter = "top",
     selection = "none",
     class="compact stripe",
     extensions=c('Buttons','ColReorder'),
 options = list(
-          dom = 'Blrtp',
+          dom = '<"top"<"left"Bl><"right"p>>rt',
           buttons = list('csv', 'excel'),
           lengthMenu = list(c(15,30,40,-1),
                           c(15,30,40,"All")),
-          paging = FALSE,
           colReorder=TRUE,
           autoWidth = FALSE,
           columnDefs = list(list(className = 'dt_center', targets = "_all"))
@@ -5015,7 +5039,7 @@ options = list(
 DTOutput("table_char_summary")
 ```
 
-### Selected Sites
+### Summary of Imported Data, by Site
 
 ```{r summarize_locations}
 output$table_selected_orgs <- renderReactable({
@@ -5149,12 +5173,9 @@ br()
 br()
 
 wellPanel(
-    id = "wp_filter_threshfile",
-    p(strong("Define thresholds and categorical data")),
+    id = "wp_define_categ",
+    p(strong("Define categorical data")),
     
-    actionButton("button_getThreshFile", "Add a Threshold Limits File", width = "100%"),
-    br(),
-    br(),
     actionButton("button_defineCategs", "Define Categorical Characters", 
              style = "color: black; background-color: lightblue; border: 1px solid black;width:100%;")
 ) # end of 'wp_filter_`threshfile`'
@@ -5744,13 +5765,17 @@ observeEvent(eventExpr = input$button_aboutExploreData, {
   browseURL(here::here("About_files", "aboutExploreData.html"))})
 
 br()
+br()
+    
+actionButton("button_getThreshFile", "Add a Threshold Limits File", 
+             style = "color: black; background-color: lightblue; border: 1px solid black;width:100%;")
 
+br()
 br()
 
 actionButton("button_refreshPlotData", "REFRESH PLOT DATA", style="border-color:black; background-color: lightgreen; width:100%; border:0px; margin:0px") # updates plots
 
 br()
-
 br()
 
 shinyBS::bsCollapse(
