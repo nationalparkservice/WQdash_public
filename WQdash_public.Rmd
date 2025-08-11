@@ -785,7 +785,7 @@ FuncUpdateInputsOther <- function() {
 
 FuncUpdateImportSettings <- function(inputs_to_update) {
   shiny::req(!is.null(rv$dat))
-  input_list <- isolate(reactiveValuesToList(input)) # difficulties indexing reactive list, so convert to unreactive list first
+  input_list <- shiny::isolate(shiny::reactiveValuesToList(input)) # difficulties indexing reactive list, so convert to unreactive list first
   replacement_list <- input_list[inputs_to_update]
   names(replacement_list) <- inputs_to_update # adds list element name, even for NULL elements
   rv$importSettings <- modifyList(rv$importSettings, replacement_list, keep.null = TRUE) # update only the list elements in replacement_list
@@ -2720,7 +2720,7 @@ observeEvent(eventExpr = input$saved_data_file, {
   for(i in names(out_file)) {
       rv[[i]] <- out_file[[i]] # load the data in the dashboard
     }
-  
+  cat("line2723")
   rv_param_temp$loadMap <- TRUE
 
   FuncInitFilter()
@@ -2728,7 +2728,7 @@ observeEvent(eventExpr = input$saved_data_file, {
   FuncRefreshFilter(sel_MinYrs = rv_param_temp$defaultInputs$sel_MinYrs, sel_SummaryParam = rv_param_temp$currentInputs$sel_SummaryParam, sel_SummaryOrg = rv_param_temp$defaultInputs$sel_SummaryOrg, sel_YrRange = rv_param_temp$defaultInputs$sel_YrRange, sel_ActivityType = rv_param_temp$defaultInputs$sel_ActivityType, sel_ResultStatus = rv_param_temp$defaultInputs$sel_ResultStatus, sel_DefineSeasons = rv_param_temp$defaultInputs$sel_DefineSeasons) # generate the initial filtered data based on default filters. Also call this filter when action button clicked for refreshing filter
   # rv_param_temp$resetFilter <- TRUE
   rm(out_file)
-  
+  cat("line2731")
   rv_param_temp$plotDat <- NULL # Just to make doubly sure everything is cleared out
   rv_param_temp$threshList <- NULL
   rv_param_temp$threshDF <- NULL
@@ -3212,20 +3212,15 @@ observeEvent(eventExpr = input$button_summarizeStations, {
     download.file(summaryURL, "tempSummary.csv", mode = "w")
     rv$selectedDataSummary <- read_csv("tempSummary.csv", trim_ws = TRUE) %>%
       dplyr::select(-MonitoringLocationUrl, -CountyName, -StateName, -MonitoringLocationLatitude, -MonitoringLocationLongitude)
-    
-  #     saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
   
   # For downloading data, break up large data requests
-  subset_stations_list <- split(unique(rv$selectedStations$MonitoringLocationIdentifier), ceiling(seq_along(unique(rv$selectedStations$MonitoringLocationIdentifier))/20)) # import data for 20 stations (max) at a time
+  subset_stations_list <- split(unique(rv$selectedStations$MonitoringLocationIdentifier), ceiling(seq_along(unique(rv$selectedStations$MonitoringLocationIdentifier))/3)) # import data for 10 stations (max) at a time
   
   rv$wqp_url_list <- lapply(subset_stations_list, function(s) {
     
     stationChoiceString_partial <- paste0(s, collapse = "&siteid=")
     paste0("https://www.waterqualitydata.us/data/Result/search?siteid=", stationChoiceString_partial, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no")
   }) # this is a LIST of wqp download url's
-
   
 cat("line2993")
   # Create tab with the summary info after downloading it. Add totals to message. Check what generates the white highlight.
@@ -3276,7 +3271,11 @@ observeEvent(eventExpr = input$button_downloadData, {
   shiny::req(!is.null(rv$selectedStations), !is.null(rv$sitesPointsSub), !is.null(rv$wqp_url_list))
   shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0)
 
-    withProgress(message = "Processing data request...", detail = "Importing data from Water Quality Portal", value = 0, {
+  
+  #      saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+    withProgress(message = "Processing data request...", detail = "Importing data from Water Quality Portal, a few stations at a time (please be patient!)", value = 0, {
       
       showModal(tags$div(id = "gif_modal", modalDialog(
         HTML('<img src="https://media.giphy.com/media/33zX3zllJBGY8/source.gif"><br><center>I am just your entertainment.<br><center>The progress bar is below.'), # custom loading gif--running elephant
@@ -3284,7 +3283,10 @@ observeEvent(eventExpr = input$button_downloadData, {
         footer = NULL
       )))
       
-  temp_dat_list <- lapply(rv$wqp_url_list, FUN = function(wqp_url) {
+  # temp_dat_list <- lapply(rv$wqp_url_list, FUN = function(wqp_url) {
+      temp_dat_list <- list()
+      for(i in 1:length(rv$wqp_url_list)) {
+        wqp_url <- rv$wqp_url_list[[i]]
       if(httr::http_status(GET(wqp_url))$category!="Success") { # make sure the service call is valid
       showModal(
         urlModal(wqp_url, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data from the Water Quality Portal for the requested query. The message from the web service is: `", httr::http_status(GET(wqp_url))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If an error results, email WQP support (wqx@epa.gov) for assistance. If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
@@ -3293,17 +3295,19 @@ observeEvent(eventExpr = input$button_downloadData, {
 
   shiny::validate(need(httr::http_status(GET(wqp_url))$category=="Success", message = FALSE)) # if not a valid service call, abort
   
-  setProgress(1/4, detail = "Formatting data")
-
+  cat(wqp_url)
   download.file(wqp_url, "tempDat.csv", mode = "w") # in Windows, mode = "w" when opening text files and "wb" for other types, such as .jpg
  
-  read.csv("tempDat.csv") # use read.csv instead of read_csv so will convert '/' in column names to '.'
-  })
+  temp_dat_list[[i]] <- read.csv("tempDat.csv") # use read.csv instead of read_csv so will convert '/' in column names to '.'
+  cat("next set of sites to download")
+  }
   
   tempDat <- do.call(rbind.data.frame, temp_dat_list)
   rm(temp_dat_list)
+  unlink("tempSites.csv")
 
 # Format WQP data ----
+  setProgress(1/4, detail = "Formatting data")
   
   # Convert to NA, any records with no data reported
   no_data_strings <- c("Not Reported", "No Data", "UNK", "Unknown")
@@ -3313,14 +3317,14 @@ observeEvent(eventExpr = input$button_downloadData, {
   tempDat[tempDat==""] <- NA
   tempDat$ResultMeasure.MeasureUnitCode[is.na(tempDat$ResultMeasure.MeasureUnitCode) & !is.na(tempDat$DetectionQuantitationLimitMeasure.MeasureUnitCode)] <- tempDat$DetectionQuantitationLimitMeasure.MeasureUnitCode[is.na(tempDat$ResultMeasure.MeasureUnitCode) & !is.na(tempDat$DetectionQuantitationLimitMeasure.MeasureUnitCode)]
   tempDat$ResultDetectionConditionText[is.na(tempDat$ResultDetectionConditionText)] <- "Detected and Quantified"
- print("line2918")
+ cat("line2918")
  
   # Split survey date
   tempDat$ActivityStartDate = base::as.Date(tempDat$ActivityStartDate)
   tempDat2 <- FuncBreakDates(tempDat) %>%
     dplyr::mutate(CharacteristicSet = paste(OrganizationIdentifier, CharacteristicName, ResultSampleFractionText, ResultMeasure.MeasureUnitCode, ResultAnalyticalMethod.MethodIdentifier, sep = "_")) %>% # this is the column for identifying comparable records (also optionally consider OrganizationIdentifier and LaboratoryName)
     dplyr::arrange(CharacteristicName, MonitoringLocationIdentifier, ActivityStartDate)
- 
+ cat("line3327")
   # Remove characteristics with string class values
   paramText <- unique(tempDat2$CharacteristicName[grepl(pattern="(text)", x=tempDat2$CharacteristicName)])
   tempDat2 %<>%
@@ -3335,13 +3339,13 @@ observeEvent(eventExpr = input$button_downloadData, {
     dplyr::select(OrganizationIdentifier, OrganizationFormalName, MonitoringLocationIdentifier, ActivityStartDate, ActivityTypeCode, CharacteristicName, CharSampleType, ResultSampleFractionText, ResultMeasureValue, ResultMeasure.MeasureUnitCode, ResultDetectionConditionText, everything()) # Most important variables first, followed by everything else
   rm(rawDat, tempDat, tempDat2, paramText)
   unlink("tempDat.csv")
-  
+  cat("Line3342")
   # Get organization information for WQP data ----
   shiny::req(!is.null(rv$dat))
     # Limited to specified date range and minimum activities number
   allOrgs <- paste(paste0("organization=", unique(rv$dat$OrganizationIdentifier)), collapse = "&")
     orgURL <- paste0("https://www.waterqualitydata.us/data/Organization/search?", allOrgs, "&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
-
+cat("Line3348")
   if(httr::http_status(GET(orgURL))$category!="Success") { # make sure the service call is valid
     showModal(
       urlModal(orgURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving organization information from the Water Quality Portal. The message from the web service is: `", httr::http_status(GET(orgURL))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
@@ -4841,24 +4845,27 @@ shinyjs::hidden( # initially hide this well panel
 shinyjs::hidden( # initially hide this well panel
   wellPanel(
     id = "new_data_P3",
-    p(strong("3. Filter stream gage and weather station data to download")),
-    p("Data will download only for selected gage and weather stations. When selected, these stations will show as orange-colored on the map."),
+    # p(strong("3. Filter stream gage and weather station data to download")),
+    # p("Data will download only for selected gage and weather stations. When selected, these stations will show as orange-colored on the map."),
+    
+        p(strong("3. Filter stream gage data to download")),
+    p("Data will download only for selected gage stations. When selected, these stations will show as orange-colored on the map."),
     
     renderUI({
       shiny::req(!is.null(rv$gageStations))
       checkboxGroupInput("sel_Gages",
                          label = h6("Import data only from these USGS gage stations: "),
                          choices = sort(unique(rv$gageStations$GageName)))
-      }),
+      }) #,
     
-    renderUI({
-      shiny::req(!is.null(rv$meteoStations))
+    # renderUI({
+      # shiny::req(!is.null(rv$meteoStations))
 
-print("line4218")
-      checkboxGroupInput("sel_Meteo",
-                         label = h6("Import data only from these weather stations: "),
-                         choices = sort(unique(rv$meteoStations$MeteoName)))
-})
+# print("line4218")
+#       checkboxGroupInput("sel_Meteo",
+#                          label = h6("Import data only from these weather stations: "),
+#                          choices = sort(unique(rv$meteoStations$MeteoName)))
+# })
     ) # end subset-Meteo panel
   ) # end hide for subset-Meteo panel
 
@@ -4904,8 +4911,9 @@ Data for Import {.tabset .tabset-fade}
 
 ### Map
 ```{r initial_map}
-conditionalPanel(
-  condition = "rv_param_temp.loadMap == true", 
+# conditionalPanel(
+#   condition = "typeof output.map === null", # these conditionals are not working
+  # condition = "rv_param_temp.loadMap == true", 
   htmltools::tags$div(
     style = "text-align: center; margin: 5px 0;",
     htmltools::tags$button(
@@ -4922,7 +4930,7 @@ conditionalPanel(
       }
     "))
   )
-)
+# )
 
 output$map <- renderLeaflet({
   shiny::req(!is.null(rv_param_temp$loadMap))
