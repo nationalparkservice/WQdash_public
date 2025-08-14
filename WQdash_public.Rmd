@@ -10,6 +10,11 @@ runtime: shiny
 ---
 
 ```{r global, include=FALSE}
+ # saveRDS(isolate(reactiveValuesToList(rv)), here::here(
+ #   "TEMP_rv.RDS"))
+ # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+ # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+ 
 ### HIGH PRIORITY
 # > BREAK UP LARGE IMPORTS! Need informative message for large imports and possibly save to file in between?
 # > Refresh map button should only show when there is a map. 
@@ -43,7 +48,7 @@ runtime: shiny
 # > https://waterdata.usgs.gov/blog/wqx3/
 # > A large update of dataRetrieval was just pushed to GitHub. This update will allow users to access the new "WQX3" profiles from the Water Quality Portal. Any new USGS discrete water quality data since March 11th is ONLY available via dataRetrieval from these new data profiles. With this update, all WQP functions that can use these new profiles will use them by default.
 # > TADAShiny for synonymizing and flag/remove data (how does it deal with non-numeric entries like >XXX?). Perhaps add option for uploading a TADA file.
-# > Update to work with hydrography revisions
+# > Update to work with hydrography revisions: https://waterdata.usgs.gov/blog/nldi-intro/
 # > Need to update scripts downstream of the WQP pulls to new column names and possibly different values returned. Eventually, you'll HAVE to update your workflows (the legacy profiles will eventually be retired). If you need to switch back to the production version of dataRetrieval, you can re-install (after unloading the package) by reinstalling the CRAN version:
 # > More information is here:
 # https://water.code-pages.usgs.gov/dataRetrieval/articles/qwdata_changes.html
@@ -2772,6 +2777,12 @@ observeEvent(eventExpr = input$button_showStations, {
   shinyjs::hideElement("new_data_P3")
   shinyjs::hideElement("new_data_P4")
     
+  
+      saveRDS(isolate(reactiveValuesToList(rv)), here::here(
+   "TEMP_rv.RDS"))
+ saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+ saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+  
   # Get park unit boundary data from dashboard files ----
   # Check for problems with self-intersections, etc. These problems should be fixed in the updated version of LandscapeDynamics
   parks_sf <- readRDS(here::here("dashboard_files", "parks_sf.RDS"))
@@ -2836,8 +2847,9 @@ observeEvent(eventExpr = input$button_showStations, {
     huc10_bbox <- sf::st_bbox(rv[["HUC10"]]) # HUC10 bbox
     
   # Recently active WQP stations that fall within the HUC10 bbox (sampled within past [user-specified number of] years) 
-  sitesURL <- paste0("https://www.waterqualitydata.us/data/Station/search?siteType=Aggregate%20surface-water-use&siteType=Estuary&siteType=Lake%2C%20Reservoir%2C%20Impoundment&siteType=Spring&siteType=Stream&siteType=Well&siteType=Wetland&siteType=Aggregate%20groundwater%20use&siteType=Aggregate%20groundwater%20use%20&siteType=Aggregate%20water-use%20establishment&siteType=Subsurface&bBox=", paste(huc10_bbox, collapse ="%2C"), "&characteristicType=Toxicity&characteristicType=Physical&characteristicType=Organics%2C%20PFAS&characteristicType=Organics%2C%20Pesticide&characteristicType=Organics%2C%20PCBs&characteristicType=Nutrient&characteristicType=Microbiological&characteristicType=Cyanotoxins%2C%20Phytotoxins&characteristicType=Inorganics%2C%20Major%2C%20Metals&characteristicType=Inorganics%2C%20Major%2C%20Non-metals&minactivities=1&startDateLo=01-01-", lubridate::year(Sys.Date())-as.integer(input$sel_ActiveWithinYrs), "&sampleMedia=Water&sampleMedia=water&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
+  sitesURL <- paste0("https://www.waterqualitydata.us/wqx3/Station/search?siteType=Aggregate%20surface-water-use&siteType=Estuary&siteType=Lake%2C%20Reservoir%2C%20Impoundment&siteType=Spring&siteType=Stream&siteType=Well&siteType=Wetland&siteType=Aggregate%20groundwater%20use&siteType=Aggregate%20groundwater%20use%20&siteType=Aggregate%20water-use%20establishment&siteType=Subsurface&bBox=", paste(huc10_bbox, collapse ="%2C"), "&characteristicType=Toxicity&characteristicType=Physical&characteristicType=Organics%2C%20PFAS&characteristicType=Organics%2C%20Pesticide&characteristicType=Organics%2C%20PCBs&characteristicType=Nutrient&characteristicType=Microbiological&characteristicType=Cyanotoxins%2C%20Phytotoxins&characteristicType=Inorganics%2C%20Major%2C%20Metals&characteristicType=Inorganics%2C%20Major%2C%20Non-metals&minactivities=1&startDateLo=01-01-", lubridate::year(Sys.Date())-as.integer(input$sel_ActiveWithinYrs), "&sampleMedia=Water&sampleMedia=water&mimeType=csv&zip=no&providers=NWIS&providers=STORET")
    
+  cat(sitesURL)
     if(httr::http_status(httr::GET(sitesURL))$category!="Success") { # make sure the service call is valid
       shiny::showModal(
         urlModal(sitesURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving monitoring sites information from the Water Quality Portal. The message from the web service is: `", httr::http_status(GET(sitesURL))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
@@ -2849,7 +2861,7 @@ observeEvent(eventExpr = input$button_showStations, {
 
     download.file(sitesURL, "tempSites.csv", mode = "w")
     sites <- read_csv("tempSites.csv", trim_ws = TRUE)
-    sites$HUCEightDigitCode <- gsub(pattern="-", replacement = "", x= as.character(sites$HUCEightDigitCode)) # Weird issue with BLRI
+    sites$Location_HUCEightDigitCode <- gsub(pattern="-", replacement = "", x= as.character(sites$Location_HUCEightDigitCode)) # Weird issue with BLRI
     
     if(is.null(sites)|nrow(sites)==0) { # if no monitoring stations, abort
       showModal(modalDialog(
@@ -2861,13 +2873,13 @@ observeEvent(eventExpr = input$button_showStations, {
     
   # Create sf of WQP stations point location
   temp_points <- sf::st_as_sf(x = sites, 
-                        coords = c("LongitudeMeasure", "LatitudeMeasure"),
+                        coords = c("Location_LongitudeStandardized", "Location_LatitudeStandardized"),
                         crs = 4269)# NAD83. Difference between NAD83 and WGS84 is only ~1m, so just use NAD83 b/c it's the most common.
     
-    temp_points <- sf::st_transform(temp_points, crs = st_crs(rv$unitPoly)) # convert to WGS84
+    temp_points <- sf::st_transform(temp_points, crs = sf::st_crs(rv$unitPoly)) # convert to WGS84
     # subset to the HUC10 boundaries. Did not import using the HUC10's b/c that approaches seems to miss some sites that don't have associated HUC10 information (?)
     
-    sitesPoints <- st_filter(temp_points, rv[["HUC10"]]) # These are the ones that fall within HUC10's, so keep them
+    sitesPoints <- sf::st_filter(temp_points, rv[["HUC10"]]) # These are the ones that fall within HUC10's, so keep them
     
     sitesPoints %<>%
       dplyr::mutate(
@@ -3197,9 +3209,9 @@ observeEvent(eventExpr = input$button_summarizeStations, {
   gsub(",", "%2C", .) %>%
   gsub(" ", "%20", .)
   
-  searchURL <- paste0("search?siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no") # REMOVED SITETYPE & MINACTIVITIES & START & END DATES AS AN OPTION AT THIS STAGE)
+  searchURL <- paste0("search?siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&dataProfile=basicPhysChem&providers=NWIS&providers=STORET") # REMOVED SITETYPE & MINACTIVITIES & START & END DATES AS AN OPTION AT THIS STAGE)
   
-    summaryURL <- paste0("https://www.waterqualitydata.us/data/summary/monitoringLocation/", searchURL, "&summaryYears=all&count=no&dataProfile=periodOfRecord")
+    summaryURL <- paste0("https://www.waterqualitydata.us/wqx3/summary/monitoringLocation/", searchURL, "&summaryYears=all&count=no&dataProfile=periodOfRecord")
     
         if(httr::http_status(GET(summaryURL))$category!="Success") { # make sure the service call is valid
       showModal(
@@ -3214,14 +3226,15 @@ observeEvent(eventExpr = input$button_summarizeStations, {
       dplyr::select(-MonitoringLocationUrl, -CountyName, -StateName, -MonitoringLocationLatitude, -MonitoringLocationLongitude)
   
   # For downloading data, break up large data requests
-  subset_stations_list <- split(unique(rv$selectedStations$MonitoringLocationIdentifier), ceiling(seq_along(unique(rv$selectedStations$MonitoringLocationIdentifier))/3)) # import data for 10 stations (max) at a time
-  
+  subset_stations_list <- split(unique(rv$selectedStations$MonitoringLocationIdentifier), ceiling(seq_along(unique(rv$selectedStations$MonitoringLocationIdentifier))/10)) # import data for 10 stations (max) at a time
+ 
   rv$wqp_url_list <- lapply(subset_stations_list, function(s) {
     
     stationChoiceString_partial <- paste0(s, collapse = "&siteid=")
-    paste0("https://www.waterqualitydata.us/data/Result/search?siteid=", stationChoiceString_partial, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no")
+    paste0("https://www.waterqualitydata.us/wqx3/Result/search?siteid=", stationChoiceString_partial, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&dataProfile=basicPhysChem&providers=NWIS&providers=STORET")
+
   }) # this is a LIST of wqp download url's
-  
+ 
 cat("line2993")
   # Create tab with the summary info after downloading it. Add totals to message. Check what generates the white highlight.
 
@@ -3271,10 +3284,6 @@ observeEvent(eventExpr = input$button_downloadData, {
   shiny::req(!is.null(rv$selectedStations), !is.null(rv$sitesPointsSub), !is.null(rv$wqp_url_list))
   shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0)
 
-  
-  #      saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
     withProgress(message = "Processing data request...", detail = "Importing data from Water Quality Portal, a few stations at a time (please be patient!)", value = 0, {
       
       showModal(tags$div(id = "gif_modal", modalDialog(
@@ -3337,14 +3346,14 @@ observeEvent(eventExpr = input$button_downloadData, {
     dplyr::ungroup() %>%
     dplyr::mutate(CharSampleType = paste0(CharacteristicName, " (", ifelse(is.na(ResultSampleFractionText), ResultMeasure.MeasureUnitCode, paste(ResultSampleFractionText, ResultMeasure.MeasureUnitCode, sep = "; ")), ")")) %>% # add CharSampleType column--this includes characteristic name, sample fraction, and measurement unit
     dplyr::select(OrganizationIdentifier, OrganizationFormalName, MonitoringLocationIdentifier, ActivityStartDate, ActivityTypeCode, CharacteristicName, CharSampleType, ResultSampleFractionText, ResultMeasureValue, ResultMeasure.MeasureUnitCode, ResultDetectionConditionText, everything()) # Most important variables first, followed by everything else
-  rm(rawDat, tempDat, tempDat2, paramText)
+  rm(tempDat, tempDat2, paramText)
   unlink("tempDat.csv")
   cat("Line3342")
   # Get organization information for WQP data ----
   shiny::req(!is.null(rv$dat))
     # Limited to specified date range and minimum activities number
   allOrgs <- paste(paste0("organization=", unique(rv$dat$OrganizationIdentifier)), collapse = "&")
-    orgURL <- paste0("https://www.waterqualitydata.us/data/Organization/search?", allOrgs, "&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
+    orgURL <- paste0("https://www.waterqualitydata.us/wqx3/Organization/search?", allOrgs, "&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
 cat("Line3348")
   if(httr::http_status(GET(orgURL))$category!="Success") { # make sure the service call is valid
     showModal(
@@ -3364,9 +3373,11 @@ cat("Line3348")
   
   rm(orgURL, allOrgs)
   unlink("tempOrg.csv")
+  cat("line3368")
   
   # Get streamflow data from selected gage stations ----
   # Waiting to hear back about getting info on Federal Priority Streamgages
+ cat("line3376")
   if(all(!is.null(rv$gageStations), !is.null(rv$selectedGages))) {
     if(all(nrow(rv$gageStations) > 0, length(rv$selectedGages) > 0)) {
   setProgress(2/4, detail = "Getting streamflow data from selected USGS gage stations")
@@ -3474,32 +3485,30 @@ rv$meteoDat <- NULL
 # }
   
   ### Save query
-  
+  cat("line3484")
   # Update rv$importSettings with the import settings
   import_input <- c("sel_UnitCode", "sel_SiteType", "sel_HUClevel", "sel_SelectMethod", "sel_OriginStationID", "sel_DiskKmUpstream", "sel_IncludeTribs", "sel_DistKmDownstream", "sel_IncludeDiversions", "sel_Organization", "sel_Gages", "sel_Meteo", "sel_CharType") 
   FuncUpdateImportSettings(inputs_to_update = import_input) 
-  
+  cat("line3488")
     rv$orgs$Selected <- FALSE
     rv$orgs$Selected[rv$orgs$OrganizationFormalName %in% input$sel_Organization] <- TRUE # identify if each organization was selected for import or not
-    
+    cat("line3490")
     # Initial data filter
     shiny::req(!is.null(rv$dat))
     FuncInitFilter() # calculate default filter inputs based on rv$dat
     rv_param_temp$newImport <- TRUE
-    
+    cat("line3496")
+ 
     FuncUpdateFilterInputs() 
+    cat("line3503")
     FuncRefreshFilter(sel_MinYrs = rv_param_temp$defaultInputs$sel_MinYrs, sel_SummaryParam = rv_param_temp$selectCharSampleType, sel_SummaryOrg = rv_param_temp$defaultInputs$sel_SummaryOrg, sel_YrRange = rv_param_temp$defaultInputs$sel_YrRange, sel_ActivityType = rv_param_temp$defaultInputs$sel_ActivityType, sel_ResultStatus = rv_param_temp$defaultInputs$sel_ResultStatus, sel_DefineSeasons = rv_param_temp$defaultInputs$sel_DefineSeasons) # generate the initial filtered data based on default filters. Also call this filter when action button clicked for refreshing filter
-
-    # rv_param_temp$subDatYears <- NULL
-    # rv_param_temp$subDat <- NULL
-    # rv_param_temp$resetFilter <- FALSE # once the inputs have updated, set resetFilter back to FALSE and update the plot inputs
-
-  # rv_param_temp$subDat <- NULL  
+cat("line3506")
   rv_param_temp$plotDat <- NULL # Just to make doubly sure everything is cleared out
   rv_param_temp$threshList <- NULL
   rv_param_temp$threshDF <- NULL
   rv_param_temp$categLevelsPlot <- NULL
- 
+ cat("line3503")
+
     showModal(modalDialog(
       title = "Done",
       HTML(paste0("Data import SUCCESSFUL. OPTIONAL: To download the formatted data file (.RDS) to your computer, press the <strong>`Save RDS to Computer` </strong> button in the left side panel. You may now navigate to the other dashboard pages. ")) 
@@ -4911,9 +4920,9 @@ Data for Import {.tabset .tabset-fade}
 
 ### Map
 ```{r initial_map}
-# conditionalPanel(
+conditionalPanel(
 #   condition = "typeof output.map === null", # these conditionals are not working
-  # condition = "rv_param_temp.loadMap == true", 
+  condition = "rv_param_temp.loadMap == true",
   htmltools::tags$div(
     style = "text-align: center; margin: 5px 0;",
     htmltools::tags$button(
@@ -4930,7 +4939,7 @@ Data for Import {.tabset .tabset-fade}
       }
     "))
   )
-# )
+)
 
 output$map <- renderLeaflet({
   shiny::req(!is.null(rv_param_temp$loadMap))
