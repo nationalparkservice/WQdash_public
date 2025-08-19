@@ -2775,6 +2775,11 @@ observeEvent(eventExpr = input$button_showStations, {
   # Check for problems with self-intersections, etc. These problems should be fixed in the updated version of LandscapeDynamics
   parks_sf <- readRDS(here::here("dashboard_files", "parks_sf.RDS"))
     rv$unitPoly <- parks_sf %>% dplyr::filter(UNIT_CODE == rv$parkID) %>% sf::st_make_valid(.)
+    
+ #      saveRDS(isolate(reactiveValuesToList(rv)), here::here(
+ #   "TEMP_rv.RDS"))
+ # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+ # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
   print("line2432")
    # Get HUC10 & HUC12 boundary data from web services ----
     # Files are too large to save with dashboard for quick pull
@@ -4090,9 +4095,9 @@ observeEvent(eventExpr = input$button_noStationChars, {
 observeEvent(input$param_map_right_click, {
   shiny::req(!is.null(rv_param_temp$popupSiteSummary), !is.null(rv_param_temp$subDat))
   
-    saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
-  saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
-  saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+  #   saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
   
   site <- input$param_map_right_click$MonitoringLocationIdentifier
   summary_df <- isolate(rv_param_temp$popupSiteSummary) %>% dplyr::filter(Site == site) 
@@ -6175,12 +6180,6 @@ div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:righ
         # shiny::req(identical(unique(rv_param_temp$plotDat$MonitoringLocationIdentifier), rv_param_temp$param_map_highlight)) # make sure the plots have been updated  
             
         shiny::req(identical(input$sel_SummarizeBy, rv_param_temp$sel_summarize_by))
-        
-          
- #      saveRDS(isolate(reactiveValuesToList(rv)), here::here(
- #   "TEMP_rv.RDS"))
- # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
- # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
  
         map_options_chartype_choice_names <- c("Sites", "Median", "Thresholds", "Percentiles")[c(TRUE, TRUE, sum(!is.na(rv_param_temp$plotDat["ThreshCateg"])) > 0, sum(!is.na(rv_param_temp$plotDat["PercCateg"])) > 0)]
         map_options_choice_values <- stringi::stri_replace_all_fixed(
