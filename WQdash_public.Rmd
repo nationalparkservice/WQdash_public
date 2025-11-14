@@ -4940,6 +4940,8 @@ shinyjs::hidden( # initially hide this well panel
 
 output$download_RDS <- downloadHandler(
   shiny::req(!is.null(rv)),
+ saveRDS(isolate(reactiveValuesToList(rv)), here::here(
+   "TEMP_rv.RDS")),
   filename = function() {
     paste0("WQdash_", rv$parkID, "_", paste0(gsub(pattern = "-", replacement = "", x = Sys.Date()), ".RDS"))
     },
