@@ -2992,6 +2992,7 @@ print("line2336")
 print("line2614")
 print(facilitiesURL)
   if(httr::http_status(GET(facilitiesURL))$category!="Success") { # make sure the service call is valid
+    rv$facilitiesPointsSub <- NULL
     showModal(modalDialog(
       title = "No Discharge Facilities Data",
       "Error retrieving discharge facilities locations data from EPA ECHO. These data are not necessary for visualizing water quality data on the dashboard.",
