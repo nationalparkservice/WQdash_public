@@ -15,56 +15,6 @@ runtime: shiny
  #   "TEMP_rv.RDS"))
  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
- 
-### PICK UP FROM HERE
-#> Site card--don't need to add unit in parameter name col
-#> RIght click anywhere in circle
-#> CHAT one Ecoli not showing in plot options
-#> Refresh plot needs progress bar
-# > Default percentiles in bandaid bar shoudl just be q5 and q95p
-#> 
-### QUESTION
-# > For sample fraction, is it reasonable to treat blank and total and none as same?
-
-
-### HIGH PRIORITY
-# > BREAK UP LARGE IMPORTS! Need informative message for large imports and possibly save to file in between?
-
-
-
-### NEXT CHANGES:
-
-# > When user selects all sites in park, highlight park darker yellow to show something happened
-# > Refresh map button should only show when there is a map. 
-# > Imported data info tab should turn red once data are imported. SHould not show before? (or grayed out)
-# > Offer an EPA threshold list??
-# Rename all table columns nicely and consistently
-# > Import
-# -- Allow user to upload a shapefile or select a state (instead of park)
-# -- NOAA precip data
-# -- Upstream/downstream selection
-# -- Start date for filter
-# > Filter page input should have collapsing inputs just like Explore plots
-# > if a categorical parameter is selected, a warning/option to define categorical should show
-# > Explore data page
-# -- Add map toggle to show site labels; legend for colors
-#If more than 3 plots showing on a page, need to show x-axis on all of them
-# -- Give option to show data in 1-4 columns
-# -- Percentile legend should say lowest X%, highest X%, etc. instead of below, above...
-# > Incorporate EPA data cleaning/standardization functions (TADAShiny)
-
-
-### UPCOMING CHANGES:
-# > rnoaa is not available for R3.2. This package is going to be phased out in 2024, so keep an eye out
-# > https://waterdata.usgs.gov/blog/wqx3/
-# > A large update of dataRetrieval was just pushed to GitHub. This update will allow users to access the new "WQX3" profiles from the Water Quality Portal. Any new USGS discrete water quality data since March 11th is ONLY available via dataRetrieval from these new data profiles. With this update, all WQP functions that can use these new profiles will use them by default.
-# > TADAShiny for synonymizing and flag/remove data (how does it deal with non-numeric entries like >XXX?). Perhaps add option for uploading a TADA file.
-# > Update to work with hydrography revisions: https://waterdata.usgs.gov/blog/nldi-intro/
-# > Need to update scripts downstream of the WQP pulls to new column names and possibly different values returned. Eventually, you'll HAVE to update your workflows (the legacy profiles will eventually be retired). If you need to switch back to the production version of dataRetrieval, you can re-install (after unloading the package) by reinstalling the CRAN version:
-# > More information is here:
-# https://water.code-pages.usgs.gov/dataRetrieval/articles/qwdata_changes.html
-# https://water.code-pages.usgs.gov/dataRetrieval/articles/Status.html
-# > Look for the site on efficient pulling of WQP data
 
 # Install and load packages
 rm(list=ls())
@@ -82,7 +32,7 @@ pkgs <- c("flexdashboard",
           "janitor", 
           "mgcv", 
           "scales", 
-          "rlang", # check for empty variables <<<<<<<<<<<<
+          "rlang", # check for empty variables
           "rtf", 
           "rmarkdown", 
           "shinyWidgets", 
@@ -135,10 +85,6 @@ try(if(!all(req_files %in% have_files)) stop(paste("Missing required dashboard f
 
   # Read in park choice file
   unique_parks_df <- read_csv("dashboard_files/unique_parks_df.csv")
-
-  # # >>>>>>>>>>>> PICK UP FROM HERE. ADD OPTION FOR USER TO ENTER STATE NAME/ABBREV. INSTEAD OF PARK.
-  # usa <- st_as_sf(maps::map("state", fill=TRUE, plot =FALSE))
-  # data.frame(state.abb, state.name) >>> does not include DC
   
 options(shiny.maxRequestSize = 30*1024^2, # increases download limit to 30MB from 5MB default
         timeout = 3000,
@@ -385,9 +331,9 @@ observeEvent(eventExpr = input$button_cancelModal, {
 
 ```{r functions}
 ### FUNCTIONS ----
-FuncAboutButton <- function(nam) {
-  actionButton(nam, "   PAGE INSTRUCTIONS", icon = icon("question-sign", lib = "glyphicon"), width = "100%")
-}
+# FuncAboutButton <- function(nam) {
+#   actionButton(nam, "   PAGE INSTRUCTIONS", icon = icon("question-sign", lib = "glyphicon"), width = "100%")
+# }
 
 FuncShowWellPanel <- function(input_to_test, wp_to_toggle) {
   # Function to show or hide a well panel based on a checkbox selection
@@ -642,20 +588,20 @@ FuncBaseMap <- function(maptype) {
   if(!is.null(rv$gageStations)) { # Add USGS gage (streamflow) stations only if found
     print("map USGS streamflow stations")
     map %<>%
-      addAwesomeMarkers(icon = iconGages, data = rv$gageStations, group = "Gage stations", label = ~GAGELAB, popup = ~GAGEPOP, options = pathOptions(pane = "pane_gageStations")) # selected stream gage stations
+      addAwesomeMarkers(icon = iconGages, data = rv$gageStations, group = "Gage stations (water drop icon)", label = ~GAGELAB, popup = ~GAGEPOP, options = pathOptions(pane = "pane_gageStations")) # selected stream gage stations
   }
 
   print("about to map meteoStations")
   if(!is.null(rv$meteoStations)) { # Add weather stations only if found
     print("map metioStations")
     map %<>%
-      addAwesomeMarkers(icon = iconMeteo, data = rv$meteoStations, group = "Weather stations", label = ~METEOLAB, popup = ~METEOPOP, options = pathOptions(pane = "pane_meteoStations")) # weather stations
+      addAwesomeMarkers(icon = iconMeteo, data = rv$meteoStations, group = "Weather stations (cloud icon)", label = ~METEOLAB, popup = ~METEOPOP, options = pathOptions(pane = "pane_meteoStations")) # weather stations
   }
   
   if(!is.null(rv$facilitiesPointsSub)) { # Add EPA-monitored discharge facilities only if found
     print("map EPA facilities")
     map %<>%
-      addAwesomeMarkers(icon = iconCWA, data = rv$facilitiesPointsSub, group = "Discharge facilities", label = ~FACLAB, popup = ~FACPOP)
+      addAwesomeMarkers(icon = iconCWA, data = rv$facilitiesPointsSub, group = "Discharge facilities (bldg icon)", label = ~FACLAB, popup = ~FACPOP)
   }
   
   print("about to map selected USGS stations")
@@ -663,7 +609,7 @@ FuncBaseMap <- function(maptype) {
   if(all(rv$selectedGages$GageID %in% rv$gageStations$GageID)) { 
     print("map selected USGS stations")
     map %<>%
-      addAwesomeMarkers(icon = iconGagesSelected, data = rv$selectedGages, group = "Gage stations", label = ~GAGELAB, popup = ~GAGEPOP, options = pathOptions(pane = "pane_gageStations_selected"))
+      addAwesomeMarkers(icon = iconGagesSelected, data = rv$selectedGages, group = "Gage stations (water drop icon)", label = ~GAGELAB, popup = ~GAGEPOP, options = pathOptions(pane = "pane_gageStations_selected"))
   }}
   
   print("about to map selected meteoStations")
@@ -672,7 +618,7 @@ FuncBaseMap <- function(maptype) {
     if(all(rv$selectedMeteo$MeteoID %in% rv$meteoStations$MeteoID)) {
       print("map selected meteoStations")
       map %<>%
-        addAwesomeMarkers(icon = iconMeteoSelected, data = rv$selectedMeteo, group = "Weather stations", label = ~METEOLAB, popup = ~METEOPOP, options = pathOptions(pane = "pane_meteoStations_selected"))
+        addAwesomeMarkers(icon = iconMeteoSelected, data = rv$selectedMeteo, group = "Weather stations (cloud icon)", label = ~METEOLAB, popup = ~METEOPOP, options = pathOptions(pane = "pane_meteoStations_selected"))
     }}
   print("about to return map")
   return(map)
@@ -770,7 +716,19 @@ FuncUpdateFilterInputs <- function() {
   
   updateCheckboxInput(session,
                       "sel_AddQuantile",
-                      value = FALSE)
+                      value = TRUE)
+  
+  updateNumericInput(session,
+                     "sel_QuantileProbLower",
+                     value = 0.05)
+  
+  updateNumericInput(session,
+                     "sel_QuantileProbUpper",
+                     value = 0.95)
+  
+  updateSelectInput(session,
+                    "sel_QuantileGroupBy",
+                    selected = "quant_each")
   
   updateRadioButtons(session,
                      "sel_ShowThresholds",
@@ -1163,6 +1121,8 @@ FuncPlotDat <- function() {
   #   Formatted plot data
 
   shiny::req(!is.null(rv_param_temp$subDat), !is.null(rv_param_temp$sel_summarize_by))
+  
+      withProgress(message = "Formatting plot data...", value = 0, {
   # Filter plotting data by user inputs
   plotDat <- rv_param_temp$subDat %>%
     dplyr::select(ActivityStartDate, CharacteristicName, CharacteristicSet, CharSampleType, DetectionQuantitationLimitMeasure.MeasureValue, MonitoringLocationIdentifier, OrganizationFormalName, ResultDetectionConditionText, DetectionQuantitationLimitTypeName, ResultMeasureValue, ResultMeasureValue_replaced, ResultMeasure.MeasureUnitCode, ResultSampleFractionText, ThreshCateg, YrDate, MnthDate, WkDate, Yr, Season, Mnth, Wk, DayOfYr) %>% # just keep these columns
@@ -1207,7 +1167,7 @@ FuncPlotDat <- function() {
       rv_param_temp$quantDat <- NULL
     } else {
 
-      if(rv_param_temp$sel_summarize_by == "by_station" | (rv_param_temp$sel_summarize_by == "by_chartype" & input$sel_QuantileGroupBy == "quant_each"))  { # if 'by_station' or if 'by_chartype' and calculating separate quantile for each station, then group data by station-characteristicname
+      if(rv_param_temp$sel_summarize_by == "by_station" | (rv_param_temp$sel_summarize_by == "by_chartype" & input$sel_QuantileGroupBy == "quant_each"))  { # if 'by_station' or if 'by_chartype' and calculating separate quantile for each station, then group data by station-characteristic name
         rv_param_temp$quantDat <- plotDat %>%
           dplyr::select(MonitoringLocationIdentifier, CharacteristicName, ResultMeasureValue_replaced) %>%
           dplyr::group_by(MonitoringLocationIdentifier, CharacteristicName) %>%
@@ -1236,6 +1196,7 @@ FuncPlotDat <- function() {
       plotDat2 <- plotDat %>%
         dplyr::mutate(PercCateg = NA)
     }
+      })
   
     return(plotDat2)
   }
@@ -1424,7 +1385,7 @@ FuncQuantLines <- function(quant_df, combine_sites, dat_df, p) {
         if(length(unique(quant_df$QuantLineLower)) > 1 | length(unique(quant_df$QuantLineUpper)) > 1) {
           showModal(modalDialog(
             title = "Percentile by Monitoring Site",
-            "When combining monitoring sites in a plot, the percentile limits must be calculated across all sites rather than by individual sites"
+            "When combining monitoring sites in a plot, the percentile limits must be calculated across all sites rather than by individual sites. In the sidebar options, select 'Calculate percentile limits --> across sites', then refresh the plot data."
             ))
           shiny::req(length(unique(quant_df$QuantLineLower)) == 1, length(unique(quant_df$QuantLineUpper)) == 1)
         }
@@ -2287,9 +2248,6 @@ FuncPieMap <- function(pie_map, map_by_yr = input$sel_MapByYr, limit_type, limit
         if(limit_type == "ThreshCateg") {
           pie_matrix$ThreshCateg <- factor(pie_matrix$ThreshCateg, levels = c("good", "caution", "poor")) # ensures that a column is created even if a factor level is not in the data
         }
-        
-  #                                      cat("WRITING PIE TEMP DAT") # <<<<<<<<<<<<<<<<<<<<<<<<
-  # saveRDS(pie_matrix, "TEMP_pie_dat.RDS")
   
         pie_matrix %<>%
           dplyr::count(.[[limit_type]]) %>%
@@ -2340,8 +2298,7 @@ FuncPieMap <- function(pie_map, map_by_yr = input$sel_MapByYr, limit_type, limit
         return(pie_map)
       }
 
-# Function to generate table with horizontal bar (pop-up map)
-FuncParamTable <- function(df, threshold_df, MonitoringLocationIdentifier) {
+FuncParamTable <- function(df, threshold_df, site) {
   
   # CSS donut
   build_css_donut <- function(parts, colors, categories) {
@@ -2367,13 +2324,7 @@ FuncParamTable <- function(df, threshold_df, MonitoringLocationIdentifier) {
   }
 
   # Bar chart builder
-  build_css_bar <- function(low, high, recent_values_str, recent_dates_str, n) {
-    # Generate sample for percentiles
-    sample_size <- min(n, 200)
-    all_values <- runif(sample_size, low, high)
-    q15 <- quantile(all_values, 0.05, na.rm = TRUE)
-    q85 <- quantile(all_values, 0.95, na.rm = TRUE)
-    med <- median(all_values, na.rm = TRUE)
+  build_css_bar <- function(low, q05, med, q95, high, recent_values_str, recent_dates_str, n) {
     
     # Parse recent data
     recent_values <- tryCatch({
@@ -2404,16 +2355,16 @@ FuncParamTable <- function(df, threshold_df, MonitoringLocationIdentifier) {
       y_pos <- 8 + (i-1) * 14
       
       # Simple categorization and positioning
-      if (val < q15) {
-        x_pos <- 7.5
+      if (val < q05) {
+        x_pos <- 2.5
         color <- "#6c757d"
-      } else if (val > q85) {
-        x_pos <- 92.5
+      } else if (val > q95) {
+        x_pos <- 97.5
         color <- "#6c757d"
       } else {
-        if (q85 > q15) {
-          relative_pos <- (val - q15) / (q85 - q15)
-          x_pos <- 15 + relative_pos * 70
+        if (q95 > q05) {
+          relative_pos <- (val - q05) / (q95 - q05)
+          x_pos <- 5 + relative_pos * 90
         } else {
           x_pos <- 50
         }
@@ -2428,37 +2379,37 @@ FuncParamTable <- function(df, threshold_df, MonitoringLocationIdentifier) {
     }
     
     # Calculate median position
-    median_pos <- if (q85 > q15) 15 + ((med - q15) / (q85 - q15)) * 70 else 50
+    median_pos <- if (q95 > q05) 5 + ((med - q05) / (q95 - q05)) * 90 else 50 
     
     # Count summary
-    num_low <- sum(recent_values < q15)
-    num_high <- sum(recent_values > q85)
+    num_low <- sum(recent_values < q05)
+    num_high <- sum(recent_values > q95)
     num_normal <- length(recent_values) - num_low - num_high
     
     # Generate summary text
     summary_parts <- c()
-    if (num_low > 0) summary_parts <- c(summary_parts, sprintf("%d in lower 15%%", num_low))
-    if (num_normal > 0) summary_parts <- c(summary_parts, sprintf("%d in middle 70%%", num_normal))
-    if (num_high > 0) summary_parts <- c(summary_parts, sprintf("%d in upper 15%%", num_high))
+    if (num_low > 0) summary_parts <- c(summary_parts, sprintf("%d in lower 5%%", num_low))
+    if (num_normal > 0) summary_parts <- c(summary_parts, sprintf("%d in middle 90%%", num_normal))
+    if (num_high > 0) summary_parts <- c(summary_parts, sprintf("%d in upper 5%%", num_high))
     
     summary_text <- if (length(summary_parts) > 0) {
       paste(summary_parts, collapse = ", ")
     } else {
-      "All values in middle 70% of historical data"
+      "All values in middle 90% of historical data"
     }
     
     sprintf(
-      '<div style="position: relative; height: 80px; background: linear-gradient(to right, #f0f4f8 0%%, #f0f4f8 15%%, #ffffff 15%%, #ffffff 85%%, #f0f4f8 85%%, #f0f4f8 100%%); border-radius: 8px; border: 1px solid #dee2e6; overflow: visible; margin-top: 12px;">
-         <div style="position: absolute; top: -18px; left: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: left; white-space: nowrap;">LOWER 15%% (< %.1f)</div>
-         <div style="position: absolute; top: -18px; left: 15%%; font-size: 10px; color: #495057; font-weight: 600; text-align: center; width: 70%%; white-space: nowrap;">MIDDLE 70%% OF DATA (%.1f - %.1f)</div>
-         <div style="position: absolute; top: -18px; right: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: right; white-space: nowrap;">UPPER 15%% (> %.1f)</div>
-         <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
-         <div style="position: absolute; top: 0; bottom: 0; left: 85%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
-         <div style="position: absolute; top: 0; bottom: 0; left: 15%%; width: 70%%; background: rgba(0, 123, 255, 0.08); z-index: 1;" title="15th to 85th percentile range: %.1f - %.1f"></div>
+      '<div style="position: relative; height: 80px; background: linear-gradient(to right, #f0f4f8 0%%, #f0f4f8 5%%, #ffffff 5%%, #ffffff 95%%, #f0f4f8 95%%, #f0f4f8 100%%); border-radius: 8px; border: 1px solid #dee2e6; overflow: visible; margin-top: 12px;">
+         <div style="position: absolute; top: -18px; left: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: left; white-space: nowrap;">LOWER 5%% (< %.1f)</div>
+         <div style="position: absolute; top: -18px; left: 5%%; font-size: 10px; color: #495057; font-weight: 600; text-align: center; width: 90%%; white-space: nowrap;">MIDDLE 90%% OF DATA (%.1f - %.1f; Median: %.1f)</div>
+         <div style="position: absolute; top: -18px; right: -20px; font-size: 10px; color: #6c757d; font-weight: 600; text-align: right; white-space: nowrap;">UPPER 5%% (> %.1f)</div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 5%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 95%%; width: 2px; background: #6c757d; opacity: 0.3; border-radius: 1px;"></div>
+         <div style="position: absolute; top: 0; bottom: 0; left: 5%%; width: 90%%; background: rgba(0, 123, 255, 0.08); z-index: 1;" title="5th to 95th percentile range: %.1f - %.1f"></div>
          <div style="position: absolute; top: 0; bottom: 0; left: %.1f%%; width: 3px; background: #333; z-index: 2; border-radius: 2px;" title="Median (50th percentile): %.1f"></div>
          %s
        </div>',
-      q15, q15, q85, q85, q15, q85, median_pos, med, dots_html
+      q05, q05, q95, med, q95, q05, q95, median_pos, med, dots_html
     )
   }
 
@@ -2469,7 +2420,7 @@ FuncParamTable <- function(df, threshold_df, MonitoringLocationIdentifier) {
     .param-info { text-align: left; width: 220px; word-wrap: break-word; white-space: normal;}
     .param-name { font-weight: 600; font-size: 13px; color: #333; margin-bottom: 2px; word-wrap: break-word; line-height: 1.2; white-space: normal;}
     .param-details { font-size: 12px; color: #666; line-height: 1.4; white-space: normal;}
-    .bar-column { width: 32opx; text-align: center; white-space: normal;}
+    .bar-column { width: 320px; text-align: center; white-space: normal;}
     .threshold-column { width: 240px; text-align: center; white-space: normal;}
     .donut-container-large { display: flex; flex-direction: row; align-items: center; gap: 12px; justify-content: center; }
     .legend-compact { font-size: 11px; text-align: left; max-width: 140px; }
@@ -2481,19 +2432,22 @@ FuncParamTable <- function(df, threshold_df, MonitoringLocationIdentifier) {
   rows <- lapply(1:nrow(df), function(i) {
     row <- df[i, ]
     
-    # Extract values efficiently
+    # Extract values
     low <- as.numeric(row$Lowest_Value_Numeric)
+    q05 <- as.numeric(row$q05)
+    med <- as.numeric(row$Median_Value_Numeric)
+    q95 <- as.numeric(row$q95)
     high <- as.numeric(row$Highest_Value_Numeric) 
     val <- as.numeric(row$Most_Recent_Value)
     n <- as.numeric(row$Sample_Size)
     param <- as.character(row$Characteristic)
     unit <- as.character(row$Unit)
     
-    # Single sprintf for parameter info
-    param_info <- sprintf('<div class="param-info"><div class="param-name">%s (%s)</div><div class="param-details"><div>N = %d samples</div><div>Years: %s</div><div>Range: %.1f - %.1f %s</div><div>Most recent: %.1f (%s)</div></div></div>', param, unit, n, row$Year_Range, low, high, unit, val, row$Most_Recent_Sample_Date)
+    # Single sprintf for parameter info 
+    param_info <- sprintf('<div class="param-info"><div class="param-name">%s</div><div class="param-details"><div>N = %d samples</div><div>Years: %s</div><div>Range: %.1f - %.1f %s</div><div>Median: %.1f %s</div><div>Most recent: %.1f (%s)</div></div></div>', param, n, row$Year_Range, low, high, unit, med, unit, val, row$Most_Recent_Sample_Date)
 
     # Bar chart
-    bar_html <- tryCatch(build_css_bar(low, high, as.character(row$Recent_Values), as.character(row$Recent_Dates), n), error = function(e) sprintf('<div style="padding: 20px; text-align: center; color: #666;">Error: %s</div>', e$message))
+    bar_html <- tryCatch(build_css_bar(low, q05, med, q95, high, as.character(row$Recent_Values), as.character(row$Recent_Dates), n), error = function(e) sprintf('<div style="padding: 20px; text-align: center; color: #666;">Error: %s</div>', e$message))
 
     cat("STARTING THRESHOLD LOOKUP")
     # Threshold lookup
@@ -2522,7 +2476,7 @@ FuncParamTable <- function(df, threshold_df, MonitoringLocationIdentifier) {
       shiny::tags$thead(
         shiny::tags$tr(
           shiny::tags$th("Parameter Details", style = "text-align: left; width: 220px;"),
-          shiny::tags$th("Recent Data Values (up to 5 shown)", style = "width: 320px;"),
+          shiny::tags$th("Recent Data Values (up to 5 shown, with most recent at top)", style = "width: 320px;"),
           shiny::tags$th("Threshold Breakdown for ALL Data", style = "width: 240px;")
         )
       ),
@@ -2587,7 +2541,7 @@ for (i in c("ResultDetectionConditionText", "ThreshCateg", "PercCateg")) {
 
 
 FuncClearAll <- function() {
-  rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) 
+  rv <- reactiveValues(wqp_url_list = list(), parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) 
   
   rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
   
@@ -2602,19 +2556,6 @@ FuncClearAll <- function() {
   input <- list()
   
 }
-
-  # FuncSelHUC <- function(huc, huc_sf, park_code, overlaps_list) {
-  #   # Function to generate HUC sf with only the HUCs that overlap the selected park unit.
-  #   huc_on_park <- overlaps_list[[huc]] %>%
-  #   dplyr::filter(unit_code == park_code) %>%
-  #   dplyr::pull(tolower(huc))
-  #   
-  #   huc_sf_subset <- huc_sf %>% 
-  #     dplyr::rename(HUC = tolower(huc)) %>%
-  #     dplyr::filter(HUC %in% huc_on_park)
-  #   
-  #   return(huc_sf_subset)
-  # }
   
 # These are reactable functions
 bar_chart <- function(label, width = "100%", height = "14px", fill = "#00bfc4", background = NULL) {
@@ -2644,7 +2585,7 @@ grabit <- function(url) {
 ```
 
 ```{r startup}
-rv <- reactiveValues(wqp_url = NULL, parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) 
+rv <- reactiveValues(wqp_url_list = list(), parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) 
    
 rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
 ```
@@ -2786,18 +2727,12 @@ observeEvent(eventExpr = input$button_showStations, {
     
   shinyjs::hideElement("new_data_P2")
   shinyjs::hideElement("new_data_P3")
-    
-  
-      saveRDS(isolate(reactiveValuesToList(rv)), here::here(
-   "TEMP_rv.RDS"))
- saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
- saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
   
   # Get park unit boundary data from dashboard files ----
   # Check for problems with self-intersections, etc. These problems should be fixed in the updated version of LandscapeDynamics
   parks_sf <- readRDS(here::here("dashboard_files", "parks_sf.RDS"))
     rv$unitPoly <- parks_sf %>% dplyr::filter(UNIT_CODE == rv$parkID) %>% sf::st_make_valid(.)
-  print("line2432")
+
    # Get HUC10 & HUC12 boundary data from web services ----
     # Files are too large to save with dashboard for quick pull
 
@@ -2859,7 +2794,6 @@ observeEvent(eventExpr = input$button_showStations, {
    # Recently active WQP stations that fall within the HUC10 bbox (sampled within past [user-specified number of] years) 
   sitesURL <- paste0("https://www.waterqualitydata.us/data/Station/search?siteType=Aggregate%20surface-water-use&siteType=Estuary&siteType=Lake%2C%20Reservoir%2C%20Impoundment&siteType=Spring&siteType=Stream&siteType=Well&siteType=Wetland&siteType=Aggregate%20groundwater%20use&siteType=Aggregate%20groundwater%20use%20&siteType=Aggregate%20water-use%20establishment&siteType=Subsurface&bBox=", paste(huc10_bbox, collapse ="%2C"), "&characteristicType=Toxicity&characteristicType=Physical&characteristicType=Organics%2C%20PFAS&characteristicType=Organics%2C%20Pesticide&characteristicType=Organics%2C%20PCBs&characteristicType=Nutrient&characteristicType=Microbiological&characteristicType=Cyanotoxins%2C%20Phytotoxins&characteristicType=Inorganics%2C%20Major%2C%20Metals&characteristicType=Inorganics%2C%20Major%2C%20Non-metals&minactivities=1&startDateLo=01-01-", lubridate::year(Sys.Date())-as.integer(input$sel_ActiveWithinYrs), "&sampleMedia=Water&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
    
-  cat(sitesURL)
     if(httr::http_status(httr::GET(sitesURL))$category!="Success") { # make sure the service call is valid
       shiny::showModal(
         urlModal(sitesURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving monitoring sites information from the Water Quality Portal. The message from the web service is: `", httr::http_status(GET(sitesURL))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
@@ -2867,14 +2801,8 @@ observeEvent(eventExpr = input$button_showStations, {
     }
     
     shiny::req(httr::http_status(GET(sitesURL))$category=="Success") # if not a valid service call, abort
-    # polite::bow(sitesURL) %>% rip(destfile = "tempSites.csv", mode = "w")
 
     download.file(sitesURL, "tempSites.csv", mode = "w")
-    
- # saveRDS(isolate(reactiveValuesToList(rv)), here::here(
- #   "TEMP_rv.RDS"))
- # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
- # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
     
     sites <- read_csv("tempSites.csv", trim_ws = TRUE)
     sites$HUCEightDigitCode <- gsub(pattern="-", replacement = "", x= as.character(sites$HUCEightDigitCode)) # Weird issue with BLRI
@@ -2905,7 +2833,7 @@ observeEvent(eventExpr = input$button_showStations, {
     
     rv$sitesPointsSub <- sitesPoints
     rm(sites, temp_points, sitesPoints)
-    unlink("tempSites.csv")
+    # unlink("tempSites.csv")
   
   # Get recently active USGS stream gauging station information, within HUC10's, from dashboard files ----
   incProgress(1/7, detail = "...USGS stream gages station information from NWIS")
@@ -2988,55 +2916,148 @@ print("line2336")
   print("Getting EPA")
   facilitiesPoints <- NULL # make sure previous search information erased
   
- facilitiesURL <- paste0("https://ofmpub.epa.gov/echo/cwa_rest_services.get_facility_info?output=GEOJSON&p_maj=Y&p_wbd=", paste(rv$HUC10$HUC, collapse = ",")) # major facilities only, falls within the HUC10 boundaries
+#  facilitiesURL <- paste0("https://ofmpub.epa.gov/echo/cwa_rest_services.get_facility_info?output=GEOJSON&p_maj=Y&p_wbd=", paste(rv$HUC10$HUC, collapse = ",")) # major facilities only, falls within the HUC10 boundaries
+# print("line2614")
+# print(facilitiesURL)
+#   if(httr::http_status(GET(facilitiesURL))$category!="Success") { # make sure the service call is valid
+#     showModal(modalDialog(
+#       title = "No Discharge Facilities Data",
+#       "Error retrieving discharge facilities locations data from EPA ECHO. These data are not necessary for visualizing water quality data on the dashboard.",
+#       easyClose = FALSE,
+#       footer = tagList(
+#         div(style="display:inline-block; width:100px;", actionButton("dismiss_discharge_modal", "Got it!"))
+#         )
+#       )
+#       ) # Require user to click 'Got it!' button for the modal to close
+#     } else {
+#       if(length(str_detect(content(GET(facilitiesURL))$message, "invalid:")) > 0) { # if the http is valid, but some HUCs are not found, remove those HUCs from the search
+#         lostHUCS <- unlist(str_extract_all(content(GET(facilitiesURL))$message, "[[:digit:]]{10}")) # extract the HUC10's
+#         subsetHUC <- setdiff(rv$HUC10$HUC, lostHUCS) # remove those HUC's from the list, and try again
+#         facilitiesURL <- paste0("https://ofmpub.epa.gov/echo/cwa_rest_services.get_facility_info?output=GEOJSON&p_maj=Y&p_wbd=", paste(subsetHUC, collapse = ",")) # major facilities only, falls within the HUC10 boundaries
+#         print(facilitiesURL)
+#       }
+#       tempFacilitiesOutput <- "tempFacilities.geojson"
+#       print("line2360")
+#       download.file(facilitiesURL, tempFacilitiesOutput)
+#       facilitiesPoints <- tryCatch(readOGR(dsn = tempFacilitiesOutput, dropNULLGeometries = FALSE), error=function(e) print("Error retrieving discharge facilities information"))
+# print("line2635")
+#       if(class(facilitiesPoints)!="SpatialPointsDataFrame") {
+#         rv$facilitiesPointsSub <- NULL
+#         showModal(modalDialog(
+#           title = "No Discharge Facilities Data",
+#           "Error retrieving discharge facilities locations data from EPA ECHO. These data are not necessary for visualizing water quality data on the dashboard.",
+#           easyClose = FALSE,
+#           footer = tagList(
+#             actionButton("dismiss_discharge_modal", "Got it!")
+#             )
+#           )
+#       ) # Require user to click 'Got it!' button for the modal to close
+#         
+#         } else {
+#           facilitiesPoints %<>%
+#             dplyr::mutate(
+#               FACLAB = paste0("Discharge Facility: ", CWPName, " [", SourceID, "]"),
+#               FACPOP = paste0('Discharge Facility: <a href="https://echo.epa.gov/detailed-facility-report?fid=', SourceID, '" target="_blank">', CWPName, '</a>', "<br>Source ID: ", SourceID, "<br>Type: ", CWPFacilityTypeIndicator, "<br>County: ", CWPCounty, "<br>State: ", CWPState)) # CWPName
+#           rv$facilitiesPointsSub <- facilitiesPoints[rv$HUC10,]
+#           rm(facilitiesPoints)
+#         }
+#       rm(facilitiesURL, tempFacilitiesOutput)
+#       unlink("tempFacilities.geojson")
+#     }
+  
+  facilitiesURL <- paste0(
+  "https://ofmpub.epa.gov/echo/cwa_rest_services.get_facility_info?output=GEOJSON&p_maj=Y&p_wbd=",
+  paste(rv$HUC10$HUC, collapse = ",")
+)
 print("line2614")
 print(facilitiesURL)
-  if(httr::http_status(GET(facilitiesURL))$category!="Success") { # make sure the service call is valid
-    rv$facilitiesPointsSub <- NULL
-    showModal(modalDialog(
-      title = "No Discharge Facilities Data",
-      "Error retrieving discharge facilities locations data from EPA ECHO. These data are not necessary for visualizing water quality data on the dashboard.",
-      easyClose = FALSE,
-      footer = tagList(
-        div(style="display:inline-block; width:100px;", actionButton("dismiss_discharge_modal", "Got it!"))
-        )
+
+# Try GET request
+facilitiesResp <- tryCatch(httr::GET(facilitiesURL), error = function(e) NULL)
+
+if (is.null(facilitiesResp) || httr::http_status(facilitiesResp)$category != "Success") {
+  showModal(modalDialog(
+    title = "No Discharge Facilities Data",
+    "Error retrieving discharge facilities locations data from EPA ECHO. These data are not necessary for visualizing water quality data on the dashboard.",
+    easyClose = FALSE,
+    footer = tagList(
+      div(style = "display:inline-block; width:100px;", actionButton("dismiss_discharge_modal", "Got it!"))
+    )
+  ))
+} else {
+  # Check if response message includes invalid HUCs
+  resp_content <- tryCatch(httr::content(facilitiesResp), error = function(e) NULL)
+
+  if (!is.null(resp_content$message) && length(stringr::str_detect(resp_content$message, "invalid:")) > 0) {
+    lostHUCS <- unlist(stringr::str_extract_all(resp_content$message, "[[:digit:]]{10}"))
+    subsetHUC <- setdiff(rv$HUC10$HUC, lostHUCS)
+
+    facilitiesURL <- paste0(
+      "https://ofmpub.epa.gov/echo/cwa_rest_services.get_facility_info?output=GEOJSON&p_maj=Y&p_wbd=",
+      paste(subsetHUC, collapse = ",")
+    )
+    print(facilitiesURL)
+
+    facilitiesResp <- tryCatch(httr::GET(facilitiesURL), error = function(e) NULL)
+    if (is.null(facilitiesResp) || httr::http_status(facilitiesResp)$category != "Success") {
+      facilitiesResp <- NULL
+    }
+  }
+
+  if (!is.null(facilitiesResp)) {
+    tempFacilitiesOutput <- "tempFacilities.geojson"
+    print("line2360")
+    
+    # Try downloading the file
+    downloadSuccess <- tryCatch({
+      download.file(facilitiesURL, tempFacilitiesOutput, quiet = TRUE)
+      TRUE
+    }, error = function(e) FALSE)
+
+    if (downloadSuccess) {
+      facilitiesPoints <- tryCatch(
+        readOGR(dsn = tempFacilitiesOutput, dropNULLGeometries = FALSE),
+        error = function(e) NULL
       )
-      ) # Require user to click 'Got it!' button for the modal to close
-    } else {
-      if(length(str_detect(content(GET(facilitiesURL))$message, "invalid:")) > 0) { # if the http is valid, but some HUCs are not found, remove those HUCs from the search
-        lostHUCS <- unlist(str_extract_all(content(GET(facilitiesURL))$message, "[[:digit:]]{10}")) # extract the HUC10's
-        subsetHUC <- setdiff(rv$HUC10$HUC, lostHUCS) # remove those HUC's from the list, and try again
-        facilitiesURL <- paste0("https://ofmpub.epa.gov/echo/cwa_rest_services.get_facility_info?output=GEOJSON&p_maj=Y&p_wbd=", paste(subsetHUC, collapse = ",")) # major facilities only, falls within the HUC10 boundaries
-        print(facilitiesURL)
-      }
-      tempFacilitiesOutput <- "tempFacilities.geojson"
-      print("line2360")
-      download.file(facilitiesURL, tempFacilitiesOutput)
-      facilitiesPoints <- tryCatch(readOGR(dsn = tempFacilitiesOutput, dropNULLGeometries = FALSE), error=function(e) print("Error retrieving discharge facilities information"))
-print("line2635")
-      if(class(facilitiesPoints)!="SpatialPointsDataFrame") {
+
+      if (!inherits(facilitiesPoints, "SpatialPointsDataFrame")) {
         rv$facilitiesPointsSub <- NULL
         showModal(modalDialog(
           title = "No Discharge Facilities Data",
           "Error retrieving discharge facilities locations data from EPA ECHO. These data are not necessary for visualizing water quality data on the dashboard.",
           easyClose = FALSE,
-          footer = tagList(
-            actionButton("dismiss_discharge_modal", "Got it!")
-            )
+          footer = tagList(actionButton("dismiss_discharge_modal", "Got it!"))
+        ))
+      } else {
+        facilitiesPoints <- dplyr::mutate(
+          facilitiesPoints,
+          FACLAB = paste0("Discharge Facility: ", CWPName, " [", SourceID, "]"),
+          FACPOP = paste0(
+            'Discharge Facility: <a href="https://echo.epa.gov/detailed-facility-report?fid=',
+            SourceID, '" target="_blank">', CWPName, '</a>',
+            "<br>Source ID: ", SourceID,
+            "<br>Type: ", CWPFacilityTypeIndicator,
+            "<br>County: ", CWPCounty,
+            "<br>State: ", CWPState
           )
-      ) # Require user to click 'Got it!' button for the modal to close
-        
-        } else {
-          facilitiesPoints %<>%
-            dplyr::mutate(
-              FACLAB = paste0("Discharge Facility: ", CWPName, " [", SourceID, "]"),
-              FACPOP = paste0('Discharge Facility: <a href="https://echo.epa.gov/detailed-facility-report?fid=', SourceID, '" target="_blank">', CWPName, '</a>', "<br>Source ID: ", SourceID, "<br>Type: ", CWPFacilityTypeIndicator, "<br>County: ", CWPCounty, "<br>State: ", CWPState)) # CWPName
-          rv$facilitiesPointsSub <- facilitiesPoints[rv$HUC10,]
-          rm(facilitiesPoints)
-        }
-      rm(facilitiesURL, tempFacilitiesOutput)
-      unlink("tempFacilities.geojson")
+        )
+        rv$facilitiesPointsSub <- facilitiesPoints[rv$HUC10, ]
+        rm(facilitiesPoints)
+      }
+    } else {
+      rv$facilitiesPointsSub <- NULL
+      showModal(modalDialog(
+        title = "No Discharge Facilities Data",
+        "Unable to download discharge facilities data from EPA ECHO. These data are not necessary for visualizing water quality data on the dashboard.",
+        easyClose = FALSE,
+        footer = tagList(actionButton("dismiss_discharge_modal", "Got it!"))
+      ))
     }
+
+    unlink("tempFacilities.geojson")  # cleanup
+    rm(facilitiesURL, tempFacilitiesOutput)
+  }
+}
     # If displaying shapes, points, etc., Leaflet will automatically project the WGS84 long-lat coordinates when displaying. Leaflet only supports TILES that have been published in EPSG 3857, so if using other tiles (e.g., NPS), need to change projections
   })
   
@@ -3050,10 +3071,9 @@ print("line2635")
 
 showModal(modalDialog(
   title = "Done",
-  HTML("In the <strong>'2. Filter Sites to Download'</strong> panel, choose the monitoring sites you want to download data from. You can:<ul>
-    <li>Download data for the entire park,</li>
-    <li>Select specific watersheds, or</li>
-    <li>Specify an origin station and distance upstream/downstream.</li>
+  HTML("In the <strong>'3 (of 4). Filter sites to download'</strong> panel, choose the monitoring sites you want to download data from. You can:<ul>
+    <li>Download data for the entire park, or </li>
+    <li>Select specific watersheds.</li>
   </ul>
   You can also apply additional filters using the other options in the panel. When you're ready, click <strong>'Summarize Selected Sites'</strong> to preview a summary of the data before downloading.")
 ))
@@ -3169,8 +3189,6 @@ observeEvent(eventExpr = input$button_summarizeStations, {
       selectedDownstreamLines = ifelse(input$sel_DistKmDownstream > 0, paste0("https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/", input$sel_OriginStationID, "/navigation/", ifelse(input$sel_IncludeDiversions, "DD", "DM"), "?distance=", input$sel_DistKmDownstream), NA),
       selectedUpstreamStations = ifelse(input$sel_DistKmUpstream > 0, paste0("https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/", input$sel_OriginStationID, "/navigation/", ifelse(input$sel_IncludeTribs, "UT", "UM"), "/wqp?distance=", input$sel_DistKmUpstream), NA),
       selectedDownstreamStations = ifelse(input$sel_DistKmDownstream > 0, paste0("https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/", input$sel_OriginStationID, "/navigation/", ifelse(input$sel_IncludeDiversions, "DD", "DM"), "/wqp?distance=", input$sel_DistKmDownstream), NA))
-    
-    saveRDS(nldiURLS, "temp_nldi.RDS")
  
     for(n in names(nldiURLS)) {
    
@@ -3218,19 +3236,23 @@ observeEvent(eventExpr = input$button_summarizeStations, {
 } # end of methodDist
   
   withProgress(message = "Summarizing selected data...", value = 0, { 
-  # Get statistics about the parameters and number of data records for the selected sites and characteristic types
   
-  stationChoiceString <- paste0(unique(rv$selectedStations$MonitoringLocationIdentifier), collapse = "&siteid=")
-  
-  charTypeChoiceString <- paste(input$sel_CharType, collapse = "&characteristicType=", sep = ";") %>%
+  # BATCH PROCESSING: For downloading data, break up large data requests
+    all_summaries <- list()
+    
+    charTypeChoiceString <- paste(input$sel_CharType, collapse = "&characteristicType=", sep = ";") %>%
   gsub(",", "%2C", .) %>%
   gsub(" ", "%20", .)
+    
+    subset_stations_list <- split(unique(rv$selectedStations$MonitoringLocationIdentifier), ceiling(seq_along(unique(rv$selectedStations$MonitoringLocationIdentifier))/20)) # import data for 20 stations (max) at a time
   
-  # searchURL <- paste0("search?siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no") # REMOVED SITETYPE & MINACTIVITIES & START & END DATES AS AN OPTION AT THIS STAGE)
-  
+ for(i in 1:length(subset_stations_list)) {
+    s <- subset_stations_list[[i]]
+    stationChoiceString <- paste0(s, collapse = "&siteid=")
+    
     summaryURL <- paste0("https://www.waterqualitydata.us/data/summary/monitoringLocation/search?siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&summaryYears=all&count=no&dataProfile=periodOfRecord")
     
-        if(httr::http_status(GET(summaryURL))$category!="Success") { # make sure the service call is valid
+     if(httr::http_status(GET(summaryURL))$category!="Success") { # make sure the service call is valid
       showModal(
         urlModal(summaryURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data selection information from the Water Quality Portal. The message from the web service is: `", httr::http_status(GET(summaryURL))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
       )
@@ -3239,34 +3261,25 @@ observeEvent(eventExpr = input$button_summarizeStations, {
     shiny::req(httr::http_status(GET(summaryURL))$category=="Success") # if not a valid service call, abort
 
     download.file(summaryURL, "tempSummary.csv", mode = "w")
-    rv$selectedDataSummary <- read_csv("tempSummary.csv", trim_ws = TRUE) %>%
+    all_summaries[[i]] <- read_csv("tempSummary.csv", trim_ws = TRUE) %>%
       dplyr::select(-MonitoringLocationUrl, -CountyName, -StateName, -MonitoringLocationLatitude, -MonitoringLocationLongitude)
+    rv$wqp_url_list[[i]] <- paste0("https://www.waterqualitydata.us/data/Result/search?siteid=", stationChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&dataProfile=resultPhysChem&providers=NWIS&providers=STORET")
+    Sys.sleep(0.5) # pause between data pulls
+  }
   
-  # # For downloading data, break up large data requests
-  # subset_stations_list <- split(unique(rv$selectedStations$MonitoringLocationIdentifier), ceiling(seq_along(unique(rv$selectedStations$MonitoringLocationIdentifier))/20)) # import data for 20 stations (max) at a time
-  # saveRDS(subset_stations_list, here::here("subset_stations_list.RDS"))
-  # 
-  #   saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
-  
-  
-  # rv$wqp_url_list <- lapply(subset_stations_list, function(s) {
-  #   stationChoiceString_partial <- paste0(s, collapse = "&siteid=")
-  #   paste0("https://www.waterqualitydata.us/data/Result/search?siteid=", stationChoiceString_partial, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no")
-  # }) # this is a LIST of wqp download url's
+    rv$selectedDataSummary <- do.call("rbind.data.frame", all_summaries)
+    rm(all_summaries)
+    unlink("tempSummary.csv")
+    
+  })
 
-  # rv$wqp_url <- paste0("https://www.waterqualitydata.us/data/Result/search?siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&dataProfile=resultPhysChem&providers=NWIS&providers=STORET")
-    rv$wqp_url <- paste0("https://www.waterqualitydata.us/data/Result/search?siteid=", stationChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&dataProfile=resultPhysChem&providers=NWIS&providers=STORET") # Aug 2025 issue with WQP is I can get many sites IF I don't filter for Characteristic Type, or I can get very few sites and filter for Characteristic Type
-
-cat("line2993")
   # Create tab with the summary info after downloading it. Add totals to message. Check what generates the white highlight.
 
 showModal(modalDialog(
   title = "Done",
-  HTML(paste0("<strong>You have selected ", sum(rv$selectedDataSummary$ResultCount), " data records from ", length(unique(rv$selectedDataSummary$MonitoringLocationIdentifier)), " sites.</strong> Review your selection in the 'Summary of Selected Data' and 'Summary of Selected Characteristics' tabs. <br><br>Selected monitoring sites are shown as larger, white-outlined circles on the map.", 
+  HTML(paste0("<strong>You have selected ", sum(rv$selectedDataSummary$ResultCount), " data records from ", length(unique(rv$selectedDataSummary$MonitoringLocationIdentifier)), " sites.</strong> Selected monitoring sites are shown as larger, white-outlined circles on the map.", 
               switch((input$sel_SelectMethod == "methodDist")+1, "", "The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in white; downstream, in brown."),
-              "<br><br>Select gage stations (if available), then press the <strong>DOWNLOAD SELECTED DATA</strong> button to import the water quality data."))
+              "<br><br>Review your selection in the 'Summary of Selected Characteristics' and 'Summary of Selected Site-Characteristics' tabs. <br><br>Select gage stations (if available), then press the <strong>DOWNLOAD SELECTED DATA</strong> button to import the water quality data."))
 )) # <<<<<< AFTER ADDING WEATHER SHOULD SAY 'GAGE AND WEATHER'
   
   if(!is.null(rv$meteoStations)|!is.null(rv$gageStations)) {
@@ -3274,7 +3287,7 @@ showModal(modalDialog(
     shinyjs::showElement("new_data_P3")
     cat("line3006")
   }
-})
+# })
   }, ignoreInit = TRUE) # end of observeEvent
 ```
 
@@ -3299,17 +3312,17 @@ observeEvent(eventExpr = input$button_downloadData, {
   shiny::req(length(input$sel_CharType) > 0)
   
   # if(is.null(rv$selectedStations) | length(rv$selectedStations$MonitoringLocationIdentifier) == 0 | is.null(rv$wqp_url_list)) {
-    if(is.null(rv$selectedStations) | length(rv$selectedStations$MonitoringLocationIdentifier) == 0 | is.null(rv$wqp_url)) {
+    if(is.null(rv$selectedStations) | length(rv$selectedStations$MonitoringLocationIdentifier) == 0 | is.null(rv$wqp_url_list)) {
     showModal(modalDialog(
       title = "No monitoring sites selected",
-      "Please select monitoring sites from which you would like to import data (filter sites by HUC or by distance from origin, then click the 'Summarize Selected Sites' button)."
+      "Please select monitoring sites from which you would like to import data (filter sites by HUC or by distance from origin, then click 'Summarize Selected Sites' button)."
     ))
   }
   # shiny::req(!is.null(rv$selectedStations), !is.null(rv$sitesPointsSub), !is.null(rv$wqp_url_list))
-  shiny::req(!is.null(rv$selectedStations), !is.null(rv$sitesPointsSub), !is.null(rv$wqp_url))
-  shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0)
+  shiny::req(!is.null(rv$selectedStations), !is.null(rv$sitesPointsSub), !is.null(rv$wqp_url_list))
+  shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0, length(rv$wqp_url_list) > 0)
 
-    withProgress(message = "Processing data request...", detail = "Importing data from Water Quality Portal, a few stations at a time (please be patient!)", value = 0, {
+    withProgress(message = "Processing data request...", value = 0, {
       
       showModal(tags$div(id = "gif_modal", modalDialog(
         HTML('<img src="https://media.giphy.com/media/33zX3zllJBGY8/source.gif"><br><center>I am just your entertainment.<br><center>The progress bar is below.'), # custom loading gif--running elephant
@@ -3317,46 +3330,28 @@ observeEvent(eventExpr = input$button_downloadData, {
         footer = NULL
       )))
       
-      # set_import_count <- 0
-  # temp_dat_list <- lapply(rv$wqp_url_list, FUN = function(wqp_url) {
-  
-      if(httr::http_status(GET(rv$wqp_url))$category!="Success") { # make sure the service call is valid
+      all_data <- list()
+      for(i in 1:length(rv$wqp_url_list)) {
+        setProgress(1/12, detail = paste0("Importing set #", i, " of ", length(rv$wqp_url_list), " (up to 20 sites imported per set)"))
+        
+        wqp_url <- rv$wqp_url_list[[i]]
+         if(httr::http_status(GET(wqp_url))$category!="Success") { # make sure the service call is valid
       showModal(
-        urlModal(rv$wqp_url, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data from the Water Quality Portal for the requested query. The message from the web service is: `", httr::http_status(GET(rv$wqp_url))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If an error results, email WQP support (wqx@epa.gov) for assistance. If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
+        urlModal(wqp_url, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data from the Water Quality Portal for the requested query. The message from the web service is: `", httr::http_status(GET(wqp_url))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If an error results, email WQP support (wqx@epa.gov) for assistance. If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
         )
       }
 
-  shiny::validate(need(httr::http_status(GET(rv$wqp_url))$category=="Success", message = FALSE)) # if not a valid service call, abort
+  shiny::validate(need(httr::http_status(GET(wqp_url))$category=="Success", message = FALSE))
   
-  # set_import_count <- set_import_count + 1
-  
-  # setProgress(1/12, detail = paste0("Importing set #", set_import_count, " (up to 20 sites imported per set)"))
-
-  # download.file(wqp_url, paste0("tempWQPDat", set_import_count, ".csv"), mode = "w") # in Windows, mode = "w" when opening text files and "wb" for other types, such as .jpg
-  
-  download.file(rv$wqp_url, "tempDat.csv", mode = "w") # in Windows, mode = "w" when opening text files and "wb" for other types, such as .jpg
- tempDat <- read.csv("tempDat.csv") %>%
-   dplyr::filter(CharacteristicName %in% unique(rv$selectedDataSummary$CharacteristicName))
-
- # saveRDS(rawDat, "TEMP_rawDat.RDS")
- #       
- #    saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
- #  saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
- #  saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
-  })
-  
-  # wqp_downloads <- list.files(
-#     path = here::here(),
-#     pattern = paste0("^tempWQPDat*"),
-#   full.names = TRUE
-# )
-
-  # temp_dat_list <- lapply(wqp_downloads, FUN = function(x) read.csv(x))
-  
-  setProgress(1/4, detail = "Formatting data")
-  # tempDat <- do.call(rbind.data.frame, temp_dat_list)
-  # rm(temp_dat_list)
-
+  download.file(wqp_url, "tempDat.csv", mode = "w") # in Windows, mode = "w" when opening text files and "wb" for other types, such as .jpg
+  all_data[[i]] <- read.csv("tempDat.csv") %>%
+    dplyr::filter(CharacteristicName %in% unique(rv$selectedDataSummary$CharacteristicName))
+  Sys.sleep(0.5) # pause between data pulls
+      }
+      
+      tempDat <- do.call("rbind.data.frame", all_data) 
+      rm(all_data)
+      unlink("tempDat.csv")
 
 # Format WQP data ----
   setProgress(1/4, detail = "Formatting data")
@@ -3553,10 +3548,11 @@ cat("line3506")
   rv_param_temp$threshDF <- NULL
   rv_param_temp$categLevelsPlot <- NULL
  cat("line3503")
+    })
 
     showModal(modalDialog(
       title = "Done",
-      HTML(paste0("Data import SUCCESSFUL. OPTIONAL: To download the formatted data file (.RDS) to your computer, press the <strong>`Save RDS to Computer` </strong> button in the left side panel. You may now navigate to the other dashboard pages. ")) 
+      HTML(paste0("<strong>Data import SUCCESSFUL.</strong> OPTIONAL: To download the formatted data file (.RDS) to your computer, press the <strong>`Save RDS to Computer` </strong> button in the left side panel. You may now navigate to the other dashboard pages. ")) 
     ))
   # })
 }, ignoreInit = TRUE) # end of observeEvent
@@ -3607,22 +3603,12 @@ observeEvent(eventExpr = input$button_getThreshFile, {
     ))
   }
 
-  # if(is.null(rv_param_temp$subDat)) {
-  #   showModal(modalDialog(
-  #     title = "No Filter Selection",
-  #     "From the left sidebar, please choose a subset of data to work with."
-  #   ))
-  #   }
-
-  # shiny::req(!is.null(input$sel_GetThreshFile))
-  # if (input$sel_GetThreshFile == "existing_data") {
     showModal(modalDialog(
       fileInput("saved_thresh_file", label = "Attach a threshold limits file ('csv' extension)", placeholder = "Click 'Browse...' button then navigate to file", accept = c('.csv'), width = "100%"),
                footer = tagList(
                  modalButton("Cancel")
                )
     ))
-  # }
 }) # end observeEvent
 
 # Action to load threshold limits .csv file ----
@@ -3641,23 +3627,6 @@ observeEvent(eventExpr = input$saved_thresh_file, {
 
   shiny::req(!is.null(out_thresh_file))
 
-#   out_thresh_file[] <- lapply(out_thresh_file, as.character) # convert all cols to character.
-#   tempThresh_df <- out_thresh_file %>%
-#       dplyr::mutate(CharSampleType = paste0(CharacteristicName, " (", ifelse(is.na(SampleFraction), MeasureUnit, paste(SampleFraction, MeasureUnit, sep = "; ")), ")")) # unique characteristic ID, for user choice
-# 
-#     tempThresh_list <- list()
-#     for (i in 1:nrow(tempThresh_df)) {
-#       threshID <- unlist(tempThresh_df[i, "CharSampleType"])
-#       tempThresh_list[[threshID]]$CharacteristicName <- tempThresh_df$CharacteristicName[i]
-#       tempThresh_list[[threshID]]$ResultSampleFractionText <- tempThresh_df$SampleFraction[i]
-#       tempThresh_list[[threshID]]$ResultMeasure.MeasureUnitCode <- tempThresh_df$MeasureUnit[i]
-#       tempThresh_list[[threshID]]$Notes <- tempThresh_df$Notes[i]
-#       tempThresh_list[[threshID]]$cut_breaks <- as.numeric(unlist(base::strsplit(stringr::str_replace_all(tempThresh_df$ThreshBreaks[i], "[()]", ""), split="//")))
-#       tempThresh_list[[threshID]]$cut_categ <- unlist(base::strsplit(stringr::str_replace_all(tempThresh_df$ThreshCateg[i], "[()]", ""), split="//"))
-#     }
-#     
-#     rv_param_temp$threshList <- tempThresh_list
-# >>>>>>>>>>>>> NEW BELOW
 out_thresh_file[] <- lapply(out_thresh_file, as.character) # convert all cols to character.
 tempThresh_df <- out_thresh_file %>%
     dplyr::mutate(CharSampleType = paste0(CharacteristicName, " (", ifelse(is.na(SampleFraction), MeasureUnit, paste(SampleFraction, MeasureUnit, sep = "; ")), ")")) %>% # unique characteristic ID, for user choice
@@ -3704,11 +3673,13 @@ for (i in 1:nrow(tempThresh_df)) {
 }
 
 rv_param_temp$threshList <- tempThresh_list
-#>>>>>>>>>>>>>>>>>>>> NEW ABOVE
+cat("line3776")
+updateRadioButtons(session, "sel_ShowThresholds", selected = "showthresh_file") # on initial load, automatically change ShowThresholds setting to use the thresholds file
+cat("line3778")
     
     showModal(modalDialog(
       title = "Done",
-      "Threshold limits file has been imported"
+      "Threshold limits file has been imported. Click the green 'REFRESH PLOT DATA' button to add thresholds to plots."
     ))
   }
 }, ignoreInit = TRUE) # end of observeEvent
@@ -3749,7 +3720,6 @@ observe({
   dplyr::select(Site = MonitoringLocationIdentifier, Characteristic = CharSampleType, Unit = ResultMeasure.MeasureUnitCode, ThreshCateg, ThreshCateg_Label, n)
   }
 
-
   # Create pop-up table for map clicks
   rv_param_temp$popupSiteSummary <- rv_param_temp$subDat %>% 
     dplyr::select(MonitoringLocationIdentifier, CharSampleType, Yr, ActivityStartDate, ResultMeasureValue_replaced, ResultMeasure.MeasureUnitCode, ResultDetectionConditionText, ThreshCateg) %>%
@@ -3758,71 +3728,42 @@ observe({
     dplyr::arrange(MonitoringLocationIdentifier, CharSampleType, desc(ActivityStartDate)) %>%
     dplyr::summarise(
       Sample_Size = n(),
-      Year_Range = if(min(Yr, na.rm = TRUE) == max(Yr, na.rm = TRUE)) {
-        as.character(min(Yr, na.rm = TRUE))
-      } else {
-        paste0(min(Yr, na.rm = TRUE), "–", max(Yr, na.rm = TRUE))
-      },
-        Lowest_Value_Numeric = min(ResultMeasureValue_replaced, na.rm = TRUE),   
+      Year_Range = ifelse(min(Yr, na.rm = TRUE) == max(Yr, na.rm = TRUE),
+                        as.character(min(Yr, na.rm = TRUE)),
+                        paste0(min(Yr, na.rm = TRUE), "–", max(Yr, na.rm = TRUE))),
+        Lowest_Value_Numeric = min(ResultMeasureValue_replaced, na.rm = TRUE),  
+        q05 = quantile(ResultMeasureValue_replaced, 0.05, na.rm = TRUE),
+    Median_Value_Numeric = median(ResultMeasureValue_replaced, na.rm = TRUE),
+    q95 = quantile(ResultMeasureValue_replaced, 0.95, na.rm = TRUE),
   Highest_Value_Numeric = max(ResultMeasureValue_replaced, na.rm = TRUE),  
       Lowest_Value = {
         min_val <- min(ResultMeasureValue_replaced, na.rm = TRUE)
-        min_conditions <- unique(ResultDetectionConditionText[ResultMeasureValue_replaced == min_val & !is.na(ResultDetectionConditionText)])
-        min_conditions <- min_conditions[min_conditions != ""]
-        if(length(min_conditions) > 0) {
-          paste0(min_val, " (", paste(min_conditions, collapse = "/"), ")")
-        } else {
-          as.character(min_val)
-        }
-      },
+        conditions <- na.omit(unique(ResultDetectionConditionText[ResultMeasureValue_replaced == min_val])) # note: depending on date, it's possible that the minimum value could have more than one detection condition, as detection limits change over time
+        conditions <- conditions[conditions != ""]
+        ifelse(length(conditions) > 0,
+               paste0(min_val, " (", paste(conditions, collapse = "/"), ")"),
+               as.character(min_val))
+        },
       Highest_Value = {
         max_val <- max(ResultMeasureValue_replaced, na.rm = TRUE)
-        max_conditions <- unique(ResultDetectionConditionText[ResultMeasureValue_replaced == max_val & !is.na(ResultDetectionConditionText)])
-        max_conditions <- max_conditions[max_conditions != ""]
-        if(length(max_conditions) > 0) {
-          paste0(max_val, " (", paste(max_conditions, collapse = "/"), ")")
-        } else {
-          as.character(max_val)
-        }
-      },
-      
+        conditions <- na.omit(unique(ResultDetectionConditionText[ResultMeasureValue_replaced == max_val]))
+        conditions <- conditions[conditions != ""]
+        ifelse(length(conditions) > 0, 
+               paste0(max_val, " (", paste(conditions, collapse = "/"), ")"),
+               as.character(max_val))
+        },
       Most_Recent_Value = first(ResultMeasureValue_replaced),
       Most_Recent_Sample_Date = first(ActivityStartDate),
-      
-      Recent_Values = {
-        recent_vals <- head(ResultMeasureValue_replaced, 5)
-        paste(recent_vals[!is.na(recent_vals)], collapse = ",")
-      },
-      
-      Recent_Dates = {
-        recent_dates <- head(ActivityStartDate, 5)
-        paste(format(recent_dates[!is.na(recent_dates)], "%Y-%m-%d"), collapse = ",")
-      },
-      
-      Recent_Detection_Conditions = {
-        recent_conditions <- head(ResultDetectionConditionText, 5)
-        recent_conditions <- recent_conditions[!is.na(recent_conditions) & recent_conditions != ""]
-        paste(recent_conditions, collapse = ",")
-      },
-      
+  Recent_Values = paste(head(ResultMeasureValue_replaced, 5), collapse = ","),
+  Recent_Dates = paste(format(head(ActivityStartDate, 5), "%Y-%m-%d"), collapse = ","),
+  Recent_Detection_Conditions = paste(head(ResultDetectionConditionText, 5), collapse = ","),
       .groups = 'drop'
     ) %>%
     
-    select(
+    dplyr::rename(
       Site = MonitoringLocationIdentifier,
       Characteristic = CharSampleType,
-      Unit = ResultMeasure.MeasureUnitCode,
-      Sample_Size,
-      Year_Range,
-      Lowest_Value_Numeric,
-      Highest_Value_Numeric,
-      Lowest_Value,
-      Highest_Value,
-      Most_Recent_Value,
-      Most_Recent_Sample_Date,
-      Recent_Values,
-      Recent_Dates,
-      Recent_Detection_Conditions
+      Unit = ResultMeasure.MeasureUnitCode
     )
 })
 ```
@@ -3844,8 +3785,8 @@ observeEvent(eventExpr = input$button_getCategFile, {
   if(length(rv_param_temp$subDatTypes$CharSampleType[rv_param_temp$subDatTypes$DataType == "categorical"])==0) { # can't print validation message within observeEvent, so use modalDialogs
     rv_param_temp$categLevelsPlot <- NULL
     showModal(modalDialog(
-      title = "No categorical parameters",
-      "Could not find any categorical parameters among the filtered water quality data."
+      title = "No categorical characteristics",
+      "Could not find any categorical characteristics among the filtered water quality data."
     ))
     }
   shiny::req(length(rv_param_temp$subDatTypes$CharSampleType[rv_param_temp$subDatTypes$DataType == "categorical"]) > 0)
@@ -3855,12 +3796,12 @@ observeEvent(eventExpr = input$button_getCategFile, {
 shiny::req(!is.null(input$sel_GetCategFile))
 cat("line3379")
   if (input$sel_GetCategFile == "new_data" & !is.null(rv_param_temp$categLevelsPlot)) { # if user chooses to create a new file...
-    cat("line3381")
+   
     shinyjs::showElement("create_categfile_P1")
     shinyjs::showElement("create_categfile_P2")
     shinyjs::showElement("create_categfile_P3")
     shinyjs::showElement("create_categfile_P4")
-    cat("line3385")
+   
     } else { # if user chooses to load existing data...
       shinyjs::hideElement("create_categfile_P1")
       shinyjs::hideElement("create_categfile_P2")
@@ -4000,13 +3941,13 @@ observeEvent(input$button_categDeleteRow, {
     replaceData(proxyDT, rv_param_temp$categLevelsPlot, resetPaging = FALSE)
 })
 
-# # Action to add table row ----
-# observeEvent(input$button_categAddRow, {
-#   shiny::req(!is.null(rv_param_temp$categLevelsPlot))
-#   rv_param_temp$categLevelsPlot %<>% 
-#     add_row()
-#   replaceData(proxyDT, rv_param_temp$categLevelsPlot, resetPaging = FALSE)
-# })
+# Action to add table row ----
+observeEvent(input$button_categAddRow, {
+  shiny::req(!is.null(rv_param_temp$categLevelsPlot))
+  rv_param_temp$categLevelsPlot %<>%
+    add_row()
+  replaceData(proxyDT, rv_param_temp$categLevelsPlot, resetPaging = FALSE)
+})
 ```
 
 ```{r events_plots_page}
@@ -4076,10 +4017,14 @@ observeEvent(eventExpr = input$button_noStationChars, {
 ```{r action_click_map_popup}
 # Action to show summary statistics for map site on right click----
 observeEvent(input$param_map_right_click, {
-  shiny::req(!is.null(rv_param_temp$popupSiteSummary))
-  cat("OBSERVE RIGHT CLICK")
+  shiny::req(!is.null(rv_param_temp$popupSiteSummary), !is.null(rv_param_temp$subDat))
+  
+  #   saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+  
   site <- input$param_map_right_click$MonitoringLocationIdentifier
-  df <- isolate(rv_param_temp$popupSiteSummary) %>% dplyr::filter(Site == site) 
+  summary_df <- isolate(rv_param_temp$popupSiteSummary) %>% dplyr::filter(Site == site) 
   site_threshold_df <- switch(is.null(isolate(rv_param_temp$threshDF))+1, isolate(rv_param_temp$threshDF) %>% dplyr::filter(Site == site), data.frame())
 
 shiny::showModal(
@@ -4092,9 +4037,9 @@ shiny::showModal(
     ),
         tags$style(HTML(".modal-dialog { max-width: 2400px !important; }")),
     FuncParamTable(
-      df = df,
+      df = summary_df,
       threshold_df = site_threshold_df,
-      MonitoringLocationIdentifier = site
+      site = site
     ),
     easyClose = TRUE,
     size = "l",
@@ -4390,7 +4335,7 @@ if(sel_param_map_show == "show") {
 print("line3881")
   # If summarizing by characteristic, then additional summary options are available
   if(all(input$sel_SummarizeBy == "by_chartype", !is.null(input$sel_MapByYr))) {
-
+cat("line4438")
     # summarize stations by a single characteristic, user can choose from several summary functions...
     
     ## MEDIAN
@@ -4443,18 +4388,20 @@ print("line3881")
    
     ## THRESHOLDS
       if(sel_param_map_show == "thresh") {
-      shiny::validate(need(sum(!is.na(rv_param_temp$plotDat$ThreshCateg)) > 0, message = "No threshold limits defined for these data"))
+      shiny::validate(need(sum(!is.na(rv_param_temp$plotDat$ThreshCateg)) > 0, message = "Use sidebar options to define threshold limits to display, then click 'REFRESH PLOT DATA'"))
         
       param_map <- FuncPieMap(pie_map = param_map, limit_type = "ThreshCateg", limit_name = "threshold categories", pie_size = 30+(10*map_point_size))
       }
         
     ## PERCENTILE
     if(sel_param_map_show == "perc") {
-      shiny::validate(need(sum(!is.na(rv_param_temp$plotDat$PercCateg)) > 0, message = "No percentile limits set for these data"))
+      shiny::validate(need(sum(!is.na(rv_param_temp$plotDat$PercCateg)) > 0, message = "Use sidebar options to define percentile limits to display, then click 'REFRESH PLOT DATA'"))
       
       param_map <- FuncPieMap(pie_map = param_map, limit_type = "PercCateg", limit_name = "percentile categories", pie_size = 30+(10*map_point_size))
     }
   }
+
+cat("line4504")
 
 # FINISH OFF for all map types
   param_map %<>%
@@ -4481,7 +4428,7 @@ print("line3881")
                 Math.pow(e.latlng.lng - latlng.lng, 2)
               );
               console.log('Distance:', dist);
-              if (dist < 0.01) {
+              if (dist < 0.05) {
               clicked = layer.options.layerId;
               console.log('Clicked site:', clicked);
               }
@@ -4578,12 +4525,12 @@ shiny::req(!is.null(rv_param_temp$sel_summarize_by))
 shiny::req(!is.null(rv_param_temp$sel_show_thresholds))
 shiny::validate(need(!is.null(rv_param_temp$sel_show_thresholds != "showthresh_none"), "In the left sidebar, choose to define custom threshold limits or import limits from a file, then click the green 'REFRESH PLOT DATA' button"))
 
-shiny::validate(need(length(na.omit(rv_param_temp$plotDat$ThreshCateg)) > 0, message = "No threshold limits defined for the selected characteristics"))
+shiny::validate(need(length(na.omit(rv_param_temp$plotDat$ThreshCateg)) > 0, message = "Use sidebar options to define threshold limits for the selected characteristic(s), then click 'REFRESH PLOT DATA'"))
 
   threshPieDat <- FuncPieDat(limit_type = "ThreshCateg")
 
   shiny::validate(
-    need(!is.null(threshPieDat), message = "No threshold limits defined for the selected characteristics"))
+    need(!is.null(threshPieDat), message = "Use sidebar options to define threshold limits for the selected characteristic(s), then click 'REFRESH PLOT DATA'"))
   
   thresh_plot_title <- paste0("Threshold levels by ", switch((rv_param_temp$sel_summarize_by == "by_chartype")+1, "water characteristic", "monitoring site"), " (rows) and year (cols) for ", switch((rv_param_temp$sel_summarize_by == "by_chartype")+1, unique(rv_param_temp$plotDat$MonitoringLocationIdentifier), unique(rv_param_temp$plotDat$CharSampleType)))
   
@@ -4595,12 +4542,12 @@ output$out_perc_plots <- renderPlotly({
   # FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = TRUE)
   shiny::req(!is.null(rv$dat), !is.null(rv_param_temp$subDat),  !is.null(rv_param_temp$subDatTypes), !is.null(rv_param_temp$plotDat))
   
-  shiny::validate(need(length(na.omit(rv_param_temp$plotDat$PercCateg)) > 0, message = "No percentile limits defined. Make sure you have 'Add Percentile Lines to Plots' checkmarked on left sidepanel, then REFRESH PLOT DATA."))
+  shiny::validate(need(length(na.omit(rv_param_temp$plotDat$PercCateg)) > 0, message = "No percentile limits defined. Make sure you have 'Add percentile lines to plots' checkmarked on left sidepanel, then REFRESH PLOT DATA."))
           
   percPieDat <- FuncPieDat(limit_type = "PercCateg")
   
   shiny::validate(
-    need(!is.null(percPieDat), message = "No percentile data calculated. Make sure you have 'Add Percentile Lines to Plots' checkmarked on left sidepanel."))
+    need(!is.null(percPieDat), message = "No percentile data calculated. Make sure you have 'Add percentile lines to plots' checkmarked on left sidepanel."))
   shiny::req(!is.null(rv_param_temp$sel_summarize_by), !is.null(input$sel_AddQuantile))
 
   perc_named_colors <- c("lightgray", "#56B4E9", "orange")
@@ -4691,47 +4638,51 @@ Column {data-width=750}
 ###
 
 ```{r}
-htmltools::img(src="Images/secchi_transparent.png", width = "7%", style="position:absolute; top:20px; right:25px;")
+htmltools::img(src="Images/secchi_transparent.png", width = "7%", style="position:absolute; top:1px; right:25px;")
 ```
 <br>
 
-#### <font size="2">**Quick-Start Instructions**</font>
+#### <font size="3">**Quick-Start Instructions**</font>
 
-* <font size="1">To import water quality data from Water Quality Portal (or load an existing .RDS file), follow the red-font instructions on the 'Get WQP Data' page.</font>
+* <font size="2">**Proceed through the dashboard pages from left to right ('Get WQP Data' --> 'Explore Data').** On each page, selections in the left-side panel require clicking the green refresh button to execute (e.g., 'refresh plots' or 'update data'), while options located above tables/figures update automatically. </font>
 
-* <font size="1">Then (optionally) proceed to the 'Filter WQP Data' page to examine sample sizes and filter a subset of data to summarize on the 'Explore Data' page. Alternatively, use the default filter criteria.</font>
+* <font size="2">To begin, import water quality data from the Water Quality Portal (or load an existing .RDS file) by following the red-font instructions on the **'Get WQP Data' page.** *If you import data from the Water Quality Portal, you will have the option to save the formatted data as an .RDS file on your computer. Since importing from WQP can be slow, saving allows you to quickly reload your data in future sessions instead of re-importing (only re-import if you need more recent data that has been added to WQP since your last import).*</font>
 
-* <font size="1">The 'Explore Data' page presents maps, time series plots, threshold exceedence plots, and other summaries of the filtered WQP data.</font>
+* <font size="2">Then (optionally) proceed to the **'Filter WQP Data'** page to examine sample sizes and customize which subset of data to analyze on the 'Explore Data' page. You can skip this step and go directly to 'Explore Data,' which will use default filter criteria to display a subset of your imported data.</font>
 
-<br>
+* <font size="2">The **'Explore Data'** page presents maps, time series plots, threshold exceedence plots (if you upload a threshold limits file), and other summaries of the filtered WQP data.</font>
 
-#### <font size="2">**About This Dashboard**</font>
-
-<font size="1">This dashboard is an interactive tool for you to explore water quality trends in and around national park units. Use it to:</font>
-
-* <font size="1">See what water monitoring sites, weather stations, and EPA-regulated facilities occur in and near our parks</font>
-
-* <font size="1">Examine scatterplots, boxplots, and line graphs of water quality and precipitation data</font>
-
-* <font size="1">Identify unusually high or low water quality measurements and examine the underlying data records</font>
-
-* <font size="1">Use a map time slider to see how water quality patterns change over space and time</font>
+* <font size="2">The **'Raw Data'** page displays the filtered Water Quality Portal data. This page populates as soon as you import or load water quality data. You can search for specific records using the search/filter fields.</font>
 
 <br>
 
-#### <font size="2">**About The Data**</font>
+#### <font size="3">**About This Dashboard**</font>
 
-<font size="1">Click on the links below to learn more about each data source and the data used in this dashboard:</font>
+<font size="2">This dashboard is an interactive tool for you to explore water quality trends in and around national park units. Use it to:</font>
 
-* <font size="1">[Administrative Boundaries of National Park System Units](https://irma.nps.gov/DataStore/Reference/Profile/2224545?lnv=True) (NPS) </font>
+* <font size="2">See what water monitoring sites, weather stations, and EPA-regulated facilities occur in and near our parks</font>
 
-* <font size="1">[National Watershed Boundary Dataset](https://www.usgs.gov/national-hydrography/watershed-boundary-dataset) (USGS), for watershed (HUC10) and subwatershed (HUC12) boundaries</font>
+* <font size="2">Examine scatterplots, boxplots, and line graphs of water quality and precipitation data</font>
 
-* <font size="1">[Water Quality Portal](https://www.waterqualitydata.us/) (a cooperative service sponsored by the USGS, EPA, and NWQMC), for water quality data</font> 
+* <font size="2">Identify unusually high or low water quality measurements and examine the underlying data records</font>
 
-* <font size="1">[National Climatic Data Center](https://www.ncei.noaa.gov/cdo-web/) (NOAA), for precipitation data</font>
+* <font size="2">Use a map time slider to see how water quality patterns change over space and time</font>
 
-* <font size="1">[Enforcement and Compliance History Online](https://echo.epa.gov/) (EPA), for compliance information for facilities regulated under the Clean Water Act</font>
+<br>
+
+#### <font size="3">**About The Data**</font>
+
+<font size="2">Click on the links below to learn more about each data source and the data used in this dashboard:</font>
+
+* <font size="2">[Administrative Boundaries of National Park System Units](https://irma.nps.gov/DataStore/Reference/Profile/2224545?lnv=True) (NPS) </font>
+
+* <font size="2">[National Watershed Boundary Dataset](https://www.usgs.gov/national-hydrography/watershed-boundary-dataset) (USGS), for watershed (HUC10) and subwatershed (HUC12) boundaries</font>
+
+* <font size="2">[Water Quality Portal](https://www.waterqualitydata.us/) (a cooperative service sponsored by the USGS, EPA, and NWQMC), for water quality data</font> 
+
+* <font size="2">[National Climatic Data Center](https://www.ncei.noaa.gov/cdo-web/) (NOAA), for precipitation data</font>
+
+* <font size="2">[Enforcement and Compliance History Online](https://echo.epa.gov/) (EPA), for compliance information for facilities regulated under the Clean Water Act</font>
 
 Spacer Column {data-width=5}
 -------------------------------------
@@ -4761,18 +4712,14 @@ Inputs {.sidebar data-width=300}
 
 useShinyjs(rmd = TRUE)
 
-FuncAboutButton(nam = "button_aboutGetData")
+# FuncAboutButton(nam = "button_aboutGetData")
 observeEvent(eventExpr = input$button_aboutGetData, {
   browseURL(here::here("About_files", "aboutGetData.html"))})
-
-br()
-
-br()
 
 # UI panel to import or load data----
 wellPanel(
   id = "new_data_P0",
-  p(strong("Choose data source")),
+  p(strong("1. Choose data source, then click 'BEGIN DATA SEARCH' button")),
   
   br(),
   
@@ -4782,7 +4729,7 @@ wellPanel(
                            "Download data from web services" = "new_data")),
   
   
-  actionButton("button_beginSearch", "BEGIN DATA SEARCH", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px")
+  actionButton("button_beginSearch", "BEGIN DATA SEARCH", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
 ) # end import-load-data panel
 
 
@@ -4790,7 +4737,7 @@ wellPanel(
 shinyjs::hidden( # initially hide this well panel, show only if user wants to import data from WQP
   wellPanel(
     id = "new_data_P1",
-    p(strong("1. Show monitoring sites for selected park unit and date range")),
+    p(strong("2 (of 4). Choose a park, then click 'SHOW MONITORING SITES' button")),
     
     selectInput("sel_UnitCode", label = h6("Enter a park name or 4-digit park code (e.g., BITH): "), choices = c("Choose a park" = "", unique_parks_df$unit_name_combined), selectize = TRUE),
     
@@ -4799,7 +4746,7 @@ shinyjs::hidden( # initially hide this well panel, show only if user wants to im
                  value = 8,
                  min = 1),
     
-    actionButton("button_showStations", "Show Monitoring Sites", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px")
+    actionButton("button_showStations", "SHOW MONITORING SITES", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
     ) # end show-stations panel
 ) # end hide for show-stations panel
 
@@ -4808,7 +4755,7 @@ conditionalPanel(
   renderUI({
     shiny::req(!is.null(rv[["HUC10"]]))
     map_zoom <- min(RgoogleMaps::MaxZoom(lonrange = c(st_bbox(rv[["HUC10"]])$xmin, st_bbox(rv[["HUC10"]])$xmax), latrange = c(st_bbox(rv[["HUC10"]])$ymin, st_bbox(rv[["HUC10"]])$ymax)))
-    sliderInput("sel_MapZoom", label = h6("Set map zoom:"), min = max(1, map_zoom - 6), max = 15, value = map_zoom, step = 0.5, ticks = FALSE, dragRange = FALSE, width = "100%")
+    sliderInput("sel_MapZoom", label = h5("Set map zoom (higher values zoom in):"), min = max(1, map_zoom - 6), max = 15, value = map_zoom, step = 0.5, ticks = FALSE, dragRange = FALSE, width = "100%")
     })
 )
   
@@ -4816,7 +4763,15 @@ conditionalPanel(
 shinyjs::hidden( # initially hide this well panel
   wellPanel(
     id = "new_data_P2",
-    p(strong("2. Filter sites to download")),
+    p(strong("3 (of 4). Filter sites to download, then click 'SUMMARIZE SELECTED SITES' button")),
+    
+    p("Click on a map point for more information about the station and data. Blue hyperlinks will open web pages with additional information."),
+    
+    tags$div(renderText({
+  shiny::req(all(!is.null(input$sel_AddQuantile), input$sel_AddQuantile == TRUE))
+  
+  paste0("WARNING!! Large data imports may trigger time-out errors from web services. Use the filter criteria below to limit import requests to only the necessary data.")
+}), style = "font-size:14px; font-weight:bold; color:red;"),
     
     renderUI({
     shiny::req(!is.null(rv))
@@ -4830,8 +4785,10 @@ shinyjs::hidden( # initially hide this well panel
     }),
     
     radioButtons("sel_SelectMethod", label = h6("Select WQP monitoring sites based on: "),
-                 choiceNames = c("Park (include all data collected within the park unit)", "HUCs (click on map to select)", "Distance from origin site (enter query filters below)"),
-                 choiceValues = c("methodPark", "methodHuc", "methodDist"),
+                 # choiceNames = c("Park (include only data collected within the park unit)", "HUCs (click on map to select one or more HUCs)", "Distance from origin site (enter query filters below)"),
+                 # choiceValues = c("methodPark", "methodHuc", "methodDist"),
+                 choiceNames = c("Park (include all data collected within the park unit)", "HUCs (click on map to select one or more HUCs)"),
+                 choiceValues = c("methodPark", "methodHuc"),
                  selected = "methodHuc"),
     
     renderUI({ # conditional panel if user selects from origin station
@@ -4891,7 +4848,7 @@ shinyjs::hidden( # initially hide this well panel
                                    "Toxicity"),
                        selected = c("Microbiological", "Nutrient", "Physical")),
     
-    actionButton("button_summarizeStations", "Summarize Selected Sites", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px")
+    actionButton("button_summarizeStations", "SUMMARIZE SELECTED SITES", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
     ) # end subset-stations panel
   ) # end hide for subset-stations panel
 
@@ -4899,15 +4856,14 @@ shinyjs::hidden( # initially hide this well panel
 shinyjs::hidden( # initially hide this well panel
   wellPanel(
     id = "new_data_P3",
-    # p(strong("3. Filter stream gage and weather station data to download")),
-    p(strong("3. Filter stream gage data to download")),
+    p(strong("4 (of 4). Select stream gage data to import, then click 'DOWNLOAD SELECTED DATA' button")),
     # p("Data will download only for selected gage and weather stations. When selected, these stations will show as orange-colored on the map."),
     p("Data will download only for selected gage stations. When selected, these stations will show as orange-colored on the map."),
     
     renderUI({
       shiny::req(!is.null(rv$gageStations))
       checkboxGroupInput("sel_Gages",
-                         label = h6("Import data only from these USGS gage stations: "),
+                         label = h6("(OPTIONAL) Import data from these USGS gage stations: "),
                          choices = sort(unique(rv$gageStations$GageName)))
       }),
     
@@ -4920,7 +4876,7 @@ shinyjs::hidden( # initially hide this well panel
     #   }),
     
 
-    actionButton("button_downloadData", "DOWNLOAD SELECTED DATA", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px"),
+    actionButton("button_downloadData", "DOWNLOAD SELECTED DATA", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border: 1px solid black; margin:5px"),
     
     br(),
     
@@ -4941,8 +4897,6 @@ shinyjs::hidden( # initially hide this well panel
 
 output$download_RDS <- downloadHandler(
   shiny::req(!is.null(rv)),
- saveRDS(isolate(reactiveValuesToList(rv)), here::here(
-   "TEMP_rv.RDS")),
   filename = function() {
     paste0("WQdash_", rv$parkID, "_", paste0(gsub(pattern = "-", replacement = "", x = Sys.Date()), ".RDS"))
     },
@@ -4955,7 +4909,7 @@ output$download_RDS <- downloadHandler(
 
 Data for Import {.tabset .tabset-fade}
 -------------------------------------
-<center>*NOTE:  Data collected by NPS Inventory & Monitoring are listed as 'National Park Service Water Resources Division'*</center>
+<center>*NOTE:  The Water Quality Portal and other web services accessed by this dashboard are undergoing changes. To help us keep up with changes in web services, please report data import issues to the dashboard GitHub page: https://github.com/nationalparkservice/WQdash_public*</center>
 
 ### Map
 ```{r initial_map}
@@ -4965,7 +4919,7 @@ conditionalPanel(
   htmltools::tags$div(
     style = "text-align: center; margin: 20px 0;",
     htmltools::tags$button(
-      "🔄 Refresh Map", 
+      "🔄 Refresh Map (if it goes wonky)", 
       onclick = "refreshMap()",
       style = "padding: 6px 12px; background: #5a9fd4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;"
     ),
@@ -5004,10 +4958,10 @@ output$map <- renderLeaflet({
         # Initial map controls
         print("BACK TO INITIAL MAP CONTROLS")
         map %<>%
-          addLegend(title = "Data source for water quality monitoring data", pal = rv_param_temp$palOrg, values = sort(rv$importSettings$sel_Organization), group = "Map legend", position = "bottomleft") %>%
+          addLegend(title = "CIRCLES are monitoring stations (colored by organization)", pal = rv_param_temp$palOrg, values = sort(rv$importSettings$sel_Organization), group = "Map legend", position = "bottomleft") %>%
           addLayersControl(
             baseGroups = c("Street", "Satellite"),
-            overlayGroups = na.omit(c("NPS unit", rv$importSettings$sel_HUClevel, "Available monitoring sites", ifelse(!is.null(rv$selectedStations), "Selected monitoring sites", NA), ifelse(!is.null(rv$facilitiesPointsSub), "Discharge facilities", NA), ifelse(!is.null(rv$gageStations), "Gage stations", NA), ifelse(!is.null(rv$meteoStations), "Weather stations", NA), "Map legend")),
+            overlayGroups = na.omit(c("NPS unit", rv$importSettings$sel_HUClevel, "Available monitoring sites", ifelse(!is.null(rv$selectedStations), "Selected monitoring sites", NA), ifelse(!is.null(rv$facilitiesPointsSub), "Discharge facilities (bldg icon)", NA), ifelse(!is.null(rv$gageStations), "Gage stations (water drop icon)", NA), ifelse(!is.null(rv$meteoStations), "Weather stations (cloud icon)", NA), "Map legend")),
             options = layersControlOptions(collapsed = TRUE)) %>%
           setView(lng = ifelse(any(is.null(isolate(input$map_center$lng)), isolate(input$map_center$lng) == 0), mean(c(st_bbox(rv[["HUC10"]])$xmin, st_bbox(rv[["HUC10"]])$xmax)), isolate(input$map_center$lng)), lat = ifelse(any(is.null(isolate(input$map_center$lat)), isolate(input$map_center$lat) == 0), mean(c(st_bbox(rv[["HUC10"]])$ymin, st_bbox(rv[["HUC10"]])$ymax)), isolate(input$map_center$lat)), zoom = input$sel_MapZoom)
         
@@ -5034,12 +4988,53 @@ observeEvent(input$map_shape_click, {
   }, ignoreInit = TRUE) # end of observeEvent
 ```
 
-### Summary of Selected Data
+### Summary of Selected Characteristics
+
+<center>*Summary of selected water quality data, grouped by water quality characteristic. Click column headings to sort. DOWNLOADING LARGE DATASETS CAN BE SLOW--for better performance, filter data to only what you need.*</center>
+
+<br>
+
+```{r}
+output$table_char_summary <- DT::renderDT({
+  shiny::validate(
+    need(!is.null(rv$selectedDataSummary), message = "No data selected. Follow prompts on the left to select data for import, then click <strong>'SUMMARIZE SELECTED SITES'</strong> button."))
+
+  shiny::req(!is.null(rv$selectedDataSummary))
+
+  DT::datatable(
+    rv$selectedDataSummary %>% dplyr::group_by(CharacteristicType, CharacteristicName) %>% dplyr::summarize(`# of Data Records` = sum(ResultCount, na.rm = TRUE), .groups = "drop") %>% dplyr::rename(`Characteristic Type` = CharacteristicType, Characteristic = CharacteristicName),
+    rownames = FALSE,
+    filter = "top",
+    selection = "none",
+    class="compact stripe",
+    extensions=c('Buttons','ColReorder'),
+options = list(
+          dom = '<"top"<"left"Bl><"right"pi>>rt',
+          buttons = list('csv', 'excel'),
+          lengthMenu = list(c(30,40,-1),
+                          c(30,40,"All")),
+          colReorder=TRUE,
+          pageLength = -1,
+          autoWidth = FALSE,
+          columnDefs = list(list(className = 'dt_center', targets = "_all"))
+        )
+  ) %>%
+    DT::formatStyle(columns = c(1:3), width = "auto")
+  })
+
+DTOutput("table_char_summary")
+```
+
+### Summary of Selected Site-Characteristics
+
+<center>*Summary of selected water quality data, grouped by monitoring site and water quality characteristic. Click column headings to sort. DOWNLOADING LARGE DATASETS CAN BE SLOW--for better performance, filter data to only what you need.*</center>
+
+<br>
 
 ```{r}
 output$table_import_summary <- DT::renderDT({
     shiny::validate(
-    need(!is.null(rv$selectedDataSummary), message = "No data selected. Follow prompts on the left to select data for import, then click the click <strong>'Summarize Selected Sites'</strong> button."))
+    need(!is.null(rv$selectedDataSummary), message = "No data selected. Follow prompts on the left to select data for import, then click <strong>'SUMMARIZE SELECTED SITES'</strong> button."))
 
   DT::datatable(
     rv$selectedDataSummary %>%
@@ -5069,40 +5064,11 @@ output$table_import_summary <- DT::renderDT({
 DTOutput("table_import_summary")
 ```
 
-### Summary of Selected Characteristics
+### Summary of Downloaded Data, by Site
 
-```{r}
-output$table_char_summary <- DT::renderDT({
-  shiny::validate(
-    need(!is.null(rv$selectedDataSummary), message = "No data selected. Follow prompts on the left to select data for import, then click the click <strong>'Summarize Selected Sites'</strong> button."))
+<center>*Summary of data downloaded from Water Quality Portal, for summary and visualization in this dashboard.*</center>
 
-  shiny::req(!is.null(rv$selectedDataSummary))
-
-  DT::datatable(
-    rv$selectedDataSummary %>% dplyr::group_by(CharacteristicType, CharacteristicName) %>% dplyr::summarize(`# of Data Records` = sum(ResultCount, na.rm = TRUE), .groups = "drop") %>% dplyr::rename(`Characteristic Type` = CharacteristicType, Characteristic = CharacteristicName),
-    rownames = FALSE,
-    filter = "top",
-    selection = "none",
-    class="compact stripe",
-    extensions=c('Buttons','ColReorder'),
-options = list(
-          dom = '<"top"<"left"Bl><"right"pi>>rt',
-          buttons = list('csv', 'excel'),
-          lengthMenu = list(c(30,40,-1),
-                          c(30,40,"All")),
-          colReorder=TRUE,
-          pageLength = -1,
-          autoWidth = FALSE,
-          columnDefs = list(list(className = 'dt_center', targets = "_all"))
-        )
-  ) %>%
-    DT::formatStyle(columns = c(1:3), width = "auto")
-  })
-
-DTOutput("table_char_summary")
-```
-
-### Summary of Imported Data, by Site
+<br>
 
 ```{r summarize_locations}
 output$table_selected_orgs <- renderReactable({
@@ -5190,7 +5156,7 @@ output$table_selected_orgs <- renderReactable({
                                columnGroups = list(
                                  colGroup(name = "Calendar Years Surveyed", columns = c("SiteStartYr", "SiteEndYr"))),
                                defaultSorted = list(TotalSurveyYrs = "desc"),
-                               defaultExpanded = TRUE, # <<<<<<<<<<<<<<< ADDED THIS
+                               defaultExpanded = TRUE, 
                                resizable = TRUE,
                                filterable = TRUE,
                                striped = FALSE,
@@ -5227,27 +5193,23 @@ Inputs {.sidebar data-width=320}
 -------------------------------------
 
 ```{r define_filter_sidebar}
-FuncAboutButton(nam = "button_aboutFilterData")
+# FuncAboutButton(nam = "button_aboutFilterData")
 observeEvent(eventExpr = input$button_aboutFilterData, {
   browseURL(here::here("About_files", "aboutFilterData.html"))})
-
-br()
-
-br()
 
 wellPanel(
     id = "wp_define_categ",
     p(strong("Define categorical data")),
     
     actionButton("button_defineCategs", "Define Categorical Characters", 
-             style = "color: black; background-color: lightblue; border: 1px solid black;width:100%;")
+             style = "color: black; background-color: lightblue; border: 1px solid black; width:100%;")
 ) # end of 'wp_filter_`threshfile`'
 
   wellPanel(
     id = "wp_filter_yr_season",
-    p(strong("Filter data to summarize")),
+    p(strong("Filter data to summarize, then click 'REFRESH FILTER' button")),
   
-  actionButton("button_refreshFilter", "REFRESH FILTER", style="border-color:black; background-color: lightgreen; width:100%; border:0px; margin:0px"), # filters data
+  actionButton("button_refreshFilter", "REFRESH FILTER", style="border-color:black; background-color: lightgreen; width:100%; border: 1px solid black; margin:0px"), # filters data
         
     renderUI({
       shiny::req(!is.null(rv$dat$MeteoYr), !is.null(rv_param_temp$defaultInputs$sel_YrRange))
@@ -5419,7 +5381,7 @@ wellPanel(
     sel_MinYrs = input$sel_MinYrs)  
 
       checkboxGroupInput("sel_SummaryParam",
-                         label = h6("Water quality characteristic types to summarize: "),
+                         label = h6("Water quality characteristics to summarize: "),
                          choices = sort(rv_param_temp$selectCharSampleType),
                          selected = rv_param_temp$currentInputs$sel_SummaryParam
                          # selected = switch(all(is.null(input$sel_SummaryParam), !identical(input$sel_SummaryParam, character(0)))+1, input$sel_SummaryParam, rv_param_temp$selectCharSampleType[rv_param_temp$selectCharSampleType %in% c("Dissolved oxygen (DO)", "Escherichia coli", "Flow, severity (choice list)", "Flow, stream stage (choice list)", "Nitrate + Nitrite", "pH", "Specific conductance", "Temperature, water", "Total Phosphorus, mixed forms", "Turbidity")])
@@ -5466,16 +5428,19 @@ Define & Filter Data {.tabset .tabset-fade}
 -------------------------------------
 ### Filtered Data Summary
 
-#### <font size="1.25">**Sites and survey years by parameter, for filtered data**</font>
+#### <font size="1.25">**Sites and survey years by characteristic, for filtered data**</font>
 
-* <font size="0.75"> The full list of characteristics for the filtered data are shown under 'Water quality characteristics to summarize', in the left sidebar. Only 'checked' characteristics are shown in this table.</font> 
+* <font size="1.25"> Click on the triangle to the left of each characteristic to see summaries by site.</font>
 
-* <font size="0.75"> The filtered data shown here will be used on the Explore Filtered Data page.</font>
+* <font size="1.25"> The full list of characteristics imported are shown under 'Water quality characteristics to summarize', in the left sidebar. Only 'checked' characteristics are shown in this table.</font> 
 
-* <font size="0.75"> Years and seasons are defined by the user as meteorological seasons (calendar year), USGS water year seasons (starts Oct. 1), or custom-defined seasons (see 'Define seasons as:' in left sidebar). These year and season definitions will be used on all subsequent pages of the dashboard.</font>
+* <font size="1.25"> The filtered data shown here can be visualized on the Explore Data page.</font>
+
+* <font size="1.25"> Years and seasons are defined by the user as meteorological seasons (calendar year), USGS water year seasons (starts Oct. 1), or custom-defined seasons (see 'Define seasons as:' in left sidebar). These year and season definitions will be used on all subsequent pages of the dashboard.</font>
 
 ```{r filter_summary}
 output$table_filtered_chars <- renderReactable({
+  Sys.sleep(0.5)
   shiny::validate(
      need(!is.null(rv$dat), message = "No data available. Please use the 'Get WQP Data' tab to first import or load water quality data."))
   shiny::validate(
@@ -5563,6 +5528,10 @@ reactableOutput("table_filtered_chars")
 ```
 
 ### Sample Size Matrix
+
+<center>*For each site, these heat maps show the number of samples collected per season (or month) each year for the selected water quality characteristic.*</center>
+
+<br>
 
 ####
 
@@ -5654,7 +5623,7 @@ showModal(modalDialog(
                    selected = "new_data"),
       actionButton("button_getCategFile", "Create Definitions File",
                    width = "100%",
-                   style="color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px"),
+                   style="color:black; background-color: lightgreen; display:inline-block; border: 1px solid black; margin:5px"),
       br(), br(),
       shinyjs::hidden(
         wellPanel(
@@ -5727,7 +5696,7 @@ div(style = "display: flex; gap: 6px;",
 ),
 br(),
           selectizeInput("sel_CategPalette",
-                         label = h6("Select a color palette to apply"),
+                         label = h6("Select a color palette to apply, then click 'Add to Color Coding File'"),
                          choices = c("YlGnBu", "YlGn", "RdPu", "Purples", "PuRd", "PuBuGn", "PuBu", "OrRd", "Oranges",
                                      "Greys", "Greens", "GnBu", "BuPu", "BuGn", "Blues", "Set2", "Set1", "Paired",
                                      "Dark2", "Accent", "Spectral", "RdYlGn", "RdYlBu", "RdGy", "RdBu", "PuOr",
@@ -5735,7 +5704,7 @@ br(),
                          multiple = FALSE),
           actionButton("button_updateCategFile", "Add to Color Coding File",
                        width = "100%",
-                       style="font-size: 10pt; color:black; background-color: lightgreen; display:inline-block; border:1px; margin:5px"),
+                       style="font-size: 10pt; color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px"),
           
   renderPlot({# Show the colors that will be associated with color levels
     if(any(is.null(input$sel_GetCategFile), is.null(input$sel_CategPalette), is.null(input$categ_ranked), input$sel_GetCategFile == "existing_data")) {
@@ -5758,7 +5727,7 @@ br(),
         wellPanel(
           id = "create_categfile_P4",
     div(style = "text-align: center;",
-    em("Double-click in any cell to edit contents. To delete a row, click it once to select and then choose 'Delete Selected Row(s).'")),
+    em("The Double-click in any cell to edit contents. To delete a row, click it once to select and then choose 'Delete Selected Row(s).'")),
   br(),
       renderUI({
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE)
@@ -5767,8 +5736,8 @@ br(),
   }),
 div(
   style = "text-align: center;",
-  # actionButton("button_categAddRow", "Add a Row",
-               # style = "font-size: 10pt; padding: 4px 8px; margin-right: 10px;"),
+  actionButton("button_categAddRow", "Add a Row",
+               style = "font-size: 10pt; padding: 4px 8px; margin-right: 10px;"),
   actionButton("button_categDeleteRow", "Delete Selected Row(s)",
                style = "font-size: 10pt; padding: 4px 8px;")
 ),
@@ -5823,35 +5792,33 @@ Explore Data
 Inputs {.sidebar data-width=260}
 -------------------------------------
 ```{r explore_data_input}
-FuncAboutButton(nam = "button_aboutExploreData")
+# FuncAboutButton(nam = "button_aboutExploreData")
 observeEvent(eventExpr = input$button_aboutExploreData, {
   browseURL(here::here("About_files", "aboutExploreData.html"))})
+    
+actionButton("button_refreshPlotData", "REFRESH PLOT DATA", style="border-color:black; background-color: lightgreen; width:100%; border: 1px solid black; margin:0px") # updates plots
 
 br()
 br()
-    
+
 actionButton("button_getThreshFile", "Add a Threshold Limits File",
              style = "color: black; background-color: lightblue; border: 1px solid black;width:100%;")
 
 br()
 br()
 
-actionButton("button_refreshPlotData", "REFRESH PLOT DATA", style="border-color:black; background-color: lightgreen; width:100%; border:0px; margin:0px") # updates plots
-
-br()
-br()
-
 shinyBS::bsCollapse(
   id = "collapse_explore_input", 
-  open = "Select data to plot",
+  multiple = TRUE,
+  open = list("Select data to plot", "Thresholds & Percentiles"),
   bsCollapsePanel(
     title = "Select data to plot", 
     renderUI({
       radioButtons("sel_SummarizeBy",
                    label = h6(" Summarize by:"),
-                   choiceNames = list("ONE CHARACTERISTIC for many sites", "many characteristics for ONE SITE"),
-                   choiceValues = list("by_chartype", "by_station"),
-                   selected = "by_chartype")
+                   choiceNames = list("many characteristics for ONE SITE", "ONE CHARACTERISTIC for many sites"),
+                   choiceValues = list("by_station", "by_chartype"),
+                   selected = "by_station")
       }),
 
 # If summarizing by characteristic (ONE CHARACTERISTIC for many stations)...
@@ -5939,7 +5906,7 @@ style = "default"
     thresh_default <- ifelse(identical(thresh_choice_values, "showthresh_none"), "showthresh_none", ifelse("showthresh_file" %in% thresh_choice_values, "showthresh_file", "showthresh_custom"))
 
     radioButtons("sel_ShowThresholds",
-                 label = h6("Show threshold limits on plot"),
+                 label = h6("Show threshold limits on plot (shown as colored background grid)"),
                  choiceNames = thresh_choice_names,
                  choiceValues = thresh_choice_values,
                  selected = switch(is.null(input$sel_ShowThresholds)+1, input$sel_ShowThresholds, thresh_default)
@@ -6023,8 +5990,8 @@ style = "default"
 
   renderUI({
   checkboxInput("sel_AddQuantile",
-              label = h6("Add percentile lines to plot"),
-              value = switch(is.null(input$sel_AddQuantile)+1, input$sel_AddQuantile, FALSE))
+              label = h6("Add percentile lines to plot (shown as red horizontal lines)"),
+              value = switch(is.null(input$sel_AddQuantile)+1, input$sel_AddQuantile, TRUE))
     }),
   
 # Generate bold, red warning if percentile option is selected
@@ -6052,13 +6019,13 @@ tags$div(renderText({
                  min = 0.0,
                  max = 1.0,
                  step = 0.05),
-      # if(input$sel_SummarizeBy == "by_chartype") {
+      if(input$sel_SummarizeBy == "by_chartype") {
         selectInput("sel_QuantileGroupBy",
                  label = "Calculate percentile limits:",
                  choices = c("per site" = "quant_each",
                              "across sites" = "quant_all"),
-              selected = "quant_all")
-        # }
+              selected = "quant_each")
+        }
       )
     }),
 style = "default"
@@ -6120,7 +6087,7 @@ explore_map_card <-
     style = "resize:vertical;",
     full_screen = FALSE,
     card_header(
-      HTML('<span style="color: red;">Select sites via the map or sidebar, then click REFRESH PLOT DATA to generate plots. RIGHT CLICK on a site for quick-peek parameter summaries.</span>')
+      HTML('<span style="color: red;">Select sites via the map or sidebar, then select characteristic(s) from the sidebar and click REFRESH PLOT DATA. From the map, RIGHT CLICK ON ANY SITE for quick-peek parameter summaries.</span>')
       ),
     card_body(
       class = "p-0",
@@ -6130,7 +6097,7 @@ explore_map_card <-
             renderUI({
   shiny::req(!is.null(rv$sitesPointsSub))
   param_map_zoom <- min(RgoogleMaps::MaxZoom(lonrange = c(st_bbox(rv$sitesPointsSub)$xmin, st_bbox(rv$sitesPointsSub)$xmax), latrange = c(st_bbox(rv$sitesPointsSub)$ymin, st_bbox(rv$sitesPointsSub)$ymax)))
-  sliderInput("sel_ParamMapZoom", label = h6(strong("Set map zoom:")), min = max(1, param_map_zoom - 3), max = param_map_zoom + 5, value = param_map_zoom - 1, step = 0.25, ticks = FALSE, dragRange = FALSE, width = "100%")
+  sliderInput("sel_ParamMapZoom", label = h6(strong("Set map zoom (higher values zoom in):")), min = max(1, param_map_zoom - 3), max = param_map_zoom + 5, value = param_map_zoom - 1, step = 0.25, ticks = FALSE, dragRange = FALSE, width = "100%")
   })
   ),
 
@@ -6153,7 +6120,7 @@ div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:righ
         # shiny::req(identical(unique(rv_param_temp$plotDat$MonitoringLocationIdentifier), rv_param_temp$param_map_highlight)) # make sure the plots have been updated  
             
         shiny::req(identical(input$sel_SummarizeBy, rv_param_temp$sel_summarize_by))
-        
+ 
         map_options_chartype_choice_names <- c("Sites", "Median", "Thresholds", "Percentiles")[c(TRUE, TRUE, sum(!is.na(rv_param_temp$plotDat["ThreshCateg"])) > 0, sum(!is.na(rv_param_temp$plotDat["PercCateg"])) > 0)]
         map_options_choice_values <- stringi::stri_replace_all_fixed(
           map_options_chartype_choice_names,
@@ -6214,11 +6181,14 @@ card_body(
   plotlyOutput("out_season_plots")  
 )
 ) # end explore_seasonal_patterns_subcard
-
+        
 ### Explore plots card----
 explore_plots_card <-
   bslib::card(
     gap = 0,
+    card_header(
+      HTML('<span style="color: red;">Percentile limits (defaults are 5th and 95th percentiles) are shown as red horizontal lines. Threshold limits are shown in colored background grid (blue = good, yellow = caution, orange = poor). Use sidebar options to set or remove limits.</span>')
+      ),
     card_body(
       class = "p-0",
       # div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
@@ -6347,6 +6317,9 @@ nav_panel(
   bslib::card(
     style = "resize:vertical;",
     full_screen = TRUE,
+    card_header(
+      HTML('<span style="color: red;">WARNING!! Percentiles should NOT be used to determine if values are high or low. Percentiles only indicate a typical range of values AMONG THE DATA SELECTED.</span>')
+      ),
     p(plotlyOutput("out_perc_plots"))
 )
   )
@@ -6377,13 +6350,9 @@ Raw Data
 Inputs {.sidebar data-width=400}
 -------------------------------------
 ```{r raw_data_input}
-FuncAboutButton(nam = "button_aboutRawData")
+# FuncAboutButton(nam = "button_aboutRawData")
 observeEvent(eventExpr = input$button_aboutRawData, {
   browseURL(here::here("About_files", "aboutRawData.html"))})
-
-br()
-
-br()
 
 strong("Raw Data Fields for Filtered Data")
 
@@ -6405,6 +6374,8 @@ Raw Data
 
 <center>*For the filtered data, this table shows data records from the Water Quality Portal. Use the left sidebar to select data columns to display.*</center>
 
+<br>
+
 ```{r raw_data}
 output$table_raw_filtered <- DT::renderDT({
 
@@ -6425,10 +6396,10 @@ output$table_raw_filtered <- DT::renderDT({
     options = list(
           dom = 'Blrtp',
           buttons = list('csv', 'excel'),
-          # lengthMenu = list(c(10, 20,30,40,-1),
-          #                 c(10, 20,30,40,"All")),
+          lengthMenu = list(c(15, 30, 40, -1),
+                          c(15, 30, 40, "All")),
           colReorder=TRUE,
-          # pageLength = -1,
+          pageLength = -1,
         columnDefs = list(list(className = 'dt_center', targets = "_all")),
           autoWidth = FALSE
         )
@@ -6453,7 +6424,7 @@ Plot Data Tables {.tabset .tabset-fade}
 * I could not import data from web services (import aborted)
 * Some of the data from WQP were not in the imported data file
 - APPA, etc., by HUC so needed HUC10 associated
-- Default is at least 2 sampling activities within the past 6 years and a subset of site types and WQ parameters. Try custom import instead.
+- Default is at least 2 sampling activities within the past 6 years and a subset of site types and WQ characteristics. Try custom import instead.
 * I found a bug in the dashboard! How do I report it?
 * I found a mistake in the data--how do I report it?
 
@@ -6466,7 +6437,7 @@ Plot Data Tables {.tabset .tabset-fade}
 * How can I export figures and tables from the dashboard?
 * How were default threshold limits determined?
 https://www.epa.gov/wqs-tech/state-specific-water-quality-standards-effective-under-clean-water-act-cwa#tb4
-* How to reorder/display categorical parameters with colors?
+* How to reorder/display categorical characteristics with colors?
 * How to upload my own threshold limits?
 * Can I set threshold limits calculated over multiple days, etc.?
 * Can I download the dashboard to my own computer?
