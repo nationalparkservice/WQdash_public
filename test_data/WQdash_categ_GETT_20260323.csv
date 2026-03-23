@@ -1,0 +1,3 @@
+CharSampleType,CategOrder,CategColor
+Turbidity severity (choice list) (Total; NA),(NONE//MILD//MODERATE//SERIOUS//EXTREME),(#EAE4F1//#D1B0D5//#D677B9//#E62B8B//#B80A4E)
+"Flow, stream stage (choice list) (Total; NA)",(DRY//INTERSTITIAL//NO FLOW//LOW//NORMAL//ABOVE NORMAL//FLOOD),(#F7FCC9//#D9F0B2//#98D7B8//#4FBBC1//#1E92C0//#225AA6//#1F2F88)

@@ -10,7 +10,8 @@ runtime: shiny
 ---
 
 ```{r global, include=FALSE}
-
+### NOTES
+# > FuncClearAll does not actually work--see secn wq dashboard for correct implementation
  # saveRDS(isolate(reactiveValuesToList(rv)), here::here(
  #   "TEMP_rv.RDS"))
  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
@@ -295,14 +296,14 @@ tags$style(HTML("
 }
 "))
 
-tags$style(HTML("
-.bslib-sidebar-layout > .collapse-toggle[aria-expanded='true']::after {
-  content: 'Hide Map';
-  }
-  .bslib-sidebar-layout > .collapse-toggle[aria-expanded='false']::after {
-  content: 'Show Map';
-  }
-"))
+# tags$style(HTML("
+# .bslib-sidebar-layout > .collapse-toggle[aria-expanded='true']::after {
+#   content: 'Hide Map';
+#   }
+#   .bslib-sidebar-layout > .collapse-toggle[aria-expanded='false']::after {
+#   content: 'Show Map';
+#   }
+# "))
 
 # Make the bslib card full screen icon and exit more obvious
 tags$style(HTML("
