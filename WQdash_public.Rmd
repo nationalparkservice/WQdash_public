@@ -11,7 +11,6 @@ runtime: shiny
 
 ```{r global, include=FALSE}
 ### NOTES
-# > FuncClearAll does not actually work--see secn wq dashboard for correct implementation
  # saveRDS(isolate(reactiveValuesToList(rv)), here::here(
  #   "TEMP_rv.RDS"))
  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
@@ -22,7 +21,7 @@ rm(list=ls())
 
 pkgs <- c("flexdashboard", 
           "shiny", 
-          "knitr",  
+          # "knitr",
           "readr",
           "here", 
           "plyr", 
@@ -30,42 +29,43 @@ pkgs <- c("flexdashboard",
           "purrr",
           "tools",
           "ggplot2",
-          "janitor", 
-          "mgcv", 
+          # "janitor", 
+          # "mgcv", 
           "scales", 
-          "rlang", # check for empty variables
-          "rtf", 
-          "rmarkdown", 
+          # "rlang", # check for empty variables
+          # "rtf", 
+          # "rmarkdown", 
           "shinyWidgets", 
           "leaflet", 
-          "plotrix", 
-          "GGally", 
+          # "plotrix", 
+          # "GGally", 
           "plotly", 
           "httr", 
           # "climateR",
           "sp",
           "bslib", 
-          "bsicons",
+          # "bsicons",
           "RgoogleMaps", # to set map zoom
           "sf",
           "tidyr",
           "magrittr", 
-          "leaflet.extras", 
-          "lubridate", 
+          # "leaflet.extras", 
+          "lubridate",
+          "stringi",
           "stringr",
           "fontawesome", 
           "viridisLite", 
-          "ggpubr", # for drawing separate legends
-          "heatmaply", # for interactive heat plots
+          # "ggpubr", # for drawing separate legends
+          # "heatmaply", # for interactive heat plots
           "reactable", # for easy nested tables
           "htmltools", # for arranging plots in tab (browsable)
-          "shinyFiles", # for user to save files in specified location
-          "RColorBrewer", # to display brewer palettes
+          # "shinyFiles", # for user to save files in specified location
+          # "RColorBrewer", # to display brewer palettes
           "shinyjs", # for easy functions that use JavaScript
           "sortable", # drag-and-drop rank input
           "tmaptools", # for flexible color mapping (get_brewer_pal)
           "DT", # for interactive tables
-          "zoo", # for year-month
+          # "zoo", # for year-month
           "cowplot", # to get legends from plots
           "gridExtra", # for arranging plots and adding plot annotations (ggplotly can't do captions or subtitles)
           "geojsonio", # to test for presence of features
@@ -147,10 +147,10 @@ tags$script("
     });
   ")
 
-# Call this to force an input value to reset to a specified value
+# Call this to force an input value to reset to a specified value--I'm not using it at the moment but if I need to, the way to do it is: session$sendCustomMessage("resetValue", list(id = "inputID", value = someValue))
 tags$script("
-    Shiny.addCustomMessageHandler('resetValue', function(variableName, inputValue) {
-      Shiny.setInputValue(id = variableName, value = inputValue);
+    Shiny.addCustomMessageHandler('resetValue', function(msg) {
+      Shiny.setInputValue(msg.id, msg.value);
     });
   ")
 
@@ -852,7 +852,6 @@ FuncInitFilter <- function() {
   rv_param_temp$currentInputs$sel_ThreshUpper <- NA
   rv_param_temp$currentInputs$sel_ThreshCateg1 <- rv_param_temp$currentInputs$sel_ThreshCateg2 <- rv_param_temp$currentInputs$sel_ThreshCateg3 <- "good"
   cat("end of define filter defaults")
-  # session$sendCustomMessage(type = "resetValue", message = list("sel_SummaryParam", sort(rv_param_temp$selectCharSampleType)))
 }
 
 FuncRefreshFilter <- function(sel_MinYrs, sel_SummaryParam, sel_SummaryOrg, sel_YrRange, sel_ActivityType, sel_ResultStatus, sel_DefineSeasons) {
@@ -887,7 +886,7 @@ FuncRefreshFilter <- function(sel_MinYrs, sel_SummaryParam, sel_SummaryOrg, sel_
     
     print("line763")
     # Assign custom seasons
-    if(nrow(filterDat) > 0 & sel_DefineSeasons %in% c("WaterSeasons", "CustomSeasons"))
+    if(nrow(filterDat) > 0 && isTRUE(sel_DefineSeasons %in% c("WaterSeasons", "CustomSeasons")))
     {
       filterDat <- FuncCustomSeasons(dat_df = filterDat, seas = sel_DefineSeasons)
     }
@@ -911,11 +910,6 @@ suppressWarnings(filterDat$ResultMeasureValue_replaced[filterDat$ResultDetection
   as.numeric(filterDat$DetectionQuantitationLimitMeasure.MeasureValue[filterDat$ResultDetectionConditionText != "Detected and Quantified" & is.na(filterDat$ResultMeasureValue) & !is.na(filterDat$DetectionQuantitationLimitMeasure.MeasureValue)])) # create a column in which the detection limit replaces NA, for records where result was above or below detection limit--this column will be used to calculate probability quantiles <<<<<<<<<<<<<<< INCLUDE THIS EXPLANATION IN DOCUMENTATION
   
 filterDat$ThreshCateg <- filterDat$CategName <- filterDat$CategResultMeasureValue <- NA # Create these columns so they can be filled if threshold or categorical color files are loaded. Also resets to NA when the filter data are changed.
-
-  # if(!is.null(rv_param_temp$threshList)) {
-  #   print("ADDING THRESHOLD DATA TO FILTERED DATA FRAME")
-  #   filterDat <- FuncAddThreshCateg(filterDat)
-  # }
   
         rv_param_temp$subDat <- filterDat %>%
           right_join(filterYears[, c("CharacteristicName", "CharSampleType", "MonitoringLocationIdentifier")], by = c("CharacteristicName", "CharSampleType", "MonitoringLocationIdentifier")) # just keep the ones that met the data filter criteria for total survey years, so these are the raw data that are summarized in rv_param_temp$subDatYears
@@ -954,14 +948,6 @@ FuncPlotHeatMap <- function(dat, y_name, legend_range, legend_name) {
     # min_colorval <- legend_range[1]
     max_colorval <- legend_range[2] # make sure the range of color values is the same across all plots
     template_cols <- viridisLite::viridis(n = max_colorval, alpha = 1, begin = 0, end = 1, direction = -1)
-  
-    # # Calculate relative heights--This is generic to allow switching back to format where all characteristics are shown in a single page
-    # sites_per_char <- dat %>% dplyr::arrange(CharacteristicName) %>% dplyr::distinct(CharacteristicName, MonitoringLocationIdentifier) %>% dplyr::count(CharacteristicName) %>% dplyr::ungroup() 
-    # sites_per_char <- sites_per_char[order(sites_per_char$CharacteristicName),] %>% dplyr::pull(n) # For some absurd reason, dplyr::arrange() is not competent in sorting so using base R to sort
-    
-    # temp_distinct <- dat %>%
-      # dplyr::select(CharacteristicName, MonitoringLocationIdentifier, TimeUnit) %>% dplyr::distinct()
-    # rel_char_hts <- prop.table(sites_per_char) ### YES!!! This gets the heights correct. No need to try to account for title or x-axis labels, etc.--it's already adjusted for
 
   # A ggplot object with NO data.  Omit the characteristic from the facet_grid call
     freq <- switch(input$sel_TimeSubunit, Season = "season", Mnth = "month")
@@ -983,21 +969,7 @@ FuncPlotHeatMap <- function(dat, y_name, legend_range, legend_name) {
           plot.title = element_text(size = 22)) +
           # axis.text.x = element_text(angle = 90, hjust = 1)) +
     theme(plot.margin=unit(c(3,3,1,2),"lines"))
-print("779")
-#   # Build a separate graphic for each Characteristic
-#   char_list <- lapply(sort(unique(dat$CharacteristicName)), function(i) {
-#     p %+% 
-#       subset(dat, CharacteristicName == i) + ggtitle(paste0(i, " (# of surveys per ", input$sel_TimeSubunit, ")"))
-#     })
-#   names(char_list) <-sort(unique(dat$CharacteristicName))
-#   print("785")
-#   # Build as Grobs and plot via gridExtra::grid.arrange
-#   final_heat_plots <- char_list %>%
-#     lapply(ggplotGrob) %>%
-#     arrangeGrob(grobs = ., heights = rel_char_hts) %>%
-#     grid.arrange(., ncol = 1)
-# print("791")
-#   return(final_heat_plots)
+
 return(p)
 }
 
@@ -1135,7 +1107,7 @@ FuncPlotDat <- function() {
     # If assigning CUSTOM threshold limits, just update with plot data--not with the filtered data (those should keep the limits from an imported threshold file)
   
     if(all(!is.null(rv_param_temp$sel_show_thresholds), !is.null(input$sel_ThreshLower), !is.na(input$sel_ThreshLower), !is.null(input$sel_ThreshCateg1), !is.null(input$sel_ThreshCateg2), !is.null(input$sel_NumThresh), !is.null(plotDat))) {
-    if(all(rv_param_temp$sel_show_thresholds == "showthresh_custom", rv_param_temp$sel_summarize_by == "by_chartype", identical(unique(plotDat$CharSampleType), rv_param_temp$showCharTypes), input$sel_NumThresh > 0)) {
+    if(all(rv_param_temp$sel_show_thresholds == "showthresh_custom", rv_param_temp$sel_summarize_by == "by_chartype", setequal(unique(plotDat$CharSampleType), rv_param_temp$showCharTypes), input$sel_NumThresh > 0)) {# setequal instead of identical b/c latter requires order to also match
       
       if(input$sel_NumThresh == 1) {
         cut_breaks <- c(-Inf, input$sel_ThreshLower, Inf)
@@ -1148,7 +1120,9 @@ FuncPlotDat <- function() {
       }
       
       rv_param_temp$threshCustom <- list() # this is for plot backgrounds
-      rv_param_temp$threshCustom[[unique(plotDat$CharSampleType)]] <- list(
+      chartype_key <- unique(plotDat$CharSampleType)
+      shiny::req(length(chartype_key) == 1)
+      rv_param_temp$threshCustom[[chartype_key]] <- list(
         CharSampleType = unique(plotDat$CharSampleType), 
         ResultSampleFractionText = unique(plotDat$ResultSampleFractionText), 
         ResultMeasure.MeasureUnitCode = unique(plotDat$ResultMeasure.MeasureUnitCode), 
@@ -1167,22 +1141,20 @@ FuncPlotDat <- function() {
   if(any(is.null(input$sel_AddQuantile), input$sel_AddQuantile == FALSE, is.null(input$sel_QuantileProbLower), is.null(input$sel_QuantileProbUpper))) {
       rv_param_temp$quantDat <- NULL
     } else {
-
-      if(rv_param_temp$sel_summarize_by == "by_station" | (rv_param_temp$sel_summarize_by == "by_chartype" & input$sel_QuantileGroupBy == "quant_each"))  { # if 'by_station' or if 'by_chartype' and calculating separate quantile for each station, then group data by station-characteristic name
-        rv_param_temp$quantDat <- plotDat %>%
-          dplyr::select(MonitoringLocationIdentifier, CharacteristicName, ResultMeasureValue_replaced) %>%
-          dplyr::group_by(MonitoringLocationIdentifier, CharacteristicName) %>%
-          dplyr::summarise(QuantLineLower = quantile(ResultMeasureValue_replaced, probs = input$sel_QuantileProbLower, na.rm = TRUE),
-                    QuantLineUpper = quantile(ResultMeasureValue_replaced, probs = input$sel_QuantileProbUpper, na.rm = TRUE)) # data frame where each row has a monitoring station ID and the value for the user-defined quantile probability
-      }
       
-      if(rv_param_temp$sel_summarize_by == "by_chartype" & input$sel_QuantileGroupBy == "quant_all") { # if 'by_chartype' and calculating one quantile across all stations
+      if(isTRUE(rv_param_temp$sel_summarize_by == "by_chartype") && isTRUE(rv_param_temp$sel_quantile_group_by == "quant_all")) { # if 'by_chartype' and calculating one quantile across all stations. isTRUE returns FALSE for NULL, logical(0) and anything weird. && means the second condition is never evaluated if the first is FALSE.
         rv_param_temp$quantDat <- data.frame(
           MonitoringLocationIdentifier = sort(unique(plotDat$MonitoringLocationIdentifier)),
           CharacteristicName = sort(unique(plotDat$CharacteristicName)),
           QuantLineLower = as.numeric(quantile(plotDat$ResultMeasureValue_replaced, probs = input$sel_QuantileProbLower, na.rm = TRUE)),
           QuantLineUpper = as.numeric(quantile(plotDat$ResultMeasureValue_replaced, probs = input$sel_QuantileProbUpper, na.rm = TRUE)),
           stringsAsFactors = FALSE)
+      } else {
+        rv_param_temp$quantDat <- plotDat %>%
+          dplyr::select(MonitoringLocationIdentifier, CharacteristicName, ResultMeasureValue_replaced) %>%
+          dplyr::group_by(MonitoringLocationIdentifier, CharacteristicName) %>%
+          dplyr::summarise(QuantLineLower = quantile(ResultMeasureValue_replaced, probs = input$sel_QuantileProbLower, na.rm = TRUE),
+                    QuantLineUpper = quantile(ResultMeasureValue_replaced, probs = input$sel_QuantileProbUpper, na.rm = TRUE)) # data frame where each row has a monitoring station ID and the value for the user-defined quantile probability
       }
     }
 
@@ -1217,7 +1189,7 @@ FuncGageDat <- function(gage_station) {
     dplyr::ungroup()
   
   # Assign custom seasons if applicable
-  if(nrow(gageDat) > 0 & rv$importSettings$sel_DefineSeasons %in% c("WaterSeasons", "CustomSeasons"))
+  if(nrow(gageDat) > 0 && isTRUE(rv$importSettings$sel_DefineSeasons %in% c("WaterSeasons", "CustomSeasons")))
     {
     gageDat <- FuncCustomSeasons(dat_df = gageDat, seas = rv$importSettings$sel_DefineSeasons)
   }
@@ -1259,7 +1231,7 @@ FuncPrecipDat <- function(precip_station) {
     dplyr::mutate(MeteoName = precip_station)
   
     # Assign custom seasons if applicable
-  if(nrow(precipDat) > 0 & rv$importSettings$sel_DefineSeasons %in% c("WaterSeasons", "CustomSeasons"))
+  if(nrow(precipDat) > 0 && isTRUE(rv$importSettings$sel_DefineSeasons %in% c("WaterSeasons", "CustomSeasons")))
     {
     precipDat <- FuncCustomSeasons(dat_df = precipDat, seas = rv$importSettings$sel_DefineSeasons)
   }
@@ -1382,7 +1354,7 @@ FuncQuantLines <- function(quant_df, combine_sites, dat_df, p) {
   if(!is.null(quant_df)) {
     if(nrow(quant_df)>0) {
       # ...if stations will all be in a single plot and quantLine is by station...
-      if(rv_param_temp$sel_summarize_by == "by_chartype" & combine_sites==TRUE & length(unique(dat_df$MonitoringLocationIdentifier)) > 1) {
+      if(isTRUE(rv_param_temp$sel_summarize_by == "by_chartype") && isTRUE(combine_sites) && isTRUE(length(unique(dat_df$MonitoringLocationIdentifier)) > 1)) {
         if(length(unique(quant_df$QuantLineLower)) > 1 | length(unique(quant_df$QuantLineUpper)) > 1) {
           showModal(modalDialog(
             title = "Percentile by Monitoring Site",
@@ -1461,7 +1433,7 @@ if(x_nam == "ActivityStartDate") {
   p1_points_list <- list()
   print("line1434")
   
-  if(rv_param_temp$sel_summarize_by == "by_chartype" & combine_sites==TRUE) {
+  if(isTRUE(rv_param_temp$sel_summarize_by == "by_chartype") && isTRUE(combine_sites)) {
     unique_df <- plot_dat %>% dplyr::select(CharSampleType) %>% dplyr::distinct() # If combining sites, then data frame has only column of CharSampleType
   } else {
     unique_df <- plot_dat %>% expand(CharSampleType, MonitoringLocationIdentifier) %>% arrange(CharSampleType, MonitoringLocationIdentifier) # If sites are separate plots, data frame of unique CharSampleType-sites
@@ -1521,7 +1493,7 @@ if(x_nam == "ActivityStartDate") {
     
     print("line623")
     # ...if coloring by a categorical characteristic, set up the data...
-    if(sel_categ != "none" & !is.null(categ_df)) {
+    if(isTRUE(sel_categ != "none") && !is.null(categ_df)) {
       levs <- unlist(base::strsplit(stringr::str_replace_all(categ_df$CategOrder[categ_df$CharSampleType == sel_categ], "[()]", ""), split="//")) # these are the categorical levels from the category import file--pull from there rather than from data to ensure no levels are omitted just because they were not in the data
       levels_ok <- all(na.exclude(unique(plot_dat$CategResultMeasureValue[plot_dat$CategName == sel_categ])) %in% levs)
       shiny::req(!is.null(levels_ok))
@@ -1541,7 +1513,7 @@ if(x_nam == "ActivityStartDate") {
   } else {
 
       # ..if combining sites for a single characteristic, so coloring by monitoring site...
-      if(all(rv_param_temp$sel_summarize_by == "by_chartype", combine_sites==TRUE)) { # if coloring by monitoring site, use viridis color scale
+      if(isTRUE(rv_param_temp$sel_summarize_by == "by_chartype") && isTRUE(combine_sites)) { # if coloring by monitoring site, use viridis color scale
         p_points <- p_points +
           suppressWarnings(geom_point(aes(shape = pointShape, color = MonitoringLocationIdentifier, fill = MonitoringLocationIdentifier, text = paste0("<span style='font-size:12px; font-weight:bold;'>", MonitoringLocationIdentifier, "<br>", CharSampleType, "<br>Date: ", ActivityStartDate, "<br>Value: ", y, "<br>Detection Level: ", ResultDetectionConditionText, "</span>")), size = 2, show.legend = c(fill = FALSE, color = TRUE, shape = FALSE))) + # this will give a false unknown aesthetics warning for 'text'
           scale_fill_viridis_d() +
@@ -1574,7 +1546,7 @@ if(x_nam == "ActivityStartDate") {
     # If adding loess smooth...
   if(add_loess) {
     # If plotting all stations on one plot, color by station
-    if(rv_param_temp$sel_summarize_by == "by_chartype" & combine_sites==TRUE) {
+    if(isTRUE(rv_param_temp$sel_summarize_by == "by_chartype") && isTRUE(combine_sites)) {
       p1_points <- p1_points + 
         suppressWarnings(geom_smooth(aes(color = MonitoringLocationIdentifier, fill = MonitoringLocationIdentifier), method = "loess", se = FALSE, size = 0.5, alpha = 0.3, show.legend = FALSE, na.rm = TRUE, fullrange = FALSE)) +
         coord_cartesian(ylim = c(c(yaxes_min, yaxes_max)))
@@ -1613,7 +1585,7 @@ print("line1551")
   }
   
   ## If adding streamflow plot... ----
-  if(sel_add_gage_precip == "streamflow" & !is.null(gage_dat)) {
+  if(isTRUE(sel_add_gage_precip == "streamflow") && !is.null(gage_dat)) {
     trans_gage_y <- ifelse(all(!is.null(trans_log_y), "streamflow" %in% trans_log_y), "log", "identity")
     
     if(x_nam=="ActivityStartDate") {
@@ -1679,7 +1651,7 @@ print("line1551")
   print("line1642")
   
    ## If adding precipitation plot... ----
-  if(sel_add_gage_precip == "precipitation" & !is.null(precip_dat)) {
+  if(isTRUE(sel_add_gage_precip == "precipitation") && !is.null(precip_dat)) {
     
     trans_precip_y <- ifelse(all(!is.null(trans_log_y), "precipitation" %in% trans_log_y), "log", "identity")
     
@@ -1771,7 +1743,7 @@ FuncPlotBox <- function(plot_dat, quant_df = NULL, x_nam = "Yr", combine_sites =
   # Create the water quality plot(s)
   p1_box_list <- list()
   
-  if(rv_param_temp$sel_summarize_by == "by_chartype" & combine_sites==TRUE) {
+  if(isTRUE(rv_param_temp$sel_summarize_by == "by_chartype") && isTRUE(combine_sites)) {
     unique_df <- plot_dat %>% dplyr::select(CharSampleType) %>% dplyr::distinct()
   } else {
     unique_df <- plot_dat %>% expand(CharSampleType, MonitoringLocationIdentifier) %>% arrange(CharSampleType, MonitoringLocationIdentifier) # data frame of unique characteristic-sites
@@ -1826,7 +1798,7 @@ FuncPlotBox <- function(plot_dat, quant_df = NULL, x_nam = "Yr", combine_sites =
   }
     
   # If combining sites for a single characteristic, so coloring by monitoring site...
-  if(rv_param_temp$sel_summarize_by == "by_chartype" & combine_sites==TRUE) { # if coloring by monitoring site, use viridis color scale
+  if(isTRUE(rv_param_temp$sel_summarize_by == "by_chartype") && isTRUE(combine_sites)) { # if coloring by monitoring site, use viridis color scale
     p1_box <- p_box +
       geom_boxplot(aes(fill = MonitoringLocationIdentifier), alpha = 0.4, show.legend = c(fill = TRUE)) +
       scale_fill_viridis_d(name = "Site") + 
@@ -1838,11 +1810,11 @@ FuncPlotBox <- function(plot_dat, quant_df = NULL, x_nam = "Yr", combine_sites =
   
   # If including censored data...
   if(incl_cens) {
-    if(!is.na(y_lowerQL) & y_lowerQL >= yaxes_min) { # add LQL line
+    if(!is.null(y_lowerQL) && !is.na(y_lowerQL) && y_lowerQL >= yaxes_min) { # add LQL line
       p1_box <- p1_box +
         geom_hline(yintercept = y_lowerQL, linetype = "dotted", color = "gray")
       }
-    if(!is.na(y_upperQL) & y_upperQL <= yaxes_max) { # add UQL line
+    if(!is.null(y_upperQL) && !is.na(y_upperQL) && y_upperQL <= yaxes_max) { # add UQL line
       p1_box <- p1_box +
         geom_hline(yintercept = y_upperQL, linetype = "dotted", color = "black")
     }
@@ -1870,7 +1842,7 @@ FuncPlotBox <- function(plot_dat, quant_df = NULL, x_nam = "Yr", combine_sites =
   }
   
   # If adding streamflow plot...
-  if(sel_add_gage_precip == "streamflow" & !is.null(gage_dat)) {
+  if(isTRUE(sel_add_gage_precip == "streamflow") && !is.null(gage_dat)) {
     trans_gage_y <- ifelse(all(!is.null(trans_log_y), "streamflow" %in% trans_log_y), "log", "identity")
     
     gage_box <- ggplot(gage_dat, aes(x = x, y = MeanDailyDischarge)) + 
@@ -1889,7 +1861,7 @@ FuncPlotBox <- function(plot_dat, quant_df = NULL, x_nam = "Yr", combine_sites =
     }
   
   # If adding precipitation plot...
-  if(sel_add_gage_precip == "precipitation" & !is.null(precip_dat)) {
+  if(isTRUE(sel_add_gage_precip == "precipitation") && !is.null(precip_dat)) {
     
     trans_precip_y <- ifelse(all(!is.null(trans_log_y), "precipitation" %in% trans_log_y), "log", "identity")
     
@@ -2038,7 +2010,7 @@ FuncPlotList <- function(time_unit) {
 # Includes censored data
     incl_cens <- any(c("Present Below Quantification Limit", "Not Detected", "Present Above Quantification Limit") %in% unique(plot_dat$ResultDetectionConditionText)) # TRUE if there are any reporting limits
   
-    if(time_unit == "ActivityStartDate" & input$sel_PlotType == "box") {time_unit <- "Yr"} # Box plots for time series are grouped by year
+    if(isTRUE(time_unit == "ActivityStartDate") && isTRUE(input$sel_PlotType == "box")) {time_unit <- "Yr"} # Box plots for time series are grouped by year
     
       plot_dat$x <- plot_dat[[time_unit]]
       plot_dat$y <- round(plot_dat[["ResultMeasureValue_replaced"]], 2)
@@ -2450,7 +2422,6 @@ FuncParamTable <- function(df, threshold_df, site) {
     # Bar chart
     bar_html <- tryCatch(build_css_bar(low, q05, med, q95, high, as.character(row$Recent_Values), as.character(row$Recent_Dates), n), error = function(e) sprintf('<div style="padding: 20px; text-align: center; color: #666;">Error: %s</div>', e$message))
 
-    cat("STARTING THRESHOLD LOOKUP")
     # Threshold lookup
     thresh_sub <- switch(any(is.null(threshold_df), nrow(threshold_df)==0)+1, threshold_df[tolower(threshold_df$Characteristic) == tolower(param), ], data.frame())
 
@@ -2540,22 +2511,16 @@ for (i in c("ResultDetectionConditionText", "ThreshCateg", "PercCateg")) {
     final_plot_summary
 }
 
+FuncClearAll <- function(rv, rv_param_temp) {
+  for (nm in names(rv_defaults)) rv[[nm]] <- rv_defaults[[nm]]
+  for (nm in names(rv_param_defaults)) rv_param_temp[[nm]] <- rv_param_defaults[[nm]]
 
-FuncClearAll <- function() {
-  rv <- reactiveValues(wqp_url_list = list(), parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) 
-  
-  rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
-  
-  # Hide filter wellPanels
-  restart_panels_filter <- c("new_data_P1", "new_data_P2", "new_data_P3", "create_categfile_P1", "create_categfile_P2", "create_categfile_P3", "create_categfile_P4") 
-  lapply(restart_panels_filter, FUN = function(x) shinyjs::hideElement(x))
-  
-  # Update inputs
+  lapply(c("new_data_P1", "new_data_P2", "new_data_P3", "create_categfile_P1",
+           "create_categfile_P2", "create_categfile_P3", "create_categfile_P4"),
+         shinyjs::hideElement)
+
   FuncUpdateHome()
   FuncUpdateInputsOther()
-  
-  input <- list()
-  
 }
   
 # These are reactable functions
@@ -2576,19 +2541,23 @@ download_button <- function(outputId, label = "Download", class = NULL, ...)  {
 }
 
 grabit <- function(url) {
-  tmpfile <- "tempdownload.geojson"
-  req <- download.file(url, tmpfile, mode = "w")
-  temp <- sf::st_read(dsn = tmpfile) 
+  tmpfile <- tempfile(fileext = ".geojson")
+  download.file(url, tmpfile, mode = "w")
+  temp <- sf::st_read(dsn = tmpfile)
   file.remove(tmpfile)
- return(temp)
+  return(temp)
 }
 
 ```
 
 ```{r startup}
-rv <- reactiveValues(wqp_url_list = list(), parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list()) 
-   
-rv_param_temp <- reactiveValues(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg= NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
+  rv_defaults <- list(wqp_url_list = list(), parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list())
+
+rv_param_defaults <- list(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_quantile_group_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg = NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
+  
+  rv <- do.call(reactiveValues, rv_defaults)
+rv_param_temp <- do.call(reactiveValues, rv_param_defaults)
+
 ```
 
 ```{r observe_inputs}
@@ -2613,17 +2582,17 @@ observeEvent(input$sel_ThreshUpper, {
     print("ASSIGNED UPPER THRESH TO RV_PARAM_TEMP")
     })
 
-observeEvent(input$currentInputs$sel_ThreshCateg1, {
+observeEvent(input$sel_ThreshCateg1, {
   rv_param_temp$currentInputs$sel_ThreshCateg1 <- input$sel_ThreshCateg1
   print("ASSIGNED THRESHCATEG1")
 })
 
-observeEvent(input$currentInputs$sel_ThreshCateg2, {
+observeEvent(input$sel_ThreshCateg2, {
   rv_param_temp$currentInputs$sel_ThreshCateg2 <- input$sel_ThreshCateg2
   print("ASSIGNED THRESHCATEG2")
 })
 
-observeEvent(input$currentInputs$sel_ThreshCateg3, {
+observeEvent(input$sel_ThreshCateg3, {
   rv_param_temp$currentInputs$sel_ThreshCateg3 <- input$sel_ThreshCateg3
   print("ASSIGNED THRESHCATEG3")
 })
@@ -2634,7 +2603,7 @@ observeEvent(input$currentInputs$sel_ThreshCateg3, {
 # Action to begin data search from Main Page----
 observeEvent(eventExpr = input$button_beginSearch, {
   
-  FuncClearAll()
+  FuncClearAll(rv, rv_param_temp)
   
 # If user chooses to import new data from WQP...
 
@@ -2712,7 +2681,7 @@ observeEvent(eventExpr = input$button_showStations, {
  
   shiny::req(input$sel_UnitCode!="") # make sure user has entered Park unit code
 
-  FuncClearAll()
+  FuncClearAll(rv, rv_param_temp)
   
   rv$parkName <- input$sel_UnitCode
   rv$parkID <- unique_parks_df$unit_code[unique_parks_df$unit_name_combined == rv$parkName]
@@ -2877,7 +2846,9 @@ observeEvent(eventExpr = input$button_showStations, {
       )
   } # Require user to click 'Got it!' button for the modal to close
   
-  rm(gages, temp_gagepoints, gagePoints)
+  rm(gages)
+  if(exists("temp_gagepoints")) rm(temp_gagepoints)
+  if(exists("gagePoints")) rm(gagePoints)
 
   # Get locations of recently active weather stations, for the bounding box, from dashboard files ----
   # This requires a token, so don't want to embed in dashboard
@@ -3525,7 +3496,7 @@ rv$meteoDat <- NULL
 #   }
 # }
   
-  ### Save query
+  ### Save query----
   cat("line3484")
   # Update rv$importSettings with the import settings
   import_input <- c("sel_UnitCode", "sel_SiteType", "sel_HUClevel", "sel_SelectMethod", "sel_OriginStationID", "sel_DiskKmUpstream", "sel_IncludeTribs", "sel_DistKmDownstream", "sel_IncludeDiversions", "sel_Organization", "sel_Gages", "sel_Meteo", "sel_CharType") 
@@ -3726,41 +3697,39 @@ observe({
     dplyr::select(MonitoringLocationIdentifier, CharSampleType, Yr, ActivityStartDate, ResultMeasureValue_replaced, ResultMeasure.MeasureUnitCode, ResultDetectionConditionText, ThreshCateg) %>%
     dplyr::filter(!is.na(ResultMeasureValue_replaced)) %>%
     dplyr::group_by(MonitoringLocationIdentifier, CharSampleType, ResultMeasure.MeasureUnitCode) %>%
-    dplyr::arrange(MonitoringLocationIdentifier, CharSampleType, desc(ActivityStartDate)) %>%
     dplyr::summarise(
-      Sample_Size = n(),
-      Year_Range = ifelse(min(Yr, na.rm = TRUE) == max(Yr, na.rm = TRUE),
-                        as.character(min(Yr, na.rm = TRUE)),
-                        paste0(min(Yr, na.rm = TRUE), "–", max(Yr, na.rm = TRUE))),
-        Lowest_Value_Numeric = min(ResultMeasureValue_replaced, na.rm = TRUE),  
-        q05 = quantile(ResultMeasureValue_replaced, 0.05, na.rm = TRUE),
-    Median_Value_Numeric = median(ResultMeasureValue_replaced, na.rm = TRUE),
-    q95 = quantile(ResultMeasureValue_replaced, 0.95, na.rm = TRUE),
+  Sample_Size = n(),
+  Year_Range = ifelse(min(Yr, na.rm = TRUE) == max(Yr, na.rm = TRUE),
+                    as.character(min(Yr, na.rm = TRUE)),
+                    paste0(min(Yr, na.rm = TRUE), "–", max(Yr, na.rm = TRUE))),
+    Lowest_Value_Numeric = min(ResultMeasureValue_replaced, na.rm = TRUE),  
+    q05 = quantile(ResultMeasureValue_replaced, 0.05, na.rm = TRUE),
+  Median_Value_Numeric = median(ResultMeasureValue_replaced, na.rm = TRUE),
+  q95 = quantile(ResultMeasureValue_replaced, 0.95, na.rm = TRUE),
   Highest_Value_Numeric = max(ResultMeasureValue_replaced, na.rm = TRUE),  
-      Lowest_Value = {
-        min_val <- min(ResultMeasureValue_replaced, na.rm = TRUE)
-        conditions <- na.omit(unique(ResultDetectionConditionText[ResultMeasureValue_replaced == min_val])) # note: depending on date, it's possible that the minimum value could have more than one detection condition, as detection limits change over time
-        conditions <- conditions[conditions != ""]
-        ifelse(length(conditions) > 0,
-               paste0(min_val, " (", paste(conditions, collapse = "/"), ")"),
-               as.character(min_val))
-        },
-      Highest_Value = {
-        max_val <- max(ResultMeasureValue_replaced, na.rm = TRUE)
-        conditions <- na.omit(unique(ResultDetectionConditionText[ResultMeasureValue_replaced == max_val]))
-        conditions <- conditions[conditions != ""]
-        ifelse(length(conditions) > 0, 
-               paste0(max_val, " (", paste(conditions, collapse = "/"), ")"),
-               as.character(max_val))
-        },
-      Most_Recent_Value = first(ResultMeasureValue_replaced),
-      Most_Recent_Sample_Date = first(ActivityStartDate),
-  Recent_Values = paste(head(ResultMeasureValue_replaced, 5), collapse = ","),
-  Recent_Dates = paste(format(head(ActivityStartDate, 5), "%Y-%m-%d"), collapse = ","),
-  Recent_Detection_Conditions = paste(head(ResultDetectionConditionText, 5), collapse = ","),
-      .groups = 'drop'
-    ) %>%
-    
+    Lowest_Value = {
+      min_val <- min(ResultMeasureValue_replaced, na.rm = TRUE)
+      conditions <- na.omit(unique(ResultDetectionConditionText[ResultMeasureValue_replaced == min_val]))
+      conditions <- conditions[conditions != ""]
+      ifelse(length(conditions) > 0,
+             paste0(min_val, " (", paste(conditions, collapse = "/"), ")"),
+             as.character(min_val))
+      },
+    Highest_Value = {
+      max_val <- max(ResultMeasureValue_replaced, na.rm = TRUE)
+      conditions <- na.omit(unique(ResultDetectionConditionText[ResultMeasureValue_replaced == max_val]))
+      conditions <- conditions[conditions != ""]
+      ifelse(length(conditions) > 0, 
+             paste0(max_val, " (", paste(conditions, collapse = "/"), ")"),
+             as.character(max_val))
+      },
+  Most_Recent_Value = dplyr::first(ResultMeasureValue_replaced, order_by = desc(ActivityStartDate)),
+  Most_Recent_Sample_Date = dplyr::first(ActivityStartDate, order_by = desc(ActivityStartDate)),
+  Recent_Values = paste(head(ResultMeasureValue_replaced[order(desc(ActivityStartDate))], 5), collapse = ","),
+  Recent_Dates = paste(format(head(ActivityStartDate[order(desc(ActivityStartDate))], 5), "%Y-%m-%d"), collapse = ","),
+  Recent_Detection_Conditions = paste(head(ResultDetectionConditionText[order(desc(ActivityStartDate))], 5), collapse = ","),
+    .groups = 'drop'
+  ) %>%
     dplyr::rename(
       Site = MonitoringLocationIdentifier,
       Characteristic = CharSampleType,
@@ -4020,10 +3989,6 @@ observeEvent(eventExpr = input$button_noStationChars, {
 observeEvent(input$param_map_right_click, {
   shiny::req(!is.null(rv_param_temp$popupSiteSummary), !is.null(rv_param_temp$subDat))
   
-  #   saveRDS(isolate(reactiveValuesToList(rv)), here::here("TEMP_rv.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
-  # saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
-  
   site <- input$param_map_right_click$MonitoringLocationIdentifier
   summary_df <- isolate(rv_param_temp$popupSiteSummary) %>% dplyr::filter(Site == site) 
   site_threshold_df <- switch(is.null(isolate(rv_param_temp$threshDF))+1, isolate(rv_param_temp$threshDF) %>% dplyr::filter(Site == site), data.frame())
@@ -4135,6 +4100,7 @@ observeEvent(eventExpr = input$button_refreshPlotData, {
 
   # These are the user inputs that should only update when plots are refreshed.
   rv_param_temp$sel_summarize_by <- isolate(input$sel_SummarizeBy)
+  rv_param_temp$sel_quantile_group_by <- isolate(input$sel_QuantileGroupBy)
 
 rv_param_temp$sel_show_thresholds <- isolate(input$sel_ShowThresholds) # save the input setting so plots don't change unless the plot data has been refreshed
 
@@ -4151,8 +4117,16 @@ rv_param_temp$sel_show_thresholds <- isolate(input$sel_ShowThresholds) # save th
 
   if(rv_param_temp$sel_summarize_by == "by_station") {
     rv_param_temp$showStations <- isolate(input$sel_ShowOneStation)
-    rv_param_temp$showCharTypes <- isolate(input$sel_ShowStationCharTypes)
-   }
+    sel_chars <- isolate(input$sel_ShowStationCharTypes)
+    rv_param_temp$showCharTypes <- if(!is.null(sel_chars) && length(sel_chars) > 0) {
+      sel_chars
+    } else {
+      sort(intersect(
+        unique(rv_param_temp$subDat$CharSampleType[rv_param_temp$subDat$MonitoringLocationIdentifier == isolate(input$sel_ShowOneStation)]),
+        rv_param_temp$subDatTypes$CharSampleType[rv_param_temp$subDatTypes$DataType == "numeric"]
+      ))
+    }
+  }
 
   
   if(is.null(rv_param_temp$showStations)) {
@@ -4384,6 +4358,14 @@ cat("line4438")
         addLegend(pal = palNumeric, values = pie_median$median_val, position = "topleft", title = input$sel_ShowCharType) %>%
         hideGroup("Imported monitoring sites") %>%
         hideGroup("Selected monitoring sites")
+      
+      if(input$sel_MapByYr == TRUE) {
+        param_map %<>%
+          addControl(tags$div(tag.map.title, HTML(input$sel_ShowCharType, " in Year ", input$sel_SurvYr)), position = "topleft", className="map-title")
+        } else {
+          param_map %<>%
+            addControl(tags$div(tag.map.title, HTML(input$sel_ShowCharType, " across all surveys")), position = "topleft", className="map-title")
+      }
     }
 
    
@@ -4786,11 +4768,11 @@ shinyjs::hidden( # initially hide this well panel
     }),
     
     radioButtons("sel_SelectMethod", label = h6("Select WQP monitoring sites based on: "),
-                 # choiceNames = c("Park (include only data collected within the park unit)", "HUCs (click on map to select one or more HUCs)", "Distance from origin site (enter query filters below)"),
-                 # choiceValues = c("methodPark", "methodHuc", "methodDist"),
-                 choiceNames = c("Park (include all data collected within the park unit)", "HUCs (click on map to select one or more HUCs)"),
-                 choiceValues = c("methodPark", "methodHuc"),
-                 selected = "methodHuc"),
+                 choiceNames = c("Park (include only data collected within the park unit)", "HUCs (click on map to select one or more HUCs)", "Distance from origin site (enter query filters below)"),
+                 choiceValues = c("methodPark", "methodHuc", "methodDist"),
+                 # choiceNames = c("Park (include all data collected within the park unit)", "HUCs (click on map to select one or more HUCs)", ),
+                 # choiceValues = c("methodPark", "methodHuc"),
+                 selected = "methodPark"),
     
     renderUI({ # conditional panel if user selects from origin station
       shiny::req(!is.null(input$sel_SelectMethod))
@@ -5603,7 +5585,6 @@ output$out_SamplePlots <- renderPlot({
 )
 
 plotOutput("out_SamplePlots", height="85%", width = "100%")
-# tags$style("#out_SamplePlots{height:100vh;overflow-x:scroll;overflow-y:scroll}")
 ```
 
 ```{r define_categ, echo = FALSE}
@@ -5732,7 +5713,7 @@ br(),
   br(),
       renderUI({
   FuncOrderCheck(import = TRUE, filter_internal = FALSE, filter_external = TRUE, plot = FALSE)
-  if(any(!rv$userSelect$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName))
+  if(any(!rv$importSettings$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName))
     {rv_param_temp$categLevels <- tibble("CharSampleType" = as.character(), "CategOrder" =as.character(), "CategColor" = as.character())} # initiate a blank categorical levels data frame if the data have not been updated
   }),
 div(
@@ -6242,10 +6223,10 @@ div(
   shiny::req(!is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$sel_add_gage_precip)) # the option to log-transform y-axes only appears after plots have been generated
   
   param_choices <- rv_param_temp$plotDat %>% dplyr::select(CharSampleType) %>% dplyr::distinct() %>% pull(CharSampleType)
-  if(rv_param_temp$sel_add_gage_precip == "streamflow" & !is.null(rv_param_temp$sel_gage_station)) { # if there is a selected gage station
+  if(isTRUE(rv_param_temp$sel_add_gage_precip == "streamflow") && !is.null(rv_param_temp$sel_gage_station)) { # if there is a selected gage station
     param_choices <- c(param_choices, "streamflow")
   }
-  if(rv_param_temp$sel_add_gage_precip == "precipitation" & !is.null(rv_param_temp$sel_precip_station)) { # if there is a selected precip station
+  if(isTRUE(rv_param_temp$sel_add_gage_precip == "precipitation") && !is.null(rv_param_temp$sel_precip_station)) { # if there is a selected precip station
     param_choices <- c(param_choices, "precipitation")
   }
   
@@ -6382,10 +6363,6 @@ output$table_raw_filtered <- DT::renderDT({
 
   shiny::req(!is.null(rv$dat), !is.null(rv_param_temp$subDat), !is.null(rv_param_temp$subDatTypes))
 
-  output$table_raw_filtered <- DT::renderDT({
-
-  shiny::req(!is.null(rv$dat), !is.null(rv_param_temp$subDat), !is.null(rv_param_temp$subDatTypes))
-
   DT::datatable(
     rv_param_temp$subDat %>%
       {if(!is.null(input$sel_RawFilteredDataCols)) dplyr::select(., input$sel_RawFilteredDataCols) else dplyr::select(., OrganizationFormalName, MonitoringLocationIdentifier, CharacteristicName, CharacteristicSet, ActivityTypeCode, ActivityStartDate, ResultDetectionConditionText, ResultMeasureValue, ResultStatusIdentifier, ResultCommentText)},
@@ -6405,7 +6382,6 @@ output$table_raw_filtered <- DT::renderDT({
           autoWidth = FALSE
         )
   )
-})
 })
 
 DTOutput("table_raw_filtered")
