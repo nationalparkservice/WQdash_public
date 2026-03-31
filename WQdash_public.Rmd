@@ -1105,14 +1105,12 @@ FuncPlotDat <- function() {
 
   shiny::req(!is.null(rv_param_temp$subDat), !is.null(rv_param_temp$sel_summarize_by))
   
-      withProgress(message = "Formatting plot data...", value = 0, {
   # Filter plotting data by user inputs
   plotDat <- rv_param_temp$subDat %>%
     dplyr::select(ActivityStartDate, CharacteristicName, CharacteristicSet, CharSampleType, DetectionQuantitationLimitMeasure.MeasureValue, MonitoringLocationIdentifier, OrganizationFormalName, ResultDetectionConditionText, DetectionQuantitationLimitTypeName, ResultMeasureValue, ResultMeasureValue_replaced, ResultMeasure.MeasureUnitCode, ResultSampleFractionText, ThreshCateg, YrDate, MnthDate, WkDate, Yr, Season, Mnth, Wk, DayOfYr) %>% # just keep these columns
     dplyr::filter(MonitoringLocationIdentifier %in% rv_param_temp$showStations & CharSampleType %in% rv_param_temp$showCharTypes)
   plotDat$ResultMeasureValue <- as.numeric(plotDat$ResultMeasureValue)
   plotDat$DetectionQuantitationLimitMeasure.MeasureValue <- as.numeric(plotDat$DetectionQuantitationLimitMeasure.MeasureValue)
-  
     
     # If assigning CUSTOM threshold limits, just update with plot data--not with the filtered data (those should keep the limits from an imported threshold file)
   
@@ -1179,7 +1177,6 @@ FuncPlotDat <- function() {
       plotDat2 <- plotDat %>%
         dplyr::mutate(PercCateg = NA)
     }
-      })
   
     return(plotDat2)
   }
@@ -3217,42 +3214,41 @@ observeEvent(eventExpr = input$button_summarizeStations, {
 } # end of methodDist
   
   withProgress(message = "Summarizing selected data...", value = 0, { 
-  
+
   # BATCH PROCESSING: For downloading data, break up large data requests
-    all_summaries <- list()
-    
-    charTypeChoiceString <- paste(input$sel_CharType, collapse = "&characteristicType=", sep = ";") %>%
-  gsub(",", "%2C", .) %>%
-  gsub(" ", "%20", .)
-    
-    subset_stations_list <- split(unique(rv$selectedStations$MonitoringLocationIdentifier), ceiling(seq_along(unique(rv$selectedStations$MonitoringLocationIdentifier))/20)) # import data for 20 stations (max) at a time
+  all_summaries <- list()
   
- for(i in 1:length(subset_stations_list)) {
+  charTypeChoiceString <- paste(input$sel_CharType, collapse = "&characteristicType=", sep = ";") %>%
+    gsub(",", "%2C", .) %>%
+    gsub(" ", "%20", .)
+  
+  subset_stations_list <- split(unique(rv$selectedStations$MonitoringLocationIdentifier), ceiling(seq_along(unique(rv$selectedStations$MonitoringLocationIdentifier))/20)) # import data for 20 stations (max) at a time
+
+  for(i in 1:length(subset_stations_list)) {
     s <- subset_stations_list[[i]]
     stationChoiceString <- paste0(s, collapse = "&siteid=")
     
     summaryURL <- paste0("https://www.waterqualitydata.us/data/summary/monitoringLocation/search?siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&summaryYears=all&count=no&dataProfile=periodOfRecord")
     
-     if(httr::http_status(GET(summaryURL))$category!="Success") { # make sure the service call is valid
+    summaryResponse <- httr::GET(summaryURL)
+    if(httr::http_status(summaryResponse)$category != "Success") {
       showModal(
-        urlModal(summaryURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data selection information from the Water Quality Portal. The message from the web service is: `", httr::http_status(GET(summaryURL))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
+        urlModal(summaryURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data selection information from the Water Quality Portal. The message from the web service is: `", httr::http_status(summaryResponse)$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
       )
     }
+    shiny::req(httr::http_status(summaryResponse)$category == "Success")
     
-    shiny::req(httr::http_status(GET(summaryURL))$category=="Success") # if not a valid service call, abort
-
-    download.file(summaryURL, "tempSummary.csv", mode = "w")
-    all_summaries[[i]] <- read_csv("tempSummary.csv", trim_ws = TRUE) %>%
+    all_summaries[[i]] <- readr::read_csv(httr::content(summaryResponse, "text", encoding = "UTF-8"),
+                                          trim_ws = TRUE, show_col_types = FALSE) %>%
       dplyr::select(-MonitoringLocationUrl, -CountyName, -StateName, -MonitoringLocationLatitude, -MonitoringLocationLongitude)
     rv$wqp_url_list[[i]] <- paste0("https://www.waterqualitydata.us/data/Result/search?siteid=", stationChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&dataProfile=resultPhysChem&providers=NWIS&providers=STORET")
     Sys.sleep(0.5) # pause between data pulls
   }
   
-    rv$selectedDataSummary <- do.call("rbind.data.frame", all_summaries)
-    rm(all_summaries)
-    unlink("tempSummary.csv")
-    
-  })
+  rv$selectedDataSummary <- dplyr::bind_rows(all_summaries)
+  rm(all_summaries)
+  
+})
 
   # Create tab with the summary info after downloading it. Add totals to message. Check what generates the white highlight.
 
@@ -3268,7 +3264,6 @@ showModal(modalDialog(
     shinyjs::showElement("new_data_P3")
     cat("line3006")
   }
-# })
   }, ignoreInit = TRUE) # end of observeEvent
 ```
 
@@ -3310,27 +3305,30 @@ observeEvent(eventExpr = input$button_downloadData, {
       )))
       
       all_data <- list()
-      for(i in 1:length(rv$wqp_url_list)) {
-        setProgress(1/12, detail = paste0("Importing set #", i, " of ", length(rv$wqp_url_list), " (up to 20 sites imported per set)"))
-        
-        wqp_url <- rv$wqp_url_list[[i]]
-         if(httr::http_status(GET(wqp_url))$category!="Success") { # make sure the service call is valid
-      showModal(
-        urlModal(wqp_url, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data from the Water Quality Portal for the requested query. The message from the web service is: `", httr::http_status(GET(wqp_url))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If an error results, email WQP support (wqx@epa.gov) for assistance. If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
-        )
-      }
-
-  shiny::validate(need(httr::http_status(GET(wqp_url))$category=="Success", message = FALSE))
+for(i in 1:length(rv$wqp_url_list)) {
+  setProgress(1/12, detail = paste0("Importing set #", i, " of ", length(rv$wqp_url_list), " (up to 20 sites imported per set)"))
   
-  download.file(wqp_url, "tempDat.csv", mode = "w") # in Windows, mode = "w" when opening text files and "wb" for other types, such as .jpg
-  all_data[[i]] <- read.csv("tempDat.csv") %>%
+  wqp_url <- rv$wqp_url_list[[i]]
+  wqpResponse <- httr::GET(wqp_url)
+  if(httr::http_status(wqpResponse)$category != "Success") {
+    showModal(
+      urlModal(wqp_url, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data from the Water Quality Portal for the requested query. The message from the web service is: `", httr::http_status(wqpResponse)$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If an error results, email WQP support (wqx@epa.gov) for assistance. If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
+    )
+  }
+  shiny::validate(need(httr::http_status(wqpResponse)$category == "Success", message = FALSE))
+  
+  tmpDat <- tempfile(fileext = ".csv")
+  writeBin(httr::content(wqpResponse, "raw"), tmpDat)
+  all_data[[i]] <- readr::read_csv(tmpDat, show_col_types = FALSE) %>%
     dplyr::filter(CharacteristicName %in% unique(rv$selectedDataSummary$CharacteristicName))
+  unlink(tmpDat)
   Sys.sleep(0.5) # pause between data pulls
-      }
+}
+
+tempDat <- dplyr::bind_rows(all_data)
+rm(all_data)
       
-      tempDat <- do.call("rbind.data.frame", all_data) 
-      rm(all_data)
-      unlink("tempDat.csv")
+      
 
 # Format WQP data ----
   setProgress(1/4, detail = "Formatting data")
@@ -3365,34 +3363,33 @@ observeEvent(eventExpr = input$button_downloadData, {
     dplyr::mutate(CharSampleType = paste0(CharacteristicName, " (", ifelse(is.na(ResultSampleFractionText_Resolved), ResultMeasure.MeasureUnitCode, paste(ResultSampleFractionText_Resolved, ResultMeasure.MeasureUnitCode, sep = "; ")), ")")) %>% # add CharSampleType column--this includes characteristic name, sample fraction_resolved, and measurement unit
     dplyr::select(OrganizationIdentifier, OrganizationFormalName, MonitoringLocationIdentifier, ActivityStartDate, ActivityTypeCode, CharacteristicName, CharSampleType, ResultSampleFractionText, ResultMeasureValue, ResultMeasure.MeasureUnitCode, ResultDetectionConditionText, everything()) # Most important variables first, followed by everything else
   rm(tempDat, tempDat2, paramText)
-  unlink("tempDat.csv")
+
   cat("Line3342")
   # Get organization information for WQP data ----
   shiny::req(!is.null(rv$dat))
     # Limited to specified date range and minimum activities number
   allOrgs <- paste(paste0("organization=", unique(rv$dat$OrganizationIdentifier)), collapse = "&")
-     orgURL <- paste0("https://www.waterqualitydata.us/data/Organization/search?", allOrgs, "&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
+orgURL <- paste0("https://www.waterqualitydata.us/data/Organization/search?", allOrgs, "&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
 
 cat("Line3348")
-  if(httr::http_status(GET(orgURL))$category!="Success") { # make sure the service call is valid
-    showModal(
-      urlModal(orgURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving organization information from the Water Quality Portal. The message from the web service is: `", httr::http_status(GET(orgURL))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
-      )
-  }
-    
-  shiny::req(httr::http_status(GET(orgURL))$category=="Success") # if not a valid service call, abort
+orgResponse <- httr::GET(orgURL)
+if(httr::http_status(orgResponse)$category != "Success") {
+  showModal(
+    urlModal(orgURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving organization information from the Water Quality Portal. The message from the web service is: `", httr::http_status(orgResponse)$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
+  )
+}
+shiny::req(httr::http_status(orgResponse)$category == "Success")
 
-    download.file(orgURL, "tempOrg.csv", mode = "w")
-  
-  rv$orgs <- read_csv("tempOrg.csv") %>%
-    dplyr::select(OrganizationFormalName, Description = OrganizationDescriptionText, `Email/Web` = ElectronicAddress, Phone = Telephonic) %>%
-    dplyr::mutate(Selected = TRUE) %>%
-    arrange(OrganizationFormalName) %>%
-    as.data.frame
-  
-  rm(orgURL, allOrgs)
-  unlink("tempOrg.csv")
-  cat("line3368")
+rv$orgs <- readr::read_csv(httr::content(orgResponse, "text", encoding = "UTF-8"),
+                            show_col_types = FALSE) %>%
+  dplyr::select(OrganizationFormalName, Description = OrganizationDescriptionText,
+                `Email/Web` = ElectronicAddress, Phone = Telephonic) %>%
+  dplyr::mutate(Selected = TRUE) %>%
+  dplyr::arrange(OrganizationFormalName) %>%
+  as.data.frame()
+
+rm(orgURL, allOrgs)
+cat("line3368")
   
   # Get streamflow data from selected gage stations ----
   # Waiting to hear back about getting info on Federal Priority Streamgages
@@ -4159,11 +4156,9 @@ rv_param_temp$sel_show_thresholds <- isolate(input$sel_ShowThresholds) # save th
     rv_param_temp$plotDat <- NULL
 
   } else {          
-        
-        if(is.null(rv_param_temp$sel_add_gage_precip)) {rv_param_temp$sel_add_gage_precip <- "none"}
-        if(is.null(rv_param_temp$sel_show_thresholds)) {rv_param_temp$sel_show_thresholds <- "showthresh_none"}
-
-          rv_param_temp$plotDat <- FuncPlotDat() # this function also assigns data to rv_param_temp$quantDat
+      if(is.null(rv_param_temp$sel_add_gage_precip)) {rv_param_temp$sel_add_gage_precip <- "none"}
+      if(is.null(rv_param_temp$sel_show_thresholds)) {rv_param_temp$sel_show_thresholds <- "showthresh_none"}
+      rv_param_temp$plotDat <- FuncPlotDat()
   }
 })
 ```
@@ -4240,7 +4235,7 @@ print("RENDERING AVAILABLE SITES IN FULL MAP\n")
       noHide = TRUE,
       textOnly = TRUE,
       direction = "top",
-      style = list("font-size" = "10px", "font-weight" = "bold")))
+      style = list("font-size" = "10px")))
   
 
   # If UP-DOWN selection, show stream lines
@@ -4494,8 +4489,6 @@ print("line5039")
     shiny::validate(need(length(rv_param_temp$showStations) < 6 | input$sel_CombineSites == FALSE, message = "The maximum number of monitoring sites to display in a single plot is FIVE. From the left sidebar, please either UNSELECT 'Combine sites in one plot' or reduce the number of sites to display."))
   }
   
-  # shiny::req(!is.null(input$sel_PlotType),!is.null(rv_param_temp$plotDat), !is.null(input$sel_SeasonalTimeUnit), !is.null(input$sel_FreeY), !is.null(input$sel_CombineSites))
-  
   shiny::req(!is.null(input$sel_PlotType),!is.null(rv_param_temp$plotDat), !is.null(input$sel_SeasonalTimeUnit))
 
   rv_param_temp$ggplot_ts_list <- FuncPlotList(time_unit = "ActivityStartDate")
@@ -4519,21 +4512,14 @@ output$out_season_plots <- renderPlotly({
 
   shiny::validate(
     need(!is.null(rv_param_temp$showCharTypes) & !is.null(rv_param_temp$showStations), message = "From the left sidebar, please select characteristic(s) and monitoring site(s) to plot, then click the green 'REFRESH PLOT DATA' button"))
-
+  
   if(!is.null(input$sel_CombineSites) & !is.null(rv_param_temp$showStations)) {
     shiny::validate(need(length(rv_param_temp$showStations) < 6 | input$sel_CombineSites == FALSE, message = "The maximum number of monitoring sites to display in a single plot is FIVE. From the left sidebar, please either UNSELECT 'Combine sites in one plot' or reduce the number of sites to display."))
   }
   
-  # shiny::req(!is.null(input$sel_PlotType),!is.null(rv_param_temp$plotDat), !is.null(input$sel_SeasonalTimeUnit), !is.null(input$sel_FreeY), !is.null(input$sel_CombineSites))
-  
   shiny::req(!is.null(input$sel_PlotType),!is.null(rv_param_temp$plotDat), !is.null(input$sel_SeasonalTimeUnit))
   
   rv_param_temp$ggplot_season_list <- FuncPlotList(time_unit = switch(is.null(input$sel_SeasonalTimeUnit)+1, input$sel_SeasonalTimeUnit, "Wk"))
-  
-  # # Highlight year
-  # if(all(input$sel_PlotType %in% c("points", "points_smooth"), !is.null(input$sel_HighlightSurvYr), input$sel_HighlightSurvYr != "None", !is.null(rv_param_temp$plotDat), !is.null(rv_param_temp$ggplot_season_list), as.integer(input$sel_HighlightSurvYr) %in% unique(rv_param_temp$plotDat$Yr))) {
-  #   rv_param_temp$ggplot_season_list[[1]] <- FuncHighlightYr(rv_param_temp$ggplot_season_list[[1]]) 
-  # }
   
   rv_param_temp$seasonalPlot <- FuncPlotPage(plot_list = rv_param_temp$ggplot_season_list, time_unit = switch(is.null(input$sel_SeasonalTimeUnit)+1, input$sel_SeasonalTimeUnit, "Wk"))
     
