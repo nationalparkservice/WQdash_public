@@ -10,6 +10,14 @@ runtime: shiny
 ---
 
 ```{r global, include=FALSE}
+### NEXT TO DO
+# > For dist from origin, can't use wells or other sources that don't link
+
+### FINAL CLEANUP
+# > Increase speed of download, etc.
+# > User documentation
+# > Comment code, make layout/variable structure/etc. consistent
+
 ### NOTES
  # saveRDS(isolate(reactiveValuesToList(rv)), here::here(
  #   "TEMP_rv.RDS"))
@@ -24,7 +32,7 @@ pkgs <- c("flexdashboard",
           # "knitr",
           "readr",
           "here", 
-          "plyr", 
+          # "plyr", 
           "dplyr",
           "purrr",
           "tools",
@@ -42,7 +50,8 @@ pkgs <- c("flexdashboard",
           "plotly", 
           "httr", 
           # "climateR",
-          "sp",
+          # "sp",
+          # "dataRetrieval", # for NLDI
           "bslib", 
           # "bsicons",
           "RgoogleMaps", # to set map zoom
@@ -93,6 +102,9 @@ options(shiny.maxRequestSize = 30*1024^2, # increases download limit to 30MB fro
         dplyr.summarise.inform = FALSE
 )
   
+# Set map opacities
+opacity_unselected <- 0.4
+opacity_selected <- .9
 ```
 
 ```{r css}
@@ -118,6 +130,18 @@ tags$style(HTML("
   overflow: visible !important;
   height: auto !important;
 }
+"))
+
+# Deal with leaflet hidden map issue
+tags$script(HTML("
+  $(document).on('shown.bs.tab', function(e) {
+    setTimeout(function() {
+      var maps = HTMLWidgets.findAll('.leaflet');
+      if (maps.length > 0) {
+        maps[0].getMap().invalidateSize();
+      }
+    }, 100);
+  });
 "))
 
 # This forces datatable to fill height of modal
@@ -295,15 +319,6 @@ tags$style(HTML("
   content: 'Show Map';
 }
 "))
-
-# tags$style(HTML("
-# .bslib-sidebar-layout > .collapse-toggle[aria-expanded='true']::after {
-#   content: 'Hide Map';
-#   }
-#   .bslib-sidebar-layout > .collapse-toggle[aria-expanded='false']::after {
-#   content: 'Show Map';
-#   }
-# "))
 
 # Make the bslib card full screen icon and exit more obvious
 tags$style(HTML("
@@ -527,8 +542,8 @@ FuncBaseMap <- function(maptype) {
     addMapPane("pane_selectedOrigin", zIndex = 265) %>%
     addTiles(options = tileOptions(noWrap = TRUE), group = "Street") %>%
     addProviderTiles("Esri.WorldImagery", options = providerTileOptions(noWrap = TRUE), group="Satellite") %>%
-    addPolygons(data = rv$unitPoly, group = "NPS unit", color = "black", fillColor = "yellow", fillOpacity = 0.8, weight = 1, options = pathOptions(pane = "pane_unitPoly")) %>% # park unit outline
-    addPolygons(data = rv[[rv$importSettings$sel_HUClevel]], group = rv$importSettings$sel_HUClevel, color = "blue", fillColor = "lightblue", fillOpacity = 0.6, weight = 0.5, layerId = ~HUC, options = pathOptions(pane = "pane_HUC")) %>% # HUC polygons
+    addPolygons(data = rv$unitPoly, group = "NPS unit", color = "black", fillColor = "yellow", fillOpacity = opacity_unselected, weight = 1, options = pathOptions(pane = "pane_unitPoly")) %>% # park unit outline
+    addPolygons(data = rv[[rv$importSettings$sel_HUClevel]], group = rv$importSettings$sel_HUClevel, color = "blue", fillColor = "lightblue", fillOpacity = opacity_unselected, weight = 0.5, layerId = ~HUC, options = pathOptions(pane = "pane_HUC")) %>% # HUC polygons
     addScaleBar() %>%
     addControl(rv$parkName, position = "topleft", className="map-unitcode") # add 4-letter UNIT code on map)
   print("Finished base map")
@@ -557,7 +572,7 @@ FuncBaseMap <- function(maptype) {
     if(rv$importSettings$sel_SelectMethod=="methodDist") {
       if(nrow(rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == rv$selectedOriginStation$identifier,]) > 0) {
       map %<>% 
-        addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == rv$selectedOriginStation$identifier,], group = "Selected monitoring sites", label = ~SITELAB, popup = ~SITEPOP, radius = 8, fillOpacity = 0, stroke = TRUE, weight = 4, color = "red", opacity = 1, options = pathOptions(pane = "pane_selectedOrigin"))}
+        addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == rv$selectedOriginStation$identifier,], group = "Selected monitoring sites", layerId = "origin_marker", label = ~SITELAB, popup = ~SITEPOP, radius = 8, fillOpacity = 0, stroke = TRUE, weight = 4, color = "red", opacity = 1, options = pathOptions(pane = "pane_selectedOrigin"))}
     }
     }
     
@@ -567,7 +582,7 @@ FuncBaseMap <- function(maptype) {
    if(all(rv$importSettings$sel_SelectMethod=="methodHuc",  !is.null(rv$selectedHucs))) { # layer the selected polygons on map, if selection method is by HUC 
      print("mapping HUCs")
     map %<>%
-      addPolygons(data = rv[[rv$importSettings$sel_HUClevel]][rv[[rv$importSettings$sel_HUClevel]]$HUC %in% rv$selectedHucs,], group = rv$importSettings$sel_HUClevel, color = "blue", fillColor = "lightblue", fillOpacity = 0.8, weight = 1.5, layerId = ~HUC, options = pathOptions(pane = "pane_HUC"))
+      addPolygons(data = rv[[rv$importSettings$sel_HUClevel]][rv[[rv$importSettings$sel_HUClevel]]$HUC %in% rv$selectedHucs,], group = rv$importSettings$sel_HUClevel, color = "blue", fillColor = "lightblue", fillOpacity = opacity_selected, weight = 1.5, layerId = ~HUC, options = pathOptions(pane = "pane_HUC"))
    }
   
   if(all(!is.null(rv$selectedOriginStation), !is.null(rv$importSettings$sel_SelectMethod))){
@@ -580,7 +595,7 @@ FuncBaseMap <- function(maptype) {
     
     if(!is.null(rv$selectedUpstreamLines)) {
     map %<>%
-        addPolylines(data = rv$selectedUpstreamLines, color = "#FFFFFF", weight = 2, opacity = 1, group = "Selected monitoring sites", options = pathOptions(pane = "pane_selectedStreamlines")) # upstream lines in blue
+        addPolylines(data = rv$selectedUpstreamLines, color = "blue", weight = 2, opacity = 1, group = "Selected monitoring sites", options = pathOptions(pane = "pane_selectedStreamlines")) # upstream lines in blue
   }
     }
 }
@@ -629,10 +644,6 @@ FuncUpdateHome <- function() {
   updateTextInput(session,
                   "sel_UnitCode",
                   value = "")
-  
-  updateSliderInput(session,
-                    "sel_MapZoom", 
-                    value = NULL)
   
   updateRadioButtons(session,
                      "sel_HUClevel",
@@ -961,7 +972,6 @@ FuncPlotHeatMap <- function(dat, y_name, legend_range, legend_name) {
     labs(title = p_title) +
     scale_x_continuous(expand=c(0, 0), breaks = seq(from = min(dat$Yr, na.rm = TRUE), to = max(dat$Yr, na.rm = TRUE), by = ifelse(diff(range(dat$Yr, na.rm = TRUE)) > 10, 2, 1)), limits = c(min(dat$Yr, na.rm = TRUE)-1, max(dat$Yr, na.rm = TRUE)+1)) + # Need to make limits wider b/c otherwise the fill color will be missing from the end columns. Setting the expand cuts out the empty space at beginning and end columns
     scale_y_discrete(limits = rev) +
-        # scale_fill_viridis_c(direction = -1, na.value = "white", limits=c(1, max_colorval), name = legend_name) +
     scale_fill_viridis_c(direction = -1, na.value = "white", limits=c(1, 12), oob=scales::squish, breaks = seq(1, 12, by = 2), name = legend_name) +
     theme_bw(base_size = 14) +
     lemon::facet_rep_wrap(~MonitoringLocationIdentifier, ncol =1, repeat.tick.labels = "bottom") +
@@ -2264,7 +2274,7 @@ FuncPieMap <- function(pie_map, map_by_yr = input$sel_MapByYr, limit_type, limit
             colorPalette = chart_palette,
             opacity = 1) %>%
           hideGroup("Imported monitoring sites") %>%
-          hideGroup("Selected monitoring sites") %>%
+          hideGroup("Filtered monitoring sites") %>%
           hideGroup("Selected gage stations") %>%
           hideGroup("Selected weather stations")
         
@@ -2553,7 +2563,7 @@ grabit <- function(url) {
 ```{r startup}
   rv_defaults <- list(wqp_url_list = list(), parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list())
 
-rv_param_defaults <- list(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_quantile_group_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg = NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
+rv_param_defaults <- list(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, saved_map_groups = NULL, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_quantile_group_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, saved_param_map_groups = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg = NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
   
   rv <- do.call(reactiveValues, rv_defaults)
 rv_param_temp <- do.call(reactiveValues, rv_param_defaults)
@@ -3056,7 +3066,7 @@ showModal(modalDialog(
 ```{r action_button_highlightStations}
 # Action to summarize selected stations ----
 observeEvent(eventExpr = input$button_summarizeStations, {
-  
+
   if(is.null(input$sel_Organization)) {
     showModal(modalDialog(
       title = "No organization selected",
@@ -3120,7 +3130,7 @@ observeEvent(eventExpr = input$button_summarizeStations, {
     shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0)
     } # end of methodHuc
  
-  # Select stations by distance from origin
+ # Select stations by distance from origin--tried dataRetrieval findNLDI, but seems to only pull USGS sites
   if(input$sel_SelectMethod == "methodDist") {
      
     if(is.null(input$sel_OriginStationID)) {
@@ -3139,28 +3149,28 @@ observeEvent(eventExpr = input$button_summarizeStations, {
       shiny::req(input$sel_OriginStationID %in% unique(rv$sitesPointsSub$MonitoringLocationIdentifier[rv$sitesPointsSub$OrganizationFormalName %in% input$sel_Organization]))
     }
  
-  if(input$sel_DistKmUpstream == 0 & input$sel_DistKmDownstream == 0) {
-        showModal(modalDialog(
-          title = "No distance from origin monitoring site entered",
-          "To select monitoring sites based on distance from an origin, please enter a distance (in km) upstream or downstream from the origin monitoring site."
-        ))
-        shiny::req(input$sel_DistKmUpstream > 0 | input$sel_DistKmDownstream > 0)
-      }
+    if(isTRUE(input$sel_DistKmUpstream == 0) && isTRUE(input$sel_DistKmDownstream == 0)) {
+      showModal(modalDialog(
+        title = "No distance from origin monitoring site entered",
+        "To select monitoring sites based on distance from an origin, please enter a distance (in km) upstream or downstream from the origin monitoring site."
+      ))
+      shiny::req(input$sel_DistKmUpstream > 0 | input$sel_DistKmDownstream > 0)
+    }
 
     withProgress(message = "Downloading from Hydro Network-Linked Data Index...", value = 0, {
       
-        showModal(tags$div(id = "gif_modal", modalDialog(
-      HTML('<img src="https://media.giphy.com/media/l44QjgeQ5ium91n9K/source.gif"><br><center>I am just your entertainment.<br><center>The progress bar is below.'), # custom loading gif--raccoon thief
-      easyClose = TRUE,
-      footer = NULL
+      showModal(tags$div(id = "gif_modal", modalDialog(
+        HTML('<img src="https://media.giphy.com/media/l44QjgeQ5ium91n9K/source.gif"><br><center>I am just your entertainment.<br><center>The progress bar is below.'), # custom loading gif--raccoon thief
+        easyClose = TRUE,
+        footer = NULL
       )))
       
     nldiURLS <- list(
-      selectedOriginStation = paste0("https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/", input$sel_OriginStationID),
-      selectedUpstreamLines = ifelse(input$sel_DistKmUpstream > 0, paste0("https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/", input$sel_OriginStationID, "/navigation/", ifelse(input$sel_IncludeTribs, "UT", "UM"), "?distance=", input$sel_DistKmUpstream), NA),
-      selectedDownstreamLines = ifelse(input$sel_DistKmDownstream > 0, paste0("https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/", input$sel_OriginStationID, "/navigation/", ifelse(input$sel_IncludeDiversions, "DD", "DM"), "?distance=", input$sel_DistKmDownstream), NA),
-      selectedUpstreamStations = ifelse(input$sel_DistKmUpstream > 0, paste0("https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/", input$sel_OriginStationID, "/navigation/", ifelse(input$sel_IncludeTribs, "UT", "UM"), "/wqp?distance=", input$sel_DistKmUpstream), NA),
-      selectedDownstreamStations = ifelse(input$sel_DistKmDownstream > 0, paste0("https://labs.waterdata.usgs.gov/api/nldi/linked-data/nwissite/", input$sel_OriginStationID, "/navigation/", ifelse(input$sel_IncludeDiversions, "DD", "DM"), "/wqp?distance=", input$sel_DistKmDownstream), NA))
+      selectedOriginStation = paste0("https://api.water.usgs.gov/nldi/linked-data/wqp/", input$sel_OriginStationID),
+      selectedUpstreamLines = ifelse(input$sel_DistKmUpstream > 0, paste0("https://api.water.usgs.gov/nldi/linked-data/wqp/", input$sel_OriginStationID, "/navigation/", ifelse(input$sel_IncludeTribs, "UT", "UM"), "/flowlines?distance=", input$sel_DistKmUpstream), NA),
+      selectedDownstreamLines = ifelse(input$sel_DistKmDownstream > 0, paste0("https://api.water.usgs.gov/nldi/linked-data/wqp/", input$sel_OriginStationID, "/navigation/", ifelse(input$sel_IncludeDiversions, "DD", "DM"), "/flowlines?distance=", input$sel_DistKmDownstream), NA),
+      selectedUpstreamStations = ifelse(input$sel_DistKmUpstream > 0, paste0("https://api.water.usgs.gov/nldi/linked-data/wqp/", input$sel_OriginStationID, "/navigation/", ifelse(input$sel_IncludeTribs, "UT", "UM"), "/wqp?distance=", input$sel_DistKmUpstream), NA),
+      selectedDownstreamStations = ifelse(input$sel_DistKmDownstream > 0, paste0("https://api.water.usgs.gov/nldi/linked-data/wqp/", input$sel_OriginStationID, "/navigation/", ifelse(input$sel_IncludeDiversions, "DD", "DM"), "/wqp?distance=", input$sel_DistKmDownstream), NA))
  
     for(n in names(nldiURLS)) {
    
@@ -3168,37 +3178,36 @@ observeEvent(eventExpr = input$button_summarizeStations, {
       if(!is.na(nldiURLS[[n]])) { # if URL is specified
         tempURL <- nldiURLS[[n]]
       
-        if(httr::http_status(GET(tempURL))$category!="Success") { # make sure the service call is valid
+        if(httr::http_status(httr::GET(tempURL))$category != "Success") { # make sure the service call is valid
           showModal(
-            urlModal(tempURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data from the Hydro Network-Linked Data Index for the `", n, "` query. The message from the web service is: `", httr::http_status(GET(tempURL))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
+            urlModal(tempURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data from the Hydro Network-Linked Data Index for the `", n, "` query. The message from the web service is: `", httr::http_status(httr::GET(tempURL))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
             )
           }
    
-        shiny::validate(need(httr::http_status(GET(tempURL))$category=="Success", message = FALSE)) # if not a valid service call, abort
+        shiny::validate(need(httr::http_status(httr::GET(tempURL))$category == "Success", message = FALSE)) # if not a valid service call, abort
         
-        checkhydro <- tryCatch(rgdal::readOGR(dsn = tempURL[[1]], verbose = FALSE), error=function(e) NULL) # <<<<<<<<<<<<<<<<<<<<<<<<<<<<< PACKAGE DISCONTINUED?
+        checkhydro <- tryCatch(sf::st_read(tempURL, quiet = TRUE), error = function(e) NULL)
     
         if(is.null(checkhydro)) {
-        showModal(modalDialog(
-          title = "No Data",
-          "Error retrieving data from the Hydro Network-Linked Data Index",
-          footer = modalButton("OK")
-          ))
+          showModal(modalDialog(
+            title = "No Data",
+            "Error retrieving data from the Hydro Network-Linked Data Index",
+            footer = modalButton("OK")
+            ))
         } else {
-          checkhydro <- spTransform(checkhydro, CRS("+proj=longlat +datum=WGS84")) # convert to WGS84
+          checkhydro <- sf::st_transform(checkhydro, crs = 4326) # convert to WGS84
           rv[[n]] <- checkhydro 
         }
       
         # renderText(paste(n, "is of class", class(nldiData[n][[1]])[1], "and has", length(nldiData[n][[1]]), "features"))
       }
     }
-    }) # end of with Progress
-# 
+    }) # end of withProgress
       
     rv$selectedStations <- 
-      rbind.fill(data.frame(rv$selectedOriginStation), if(!is.null(rv$selectedUpstreamStations)) data.frame(rv$selectedUpstreamStations), if(!is.null(rv$selectedDownstreamStations)) data.frame(rv$selectedDownstreamStations)) %>% # combine into one data frame
+      dplyr::bind_rows(sf::st_drop_geometry(rv$selectedOriginStation), if(!is.null(rv$selectedUpstreamStations)) sf::st_drop_geometry(rv$selectedUpstreamStations), if(!is.null(rv$selectedDownstreamStations)) sf::st_drop_geometry(rv$selectedDownstreamStations)) %>% # combine into one data frame
       dplyr::rename(MonitoringLocationIdentifier = identifier) %>%
-      left_join(unique(data.frame(rv$sitesPointsSub[, c("MonitoringLocationIdentifier", "OrganizationFormalName", "MonitoringLocationTypeName")])), by = "MonitoringLocationIdentifier") %>%
+      dplyr::left_join(unique(data.frame(rv$sitesPointsSub[, c("MonitoringLocationIdentifier", "OrganizationFormalName", "MonitoringLocationTypeName")])), by = "MonitoringLocationIdentifier") %>%
       dplyr::filter(OrganizationFormalName %in% input$sel_Organization & MonitoringLocationTypeName %in% input$sel_SiteType) %>% # limit to selected orgs and site types
       dplyr::distinct() %>%
       dplyr::arrange(MonitoringLocationIdentifier) %>%
@@ -3250,7 +3259,7 @@ observeEvent(eventExpr = input$button_summarizeStations, {
 showModal(modalDialog(
   title = "Done",
   HTML(paste0("<strong>You have selected ", sum(rv$selectedDataSummary$ResultCount), " data records from ", length(unique(rv$selectedDataSummary$MonitoringLocationIdentifier)), " sites.</strong> Selected monitoring sites are shown as larger, white-outlined circles on the map.", 
-              switch((input$sel_SelectMethod == "methodDist")+1, "", "The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in white; downstream, in brown."),
+              switch((input$sel_SelectMethod == "methodDist")+1, "", "The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in blue; downstream, in brown."),
               "<br><br>Review your selection in the 'Summary of Selected Characteristics' and 'Summary of Selected Site-Characteristics' tabs. <br><br>Select gage stations (if available), then press the <strong>DOWNLOAD SELECTED DATA</strong> button to import the water quality data."))
 )) # <<<<<< AFTER ADDING WEATHER SHOULD SAY 'GAGE AND WEATHER'
   
@@ -3283,14 +3292,12 @@ observeEvent(eventExpr = input$button_downloadData, {
     }
   shiny::req(length(input$sel_CharType) > 0)
   
-  # if(is.null(rv$selectedStations) | length(rv$selectedStations$MonitoringLocationIdentifier) == 0 | is.null(rv$wqp_url_list)) {
     if(is.null(rv$selectedStations) | length(rv$selectedStations$MonitoringLocationIdentifier) == 0 | is.null(rv$wqp_url_list)) {
     showModal(modalDialog(
       title = "No monitoring sites selected",
       "Please select monitoring sites from which you would like to import data (filter sites by HUC or by distance from origin, then click 'Summarize Selected Sites' button)."
     ))
   }
-  # shiny::req(!is.null(rv$selectedStations), !is.null(rv$sitesPointsSub), !is.null(rv$wqp_url_list))
   shiny::req(!is.null(rv$selectedStations), !is.null(rv$sitesPointsSub), !is.null(rv$wqp_url_list))
   shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0, length(rv$wqp_url_list) > 0)
 
@@ -4152,14 +4159,11 @@ rv_param_temp$sel_show_thresholds <- isolate(input$sel_ShowThresholds) # save th
     rv_param_temp$plotDat <- NULL
 
   } else {          
-
-      withProgress(message = "Formatting plot data...", value = 0, {
         
         if(is.null(rv_param_temp$sel_add_gage_precip)) {rv_param_temp$sel_add_gage_precip <- "none"}
         if(is.null(rv_param_temp$sel_show_thresholds)) {rv_param_temp$sel_show_thresholds <- "showthresh_none"}
 
           rv_param_temp$plotDat <- FuncPlotDat() # this function also assigns data to rv_param_temp$quantDat
-      })
   }
 })
 ```
@@ -4193,6 +4197,7 @@ map_point_size <- switch(is.null(input$sel_MapPointSize)+1, input$sel_MapPointSi
   
   iconCWA = makeAwesomeIcon(icon= "fa-building", library = "fa", markerColor = "lightgray")
 
+
     param_map <- leaflet(options = leafletOptions(zoomControl = FALSE, zoomSnap = 0.25)) %>%
     addMapPane("pane_param_selectedStations", zIndex = 250) %>% # higher index is on top
     addMapPane("pane_param_importedStations", zIndex = 245) %>%
@@ -4204,8 +4209,8 @@ map_point_size <- switch(is.null(input$sel_MapPointSize)+1, input$sel_MapPointSi
     addMapPane("pane_param_unitPoly", zIndex = 210) %>%
     addTiles(options = tileOptions(noWrap = TRUE), group = "Street") %>%
     addProviderTiles("Esri.WorldImagery", options = providerTileOptions(noWrap = TRUE), group="Satellite") %>%
-    addPolygons(data = rv$unitPoly, group = "NPS unit", color = "black", fillColor = "yellow", fillOpacity = 1, weight = 1, options = pathOptions(pane = "pane_param_unitPoly")) %>% # park unit outline
-    addPolygons(data = rv[[rv$importSettings$sel_HUClevel]], group = paste0(rv$importSettings$sel_HUClevel, " boundaries"), color = "blue", fillColor = "lightblue", fillOpacity = 0.3, weight = 0.7, options = pathOptions(pane = "pane_param_HUC")) %>% # HUC polygons
+    addPolygons(data = rv$unitPoly, group = "NPS unit", color = "black", fillColor = "yellow", fillOpacity = opacity_unselected, weight = 1, options = pathOptions(pane = "pane_param_unitPoly")) %>% # park unit outline
+    addPolygons(data = rv[[rv$importSettings$sel_HUClevel]], group = paste0(rv$importSettings$sel_HUClevel, " boundaries"), color = "blue", fillColor = "lightblue", fillOpacity = opacity_unselected, weight = 0.7, options = pathOptions(pane = "pane_param_HUC")) %>% # HUC polygons
     addScaleBar() %>%
     addControl(rv$parkID, position = "topleft", className="map-unitcode") # add 4-letter UNIT code on map
 
@@ -4215,7 +4220,7 @@ print("DONE WITH STANDARD MAP")
 
   # Done with the standard mapping. Now to conditional layers.
 
-  show_layers <- data.frame(layer = c(paste0(rv$importSettings$sel_HUClevel, " boundaries"), "Imported monitoring sites", "Selected monitoring sites", "Imported stream lines", "Discharge facilities", "Selected gage stations", "Selected weather stations"), show = c(TRUE, TRUE, TRUE, FALSE, FALSE, TRUE, TRUE)) # dataframe to track what layers to show
+  show_layers <- data.frame(layer = c(paste0(rv$importSettings$sel_HUClevel, " boundaries"), "Imported monitoring sites", "Filtered monitoring sites", "Imported stream lines", "Discharge facilities", "Selected gage stations", "Selected weather stations", "Site labels", "Map legend"), show = c(TRUE, TRUE, TRUE, FALSE, FALSE, TRUE, TRUE, TRUE, TRUE)) # dataframe to track what layers to show
   print("line1796")
   if(input$sel_SummarizeBy == "by_chartype") { # if multiple sites per characteristic, then available sites are only those that actually have the selected characteristic
     shiny::req(!is.null(input$sel_ShowCharType))
@@ -4226,9 +4231,16 @@ print("DONE WITH STANDARD MAP")
 print("line1803")
 print("RENDERING AVAILABLE SITES IN FULL MAP\n")
   param_map %<>%
-    addCircleMarkers(data = avail_sites_data, group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12 + 3*map_point_size, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = TRUE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations")) # WQ stations for which data (for selected parameter) are available  
-print("line1988")
-# })
+    addCircleMarkers(data = avail_sites_data, group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12 + 3*map_point_size, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = TRUE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations")) %>% # WQ stations for which data (for selected parameter) are available  
+    addLabelOnlyMarkers(
+    data = avail_sites_data,
+    label = ~MonitoringLocationIdentifier,
+    group = "Site labels",
+    labelOptions = labelOptions(
+      noHide = TRUE,
+      textOnly = TRUE,
+      direction = "top",
+      style = list("font-size" = "10px", "font-weight" = "bold")))
   
 
   # If UP-DOWN selection, show stream lines
@@ -4300,7 +4312,7 @@ if(sel_param_map_show == "show") {
       if(length(sel_sites) > 0) {
         # Add white border on selected stations
         param_map %<>%
-      addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier %in% sel_sites,], group = "Selected monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15 + 3*map_point_size, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations"))
+      addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier %in% sel_sites,], group = "Filtered monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15 + 3*map_point_size, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations"))
       }
 
     print("RENDERING SELECTED SITES IN FULL MAP\n")
@@ -4357,7 +4369,7 @@ cat("line4438")
         addCircleMarkers(data = median_sf, label = ~SITELAB, popup = ~SITEPOP, radius = 12, fillColor = ~palNumeric(median_val), fillOpacity = 1, color = ~palNumeric(median_val), stroke = TRUE, opacity = 1, options = pathOptions(pane = "pane_param_selectedStations")) %>%
         addLegend(pal = palNumeric, values = pie_median$median_val, position = "topleft", title = input$sel_ShowCharType) %>%
         hideGroup("Imported monitoring sites") %>%
-        hideGroup("Selected monitoring sites")
+        hideGroup("Filtered monitoring sites")
       
       if(input$sel_MapByYr == TRUE) {
         param_map %<>%
@@ -4387,51 +4399,86 @@ cat("line4438")
 cat("line4504")
 
 # FINISH OFF for all map types
-  param_map %<>%
-    hideGroup("Selected gage stations") %>%
-    hideGroup("Selected weather stations") %>%
-    hideGroup("Discharge facilities") %>%
-    addLayersControl(
-      baseGroups = c("Street", "Satellite"),
-      overlayGroups = show_layers$layer[show_layers$show == TRUE],
-      options = layersControlOptions(collapsed = TRUE)) %>% # set map view at current settings or, if initial map viewing, set to initial defaults. Irritating that it blinks every time, but it seems this can't be easily addressed with leaflet (html-based) outputs
-    setView(lng = switch(any(is.null(isolate(input$param_map_center$lng)), isolate(input$param_map_center$lng) == 0, isolate(input$param_map_center$lng) > st_bbox(rv[["HUC10"]])$xmax, isolate(input$param_map_center$lng) < st_bbox(rv[["HUC10"]])$xmin)+1, isolate(input$param_map_center$lng), mean(c(st_bbox(rv$sitesPointsSub)$xmin, st_bbox(rv$sitesPointsSub)$xmax))), lat = switch(any(is.null(isolate(input$param_map_center$lat)), isolate(input$param_map_center$lat) == 0, isolate(input$param_map_center$lat) > st_bbox(rv[["HUC10"]])$ymax, isolate(input$param_map_center$lat) < st_bbox(rv[["HUC10"]])$ymin)+1, isolate(input$param_map_center$lat), mean(c(st_bbox(rv$sitesPointsSub)$ymin, st_bbox(rv$sitesPointsSub)$ymax))), zoom = input$sel_ParamMapZoom) %>% 
-    htmlwidgets::onRender("
-      function(el, x) {
-        this.on('contextmenu', function(e) {
-          var clicked = null;
-          // Only check layers in the specified groups
-          if (this._layers) {
-          Object.values(this._layers).forEach(function(layer) {console.log('Checking layer:', layer.options);
-          if (layer.options && (layer.options.group === 'Imported monitoring sites'||layer.options.group ==='Selected monitoring sites') && layer.options.layerId) {
-          console.log('Found matching layer with layerId:', layer.options.layerId);
-              var latlng = layer.getLatLng();
-              var dist = Math.sqrt(
-                Math.pow(e.latlng.lat - latlng.lat, 2) +
-                Math.pow(e.latlng.lng - latlng.lng, 2)
-              );
-              console.log('Distance:', dist);
-              if (dist < 0.05) {
-              clicked = layer.options.layerId;
-              console.log('Clicked site:', clicked);
-              }
-            }
-          });
+param_map %<>%
+  hideGroup("Selected gage stations") %>%
+  hideGroup("Selected weather stations") %>%
+  hideGroup("Discharge facilities") %>%
+  addLegend(title = "Organization", 
+          pal = rv_param_temp$palOrg, 
+          values = sort(unique(avail_sites_data$OrganizationFormalName)), 
+          group = "Map legend", 
+          position = "bottomleft") %>%
+  addLayersControl(
+    baseGroups = c("Street", "Satellite"),
+    overlayGroups = show_layers$layer[show_layers$show == TRUE],
+    options = layersControlOptions(collapsed = TRUE)) %>%
+  setView(lng = switch(any(is.null(isolate(input$param_map_center$lng)), isolate(input$param_map_center$lng) == 0, isolate(input$param_map_center$lng) > st_bbox(rv[["HUC10"]])$xmax, isolate(input$param_map_center$lng) < st_bbox(rv[["HUC10"]])$xmin)+1, isolate(input$param_map_center$lng), mean(c(st_bbox(rv$sitesPointsSub)$xmin, st_bbox(rv$sitesPointsSub)$xmax))), lat = switch(any(is.null(isolate(input$param_map_center$lat)), isolate(input$param_map_center$lat) == 0, isolate(input$param_map_center$lat) > st_bbox(rv[["HUC10"]])$ymax, isolate(input$param_map_center$lat) < st_bbox(rv[["HUC10"]])$ymin)+1, isolate(input$param_map_center$lat), mean(c(st_bbox(rv$sitesPointsSub)$ymin, st_bbox(rv$sitesPointsSub)$ymax))),
+  zoom = ifelse(is.null(isolate(input$param_map_zoom)) || isTRUE(isolate(input$param_map_zoom) == 1) || isTRUE(isolate(input$param_map_zoom) == ""),
+    min(RgoogleMaps::MaxZoom(
+      lonrange = c(st_bbox(rv$sitesPointsSub)$xmin, st_bbox(rv$sitesPointsSub)$xmax),
+      latrange = c(st_bbox(rv$sitesPointsSub)$ymin, st_bbox(rv$sitesPointsSub)$ymax))),
+    isolate(input$param_map_zoom))) %>%
+  htmlwidgets::onRender("
+function(el, x) {
+  this.on('contextmenu', function(e) {
+    var clicked = null;
+    var minDist = Infinity;
+    if (this._layers) {
+      Object.values(this._layers).forEach(function(layer) {
+        if (layer.options && 
+            (layer.options.group === 'Imported monitoring sites' || 
+             layer.options.group === 'Filtered monitoring sites') && 
+            layer.options.layerId &&
+            typeof layer.getLatLng === 'function') {
+          var latlng = layer.getLatLng();
+          var dist = Math.sqrt(
+            Math.pow(e.latlng.lat - latlng.lat, 2) +
+            Math.pow(e.latlng.lng - latlng.lng, 2)
+          );
+          if (dist < 0.05 && dist < minDist) {
+            minDist = dist;
+            clicked = layer.options.layerId;
           }
-          if (clicked) {
-            Shiny.setInputValue('param_map_right_click', {
-              MonitoringLocationIdentifier: clicked,
-              nonce: Math.random()
-            });
-          } else {
-          console.log('No clicked site found');
-          }
-        });
-      }
-    ") # end of renderLeaflet
-}) 
+        }
+      });
+    }
+    if (clicked) {
+      Shiny.setInputValue('param_map_right_click', {
+        MonitoringLocationIdentifier: clicked,
+        nonce: Math.random()
+      });
+    }
+  });
+}
+") # end of pipe chain
 
-tags$style("#param_map {height: calc(100vh - 210px) !important;}") # expand map to fill screen
+# Layer persistence - runs after all hideGroup calls so it has final say
+if(!is.null(isolate(rv_param_temp$saved_param_map_groups))) {
+  hidden_groups <- setdiff(show_layers$layer[show_layers$show == TRUE],
+                           isolate(rv_param_temp$saved_param_map_groups))
+  for(g in hidden_groups) {
+    param_map %<>% leaflet::hideGroup(g)
+  }
+  shown_groups <- intersect(c("Selected gage stations", "Selected weather stations", "Discharge facilities"),
+                            isolate(rv_param_temp$saved_param_map_groups))
+  for(g in shown_groups) {
+    param_map %<>% leaflet::showGroup(g)
+  }
+}
+
+param_map
+})
+
+tags$style("#param_map {height: calc(100vh - 280px) !important;}") # expand map to fill screen
+
+observeEvent(rv_param_temp$loadMap, {
+  rv_param_temp$saved_param_map_groups <- NULL
+})
+
+observeEvent(input$param_map_groups, {
+  shiny::req(!is.null(input$param_map_groups), isTRUE(rv_param_temp$loadMap == TRUE))
+  rv_param_temp$saved_param_map_groups <- input$param_map_groups
+}, ignoreInit = TRUE)
 ```
 
 ```{r ts_cards}
@@ -4732,15 +4779,6 @@ shinyjs::hidden( # initially hide this well panel, show only if user wants to im
     actionButton("button_showStations", "SHOW MONITORING SITES", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
     ) # end show-stations panel
 ) # end hide for show-stations panel
-
-conditionalPanel(
-  condition = "rv_param_temp.loadMap == true", # show map zoom slider only after map data have been uploaded,
-  renderUI({
-    shiny::req(!is.null(rv[["HUC10"]]))
-    map_zoom <- min(RgoogleMaps::MaxZoom(lonrange = c(st_bbox(rv[["HUC10"]])$xmin, st_bbox(rv[["HUC10"]])$xmax), latrange = c(st_bbox(rv[["HUC10"]])$ymin, st_bbox(rv[["HUC10"]])$ymax)))
-    sliderInput("sel_MapZoom", label = h5("Set map zoom (higher values zoom in):"), min = max(1, map_zoom - 6), max = 15, value = map_zoom, step = 0.5, ticks = FALSE, dragRange = FALSE, width = "100%")
-    })
-)
   
 # UI panel to select subset of WQP stations ----
 shinyjs::hidden( # initially hide this well panel
@@ -4770,10 +4808,18 @@ shinyjs::hidden( # initially hide this well panel
     radioButtons("sel_SelectMethod", label = h6("Select WQP monitoring sites based on: "),
                  choiceNames = c("Park (include only data collected within the park unit)", "HUCs (click on map to select one or more HUCs)", "Distance from origin site (enter query filters below)"),
                  choiceValues = c("methodPark", "methodHuc", "methodDist"),
-                 # choiceNames = c("Park (include all data collected within the park unit)", "HUCs (click on map to select one or more HUCs)", ),
-                 # choiceValues = c("methodPark", "methodHuc"),
                  selected = "methodPark"),
-    
+
+conditionalPanel(
+  condition = "input.sel_SelectMethod == 'methodHuc'",
+  div(style = "margin-top: -8px; margin-bottom: 5px;",
+      actionButton("button_selectAllHucs", "Select All HUCs", 
+                   style = "color:black; display:inline-block; border:1px; padding:2px 6px; width:48%; margin-right:2%; font-size:12px;"),
+      actionButton("button_deselectAllHucs", "Deselect All HUCs", 
+                   style = "color:black; display:inline-block; border:1px; padding:2px 6px; width:48%; font-size:12px;")
+  )
+),
+
     renderUI({ # conditional panel if user selects from origin station
       shiny::req(!is.null(input$sel_SelectMethod))
       shiny::req(input$sel_SelectMethod == "methodDist")
@@ -4849,15 +4895,6 @@ shinyjs::hidden( # initially hide this well panel
                          label = h6("(OPTIONAL) Import data from these USGS gage stations: "),
                          choices = sort(unique(rv$gageStations$GageName)))
       }),
-    
-    # renderUI({
-
-    #   shiny::req(!is.null(rv$meteoStations))
-    #   checkboxGroupInput("sel_Meteo",
-    #                      label = h6("Import data only from these weather stations: "),
-    #                      choices = sort(unique(rv$meteoStations$MeteoName)))
-    #   }),
-    
 
     actionButton("button_downloadData", "DOWNLOAD SELECTED DATA", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border: 1px solid black; margin:5px"),
     
@@ -4897,14 +4934,17 @@ Data for Import {.tabset .tabset-fade}
 ### Map
 ```{r initial_map}
 conditionalPanel(
-#   condition = "typeof output.map === null", # these conditionals are not working
   condition = "rv_param_temp.loadMap == true",
   htmltools::tags$div(
-    style = "text-align: center; margin: 20px 0;",
+    style = "display: flex; align-items: center; justify-content: center; gap: 15px; margin: 5px 0;",
     htmltools::tags$button(
       "🔄 Refresh Map (if it goes wonky)", 
       onclick = "refreshMap()",
-      style = "padding: 6px 12px; background: #5a9fd4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;"
+      style = "padding: 4px 10px; background: #5a9fd4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
+    ),
+    htmltools::tags$span(
+      "Use mouse scroll wheel or trackpad to zoom in/out",
+      style = "font-size: 12px; color: gray;"
     ),
     htmltools::tags$script(htmltools::HTML("
       function refreshMap() {
@@ -4946,8 +4986,31 @@ output$map <- renderLeaflet({
             baseGroups = c("Street", "Satellite"),
             overlayGroups = na.omit(c("NPS unit", rv$importSettings$sel_HUClevel, "Available monitoring sites", ifelse(!is.null(rv$selectedStations), "Selected monitoring sites", NA), ifelse(!is.null(rv$facilitiesPointsSub), "Discharge facilities (bldg icon)", NA), ifelse(!is.null(rv$gageStations), "Gage stations (water drop icon)", NA), ifelse(!is.null(rv$meteoStations), "Weather stations (cloud icon)", NA), "Map legend")),
             options = layersControlOptions(collapsed = TRUE)) %>%
-          setView(lng = ifelse(any(is.null(isolate(input$map_center$lng)), isolate(input$map_center$lng) == 0), mean(c(st_bbox(rv[["HUC10"]])$xmin, st_bbox(rv[["HUC10"]])$xmax)), isolate(input$map_center$lng)), lat = ifelse(any(is.null(isolate(input$map_center$lat)), isolate(input$map_center$lat) == 0), mean(c(st_bbox(rv[["HUC10"]])$ymin, st_bbox(rv[["HUC10"]])$ymax)), isolate(input$map_center$lat)), zoom = input$sel_MapZoom)
+          setView(lng = ifelse(any(is.null(isolate(input$map_center$lng)), isolate(input$map_center$lng) == 0), mean(c(st_bbox(rv[["HUC10"]])$xmin, st_bbox(rv[["HUC10"]])$xmax)), isolate(input$map_center$lng)), lat = ifelse(any(is.null(isolate(input$map_center$lat)), isolate(input$map_center$lat) == 0), mean(c(st_bbox(rv[["HUC10"]])$ymin, st_bbox(rv[["HUC10"]])$ymax)), isolate(input$map_center$lat)), 
+                  zoom = ifelse(is.null(isolate(input$map_zoom)) || isTRUE(isolate(input$map_zoom) == 1) || isTRUE(isolate(input$map_zoom) == ""),
+  min(RgoogleMaps::MaxZoom(
+    lonrange = c(st_bbox(rv[["HUC10"]])$xmin, st_bbox(rv[["HUC10"]])$xmax),
+    latrange = c(st_bbox(rv[["HUC10"]])$ymin, st_bbox(rv[["HUC10"]])$ymax))),
+  isolate(input$map_zoom))
+          )
         
+        if(!is.null(isolate(rv_param_temp$saved_map_groups))) {
+  all_overlay_groups <- na.omit(c("NPS unit", rv$importSettings$sel_HUClevel,
+    "Available monitoring sites", "Selected monitoring sites",
+    "Discharge facilities (bldg icon)", "Gage stations (water drop icon)",
+    "Weather stations (cloud icon)", "Map legend"))
+  hidden_groups <- setdiff(all_overlay_groups, isolate(rv_param_temp$saved_map_groups))
+  if(any(c("HUC10", "HUC12") %in% isolate(rv_param_temp$saved_map_groups))) {
+    hidden_groups <- setdiff(hidden_groups, rv$importSettings$sel_HUClevel)
+  }
+  # Don't hide Selected monitoring sites if it wasn't available when state was saved
+  if(!is.null(rv$selectedStations) && !"Selected monitoring sites" %in% isolate(rv_param_temp$saved_map_groups)) {
+    hidden_groups <- setdiff(hidden_groups, "Selected monitoring sites")
+  }
+  for(g in hidden_groups) {
+    map %<>% leaflet::hideGroup(g)
+  }
+}
         print("FINISHED INITIAL MAP")
       }
   map
@@ -4955,7 +5018,8 @@ output$map <- renderLeaflet({
 
 leafletOutput("map", width = "100%")
   
-  # User selects HUCs by clicking (when new data imported) ----
+## Map updates by proxy
+# User selects HUCs by clicking (when new data imported)
 observeEvent(input$map_shape_click, {
   shiny::req(rv$importSettings$sel_SelectMethod=="methodHuc", !is.null(rv), !is.null(rv$importSettings$sel_HUClevel), !is.null(input$sel_GetData))
   shiny::req(input$sel_GetData=="new_data")
@@ -4963,12 +5027,82 @@ observeEvent(input$map_shape_click, {
 
       if(click$id %in% rv$selectedHucs) { # check if the click is in a selected HUC
           rv$selectedHucs <- rv$selectedHucs[rv$selectedHucs != click$id] # then remove it from the list of selected HUCs
-      leafletProxy("map") %>% addPolygons(data = rv[[rv$importSettings$sel_HUClevel]][rv[[rv$importSettings$sel_HUClevel]]$HUC==click$id,], group = rv$importSettings$sel_HUClevel, color = "blue", fillColor = "lightblue", fillOpacity = 0.4, weight = 0.5, layerId = ~HUC, options = pathOptions(pane = "pane_HUC")) # and change the polygon to unselected color
+      leafletProxy("map") %>% addPolygons(data = rv[[rv$importSettings$sel_HUClevel]][rv[[rv$importSettings$sel_HUClevel]]$HUC==click$id,], group = rv$importSettings$sel_HUClevel, color = "blue", fillColor = "lightblue", fillOpacity = opacity_unselected, weight = 0.5, layerId = ~HUC, options = pathOptions(pane = "pane_HUC")) # and change the polygon to unselected color
       } else { # if the click is in an unselected HUC
         rv$selectedHucs <- c(rv$selectedHucs, click$id) # append the ID of clicked HUC polygon
-        leafletProxy("map") %>% addPolygons(data = rv[[rv$importSettings$sel_HUClevel]][rv[[rv$importSettings$sel_HUClevel]]$HUC==click$id,], group = rv$importSettings$sel_HUClevel, color = "blue", fillColor = "lightblue", fillOpacity = 0.8, opacity = 1, weight = 1.5, layerId = ~HUC, options = pathOptions(pane = "pane_HUC"))
+        leafletProxy("map") %>% addPolygons(data = rv[[rv$importSettings$sel_HUClevel]][rv[[rv$importSettings$sel_HUClevel]]$HUC==click$id,], group = rv$importSettings$sel_HUClevel, color = "blue", fillColor = "lightblue", fillOpacity = opacity_selected, opacity = 1, weight = 1.5, layerId = ~HUC, options = pathOptions(pane = "pane_HUC"))
       } # and change the polygon to selected color
   }, ignoreInit = TRUE) # end of observeEvent
+
+# Select all HUCs
+observeEvent(input$button_selectAllHucs, {
+  shiny::req(!is.null(rv[[input$sel_HUClevel]]), input$sel_SelectMethod == "methodHuc")
+  rv$selectedHucs <- rv[[input$sel_HUClevel]]$HUC
+  leafletProxy("map") %>%
+    addPolygons(data = rv[[input$sel_HUClevel]], group = input$sel_HUClevel,
+                color = "blue", fillColor = "lightblue", fillOpacity = opacity_selected,
+                opacity = 1, weight = 1.5, layerId = ~HUC,
+                options = pathOptions(pane = "pane_HUC"))
+}, ignoreInit = TRUE)
+
+# Deselect all HUCs
+observeEvent(input$button_deselectAllHucs, {
+  shiny::req(!is.null(rv[[input$sel_HUClevel]]), input$sel_SelectMethod == "methodHuc")
+  rv$selectedHucs <- NULL
+  leafletProxy("map") %>%
+    addPolygons(data = rv[[input$sel_HUClevel]], group = input$sel_HUClevel,
+                color = "blue", fillColor = "lightblue", fillOpacity = opacity_unselected,
+                weight = 0.5, layerId = ~HUC,
+                options = pathOptions(pane = "pane_HUC"))
+}, ignoreInit = TRUE)
+
+# User selects sites in park
+observeEvent(input$sel_SelectMethod, {
+  shiny::req(isTRUE(rv_param_temp$loadMap == TRUE), !is.null(input$sel_SelectMethod))
+  if(input$sel_SelectMethod == "methodPark") {
+    leafletProxy("map") %>%
+      addPolygons(data = rv$unitPoly, group = "NPS unit", 
+                  color = "black", fillColor = "yellow", 
+                  fillOpacity = opacity_selected, weight = 3,
+                  options = pathOptions(pane = "pane_unitPoly"))
+  } else {
+    leafletProxy("map") %>%
+      addPolygons(data = rv$unitPoly, group = "NPS unit",
+                  color = "black", fillColor = "yellow",
+                  fillOpacity = opacity_unselected, weight = 1,
+                  options = pathOptions(pane = "pane_unitPoly")) %>%
+      clearGroup("Origin site")
+  }
+}, ignoreInit = TRUE)
+
+# User enters an origin site
+observeEvent(input$sel_OriginStationID, {
+  shiny::req(isTRUE(rv_param_temp$loadMap == TRUE),
+             !is.null(input$sel_OriginStationID),
+             isTRUE(input$sel_SelectMethod == "methodDist"),
+             input$sel_OriginStationID != "",
+             input$sel_OriginStationID %in% rv$sitesPointsSub$MonitoringLocationIdentifier)
+  
+  origin_site <- rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier == input$sel_OriginStationID, ]
+  
+  leafletProxy("map") %>%
+    clearGroup("Origin site") %>%
+    addCircleMarkers(data = origin_site, group = "Origin site",
+                     label = ~SITELAB, popup = ~SITEPOP,
+                     radius = 8, fillOpacity = 0, stroke = TRUE,
+                     weight = 4, color = "red", opacity = 1,
+                     options = pathOptions(pane = "pane_selectedOrigin"))
+}, ignoreInit = TRUE)
+
+## Preserve the user-selected layers to show
+observeEvent(rv_param_temp$loadMap, {
+  rv_param_temp$saved_map_groups <- NULL
+})
+
+observeEvent(input$map_groups, {
+  shiny::req(!is.null(input$map_groups), isTRUE(rv_param_temp$loadMap == TRUE))
+  rv_param_temp$saved_map_groups <- input$map_groups
+}, ignoreInit = TRUE)
 ```
 
 ### Summary of Selected Characteristics
@@ -6069,21 +6203,13 @@ explore_map_card <-
     style = "resize:vertical;",
     full_screen = FALSE,
     card_header(
-      HTML('<span style="color: red;">Select sites via the map or sidebar, then select characteristic(s) from the sidebar and click REFRESH PLOT DATA. From the map, RIGHT CLICK ON ANY SITE for quick-peek parameter summaries.</span>')
+      HTML('<span style="color: red;">Select sites via the map or sidebar, then select characteristic(s) from the sidebar and click REFRESH PLOT DATA. From the map, RIGHT CLICK ON ANY SITE for quick-peek parameter summaries.</span><br><span style="color: gray; font-size: 90%;">Use mouse scroll wheel or trackpad to zoom in/out on map.</span>')
       ),
     card_body(
       class = "p-0",
       div(style="display:flex; flex-direction:row; max-width:98%; justify-content:center; flex-wrap: wrap; align-items: center;",
     # Left side inputs
-    div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:left;", # padding is for spacing from div edge and each other
-            renderUI({
-  shiny::req(!is.null(rv$sitesPointsSub))
-  param_map_zoom <- min(RgoogleMaps::MaxZoom(lonrange = c(st_bbox(rv$sitesPointsSub)$xmin, st_bbox(rv$sitesPointsSub)$xmax), latrange = c(st_bbox(rv$sitesPointsSub)$ymin, st_bbox(rv$sitesPointsSub)$ymax)))
-  sliderInput("sel_ParamMapZoom", label = h6(strong("Set map zoom (higher values zoom in):")), min = max(1, param_map_zoom - 3), max = param_map_zoom + 5, value = param_map_zoom - 1, step = 0.25, ticks = FALSE, dragRange = FALSE, width = "100%")
-  })
-  ),
-
-div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:center;", # using default flex grow-shrink-size
+    div(style ="flex: 1 1 30%; padding:5px; justify-content:center; align-items:center;", # using default flex grow-shrink-size
     
             renderUI({
           shiny::req(!is.null(rv$sitesPointsSub))
