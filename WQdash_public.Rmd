@@ -2527,7 +2527,7 @@ FuncClearAll <- function(rv, rv_param_temp) {
   for (nm in names(rv_defaults)) rv[[nm]] <- rv_defaults[[nm]]
   for (nm in names(rv_param_defaults)) rv_param_temp[[nm]] <- rv_param_defaults[[nm]]
 
-  lapply(c("new_data_P1", "new_data_P2", "new_data_P3", "create_categfile_P1",
+  lapply(c("new_data_P1", "new_data_P2", "create_categfile_P1",
            "create_categfile_P2", "create_categfile_P3", "create_categfile_P4"),
          shinyjs::hideElement)
 
@@ -2555,9 +2555,9 @@ download_button <- function(outputId, label = "Download", class = NULL, ...)  {
 ```
 
 ```{r startup}
-  rv_defaults <- list(wqp_url_list = list(), parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list())
+  rv_defaults <- list(wqp_url_list = list(), parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, downloadDataSummary = NULL, downloadStations = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list())
 
-rv_param_defaults <- list(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, saved_map_groups = NULL, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_min_activities = NULL, sel_summarize_by = NULL, sel_quantile_group_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, saved_param_map_groups = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg = NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
+rv_param_defaults <- list(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, saved_map_groups = NULL, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_quantile_group_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, saved_param_map_groups = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg = NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
   
   rv <- do.call(reactiveValues, rv_defaults)
 rv_param_temp <- do.call(reactiveValues, rv_param_defaults)
@@ -2612,84 +2612,18 @@ observeEvent(eventExpr = input$button_beginSearch, {
 # If user chooses to import new data from WQP...
 
 if(input$sel_GetData == "new_data") { 
-  shinyjs::showElement("new_data_P1")
-  } else { # if user chooses to load existing data...
-    showModal(modalDialog(
-    fileInput("saved_data_file", label = "Import a saved dashboard data file ('RDS' extension)", placeholder = "Click 'Browse...' button then navigate to file", accept = c('.rds'), width = "100%"),
-    footer = tagList(
-      modalButton("Cancel")
-    )
-  ))
-  }
-})
-```
-
-```{r action_saved_data_file}
-# Action to load saved .RDS file from Main Page ----
-observeEvent(eventExpr = input$saved_data_file, {
-  shiny::req(!is.null(input$saved_data_file$datapath))
-
-  if(!toupper(tools::file_ext(input$saved_data_file$datapath)) %in% c("RDS")) {
-    showModal(modalDialog(
-    title = "Error",
-    "File must have .RDS extension. Please select a different file."
-    ))
-  } else {
-
-    tryCatch(out_file <- readRDS(input$saved_data_file$datapath),
-             error = function(e) {out_file <- NULL; print("Cannot import the selected file")})
-    
-  shiny::req(!is.null(out_file))
-  if(class(out_file)!="list") {
-    showModal(modalDialog(
-    title = "Error",
-    "Cannot import the selected file. Please try a different .RDS file."
-    ))
-    }
   
-  shiny::req(!is.null(out_file))
-  for(i in names(out_file)) {
-      rv[[i]] <- out_file[[i]] # load the data in the dashboard
-    }
-  cat("line2723")
-  rv_param_temp$loadMap <- TRUE
-
-  FuncInitFilter()
-  FuncUpdateFilterInputs() 
-  FuncRefreshFilter(sel_MinYrs = rv_param_temp$defaultInputs$sel_MinYrs, sel_SummaryParam = rv_param_temp$currentInputs$sel_SummaryParam, sel_SummaryOrg = rv_param_temp$defaultInputs$sel_SummaryOrg, sel_YrRange = rv_param_temp$defaultInputs$sel_YrRange, sel_ActivityType = rv_param_temp$defaultInputs$sel_ActivityType, sel_ResultStatus = rv_param_temp$defaultInputs$sel_ResultStatus, sel_DefineSeasons = rv_param_temp$defaultInputs$sel_DefineSeasons) # generate the initial filtered data based on default filters. Also call this filter when action button clicked for refreshing filter
-  # rv_param_temp$resetFilter <- TRUE
-  rm(out_file)
-  cat("line2731")
-  rv_param_temp$plotDat <- NULL # Just to make doubly sure everything is cleared out
-  rv_param_temp$threshList <- NULL
-  rv_param_temp$threshDF <- NULL
-  rv_param_temp$categLevelsPlot <- NULL
-  
-  showModal(modalDialog(
-  title = "Done",
-  "You may now navigate to the other dashboard pages"
-  ))
-  }
-})
-```
-
-```{r action_button_showStations}
-# Action to show WQP stations from Main Page ----
-observeEvent(eventExpr = input$button_showStations, {
-  if(input$sel_UnitCode=="") { # can't print validation message within observeEvent, so use modalDialogs
+    if(input$sel_UnitCode=="") { # can't print validation message within observeEvent, so use modalDialogs
     showModal(modalDialog(
       title = "No Data",
       "Please choose a Park unit"
     ))
     }
  
-  shiny::req(input$sel_UnitCode!="", !is.null(input$sel_MinActivities)) # make sure user has entered Park unit code
-
-  FuncClearAll(rv, rv_param_temp)
+  shiny::req(input$sel_UnitCode!="") # make sure user has entered Park unit code
   
   rv$parkName <- input$sel_UnitCode
   rv$parkID <- unique_parks_df$unit_code[unique_parks_df$unit_name_combined == rv$parkName]
-  rv_param_temp$sel_min_activities <- input$sel_MinActivities
   
   print("line2417")
   withProgress(message = "Getting data", detail = "...Park unit and intersecting watershed boundaries", value = 0, {
@@ -2700,8 +2634,8 @@ observeEvent(eventExpr = input$button_showStations, {
       footer = NULL
       )))
     
+  shinyjs::hideElement("new_data_P1")
   shinyjs::hideElement("new_data_P2")
-  shinyjs::hideElement("new_data_P3")
   
   # Get park unit boundary data from dashboard files ----
   # Check for problems with self-intersections, etc. These problems should be fixed in the updated version of LandscapeDynamics
@@ -2768,7 +2702,7 @@ unlink(tmp_huc)
     huc10_bbox <- sf::st_bbox(rv[["HUC10"]]) # HUC10 bbox
     
    # WQP stations that fall within the HUC10 bbox
-  sitesURL <- paste0("https://www.waterqualitydata.us/data/Station/search?siteType=Aggregate%20surface-water-use&siteType=Estuary&siteType=Lake%2C%20Reservoir%2C%20Impoundment&siteType=Spring&siteType=Stream&siteType=Well&siteType=Wetland&siteType=Aggregate%20groundwater%20use&siteType=Aggregate%20groundwater%20use%20&siteType=Aggregate%20water-use%20establishment&siteType=Subsurface&bBox=", paste(huc10_bbox, collapse ="%2C"), "&characteristicType=Toxicity&characteristicType=Physical&characteristicType=Organics%2C%20PFAS&characteristicType=Organics%2C%20Pesticide&characteristicType=Organics%2C%20PCBs&characteristicType=Nutrient&characteristicType=Microbiological&characteristicType=Cyanotoxins%2C%20Phytotoxins&characteristicType=Inorganics%2C%20Major%2C%20Metals&characteristicType=Inorganics%2C%20Major%2C%20Non-metals&minactivities=", rv_param_temp$sel_min_activities, "&sampleMedia=Water&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
+  sitesURL <- paste0("https://www.waterqualitydata.us/data/Station/search?siteType=Aggregate%20surface-water-use&siteType=Estuary&siteType=Lake%2C%20Reservoir%2C%20Impoundment&siteType=Spring&siteType=Stream&siteType=Well&siteType=Wetland&siteType=Aggregate%20groundwater%20use&siteType=Aggregate%20groundwater%20use%20&siteType=Aggregate%20water-use%20establishment&siteType=Subsurface&bBox=", paste(huc10_bbox, collapse ="%2C"), "&characteristicType=Toxicity&characteristicType=Physical&characteristicType=Organics%2C%20PFAS&characteristicType=Organics%2C%20Pesticide&characteristicType=Organics%2C%20PCBs&characteristicType=Nutrient&characteristicType=Microbiological&characteristicType=Cyanotoxins%2C%20Phytotoxins&characteristicType=Inorganics%2C%20Major%2C%20Metals&characteristicType=Inorganics%2C%20Major%2C%20Non-metals&minactivities=1&sampleMedia=Water&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
    
   tmp_sites <- tempfile(fileext = ".csv")
 tryCatch(
@@ -3039,23 +2973,84 @@ if (is.null(facilitiesResp) || httr::http_status(facilitiesResp)$category != "Su
     # If displaying shapes, points, etc., Leaflet will automatically project the WGS84 long-lat coordinates when displaying. Leaflet only supports TILES that have been published in EPSG 3857, so if using other tiles (e.g., NPS), need to change projections
   })
   
-  shinyjs::showElement("new_data_P2")
+  shinyjs::showElement("new_data_P1")
     
   print("set loadMap to TRUE")
   rv_param_temp$loadMap <- TRUE
   print("reset Filter")
-  # rv_param_temp$resetFilter <- FALSE # make sure these are still set to FALSE. User can't filter or plot data until they are downloaded/imported.
 
 showModal(modalDialog(
   title = "Done",
-  HTML("In the <strong>'3 (of 4). Filter sites to download'</strong> panel, choose the monitoring sites you want to download data from. You can:<ul>
+  HTML("In the <strong>'2 (of 3). Filter sites to download'</strong> panel, choose the monitoring sites you want to download data from. You can:<ul>
     <li>Download data for the entire park, or </li>
     <li>Select specific watersheds.</li>
   </ul>
   You can also apply additional filters using the other options in the panel. When you're ready, click <strong>'Summarize Selected Sites'</strong> to preview a summary of the data before downloading.")
 ))
 
-}, ignoreInit = TRUE) # end of run search button
+  } else { # if user chooses to load existing data...
+    showModal(modalDialog(
+    fileInput("saved_data_file", label = "Import a saved dashboard data file ('RDS' extension)", placeholder = "Click 'Browse...' button then navigate to file", accept = c('.rds'), width = "100%"),
+    footer = tagList(
+      modalButton("Cancel")
+    )
+  ))
+  }
+  
+ saveRDS(isolate(reactiveValuesToList(rv)), here::here(
+   "TEMP_rv.RDS"))
+ saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+ saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+})
+```
+
+```{r action_saved_data_file}
+# Action to load saved .RDS file from Main Page ----
+observeEvent(eventExpr = input$saved_data_file, {
+  shiny::req(!is.null(input$saved_data_file$datapath))
+
+  if(!toupper(tools::file_ext(input$saved_data_file$datapath)) %in% c("RDS")) {
+    showModal(modalDialog(
+    title = "Error",
+    "File must have .RDS extension. Please select a different file."
+    ))
+  } else {
+
+    tryCatch(out_file <- readRDS(input$saved_data_file$datapath),
+             error = function(e) {out_file <- NULL; print("Cannot import the selected file")})
+    
+  shiny::req(!is.null(out_file))
+  if(class(out_file)!="list") {
+    showModal(modalDialog(
+    title = "Error",
+    "Cannot import the selected file. Please try a different .RDS file."
+    ))
+    }
+  
+  shiny::req(!is.null(out_file))
+  for(i in names(out_file)) {
+      rv[[i]] <- out_file[[i]] # load the data in the dashboard
+    }
+  cat("line2723")
+  rv_param_temp$loadMap <- TRUE
+
+  FuncInitFilter()
+  FuncUpdateFilterInputs() 
+  FuncRefreshFilter(sel_MinYrs = rv_param_temp$defaultInputs$sel_MinYrs, sel_SummaryParam = rv_param_temp$currentInputs$sel_SummaryParam, sel_SummaryOrg = rv_param_temp$defaultInputs$sel_SummaryOrg, sel_YrRange = rv_param_temp$defaultInputs$sel_YrRange, sel_ActivityType = rv_param_temp$defaultInputs$sel_ActivityType, sel_ResultStatus = rv_param_temp$defaultInputs$sel_ResultStatus, sel_DefineSeasons = rv_param_temp$defaultInputs$sel_DefineSeasons) # generate the initial filtered data based on default filters. Also call this filter when action button clicked for refreshing filter
+  # rv_param_temp$resetFilter <- TRUE
+  rm(out_file)
+  cat("line2731")
+  rv_param_temp$plotDat <- NULL # Just to make doubly sure everything is cleared out
+  rv_param_temp$threshList <- NULL
+  rv_param_temp$threshDF <- NULL
+  rv_param_temp$categLevelsPlot <- NULL
+  
+  showModal(modalDialog(
+  title = "Done",
+  "You may now navigate to the other dashboard pages"
+  ))
+  }
+})
 ```
 
 ```{r action_button_highlightStations}
@@ -3084,6 +3079,8 @@ observeEvent(eventExpr = input$button_summarizeStations, {
   }
   
   rv$selectedDataSummary <- NULL
+  rv$downloadDataSummary <- NULL
+  rv$downloadStations <- NULL
   
   # Select stations by Park
   if(input$sel_SelectMethod == "methodPark") {
@@ -3248,21 +3245,23 @@ unlink(tmp_summary)
   }
   
   rv$selectedDataSummary <- dplyr::bind_rows(all_summaries)
-  
-  # Enforce data recency filter
-  cutoff_year <- lubridate::year(Sys.Date()) - as.integer(input$sel_ActiveWithinYrs)
+rm(all_summaries)
 
-recent_sites <- rv$selectedDataSummary %>%
-  dplyr::group_by(MonitoringLocationIdentifier) %>%
-  dplyr::summarise(max_yr = max(YearSummarized, na.rm = TRUE)) %>%
-  dplyr::filter(max_yr >= cutoff_year) %>%
-  dplyr::pull(MonitoringLocationIdentifier)
+# Apply default data availability filters immediately (defaults: 30 yrs, 0 min results)
+qualifying_site_chars_default <- rv$selectedDataSummary %>%
+  dplyr::group_by(MonitoringLocationIdentifier, CharacteristicName) %>%
+  dplyr::summarise(max_yr = max(YearSummarized, na.rm = TRUE),
+                   total_results = sum(ResultCount, na.rm = TRUE),
+                   .groups = "drop") %>%
+  dplyr::filter(max_yr >= (lubridate::year(Sys.Date()) - 30),
+                total_results >= 0)
 
-rv$selectedDataSummary <- dplyr::filter(rv$selectedDataSummary, MonitoringLocationIdentifier %in% recent_sites)
-rv$selectedStations <- dplyr::filter(rv$selectedStations, MonitoringLocationIdentifier %in% recent_sites)
-rv$wqp_url_list <- rv$wqp_url_list[sapply(rv$wqp_url_list, function(url) any(recent_sites %in% unlist(strsplit(url, "&siteid="))))]
+rv$downloadDataSummary <- rv$selectedDataSummary %>%
+  dplyr::inner_join(dplyr::select(qualifying_site_chars_default, MonitoringLocationIdentifier, CharacteristicName),
+                    by = c("MonitoringLocationIdentifier", "CharacteristicName"))
 
-  rm(all_summaries)
+rv$downloadStations <- rv$selectedStations %>%
+  dplyr::filter(MonitoringLocationIdentifier %in% unique(qualifying_site_chars_default$MonitoringLocationIdentifier))
   
 })
 
@@ -3270,17 +3269,47 @@ rv$wqp_url_list <- rv$wqp_url_list[sapply(rv$wqp_url_list, function(url) any(rec
 
 showModal(modalDialog(
   title = "Done",
-  HTML(paste0("<strong>You have selected ", sum(rv$selectedDataSummary$ResultCount), " data records from ", length(unique(rv$selectedDataSummary$MonitoringLocationIdentifier)), " sites.</strong> Selected monitoring sites are shown as larger, white-outlined circles on the map.", 
+  HTML(paste0("<strong>You have summarized ", sum(rv$selectedDataSummary$ResultCount), " data records from ", length(unique(rv$selectedDataSummary$MonitoringLocationIdentifier)), " sites.</strong> Selected monitoring sites are shown as larger, white-outlined circles on the map.", 
               switch((input$sel_SelectMethod == "methodDist")+1, "", "The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in blue; downstream, in brown."),
-              "<br><br>Review your selection in the 'Summary of Selected Characteristics' and 'Summary of Selected Site-Characteristics' tabs. <br><br>Select gage stations (if available), then press the <strong>DOWNLOAD SELECTED DATA</strong> button to import the water quality data."))
+              "<br><br>Review your selection in the 'Summary of Selected Characteristics' and 'Summary of Selected Site-Characteristics' tabs. <br><br>Select gage stations (if available), then press the <strong>DOWNLOAD DATA</strong> button to import the water quality data."))
 )) # <<<<<< AFTER ADDING WEATHER SHOULD SAY 'GAGE AND WEATHER'
   
-  if(!is.null(rv$meteoStations)|!is.null(rv$gageStations)) {
-    shiny::req(!is.null(rv$selectedDataSummary))
-    shinyjs::showElement("new_data_P3")
-    cat("line3006")
-  }
+  shinyjs::showElement("new_data_P2")
+
   }, ignoreInit = TRUE) # end of observeEvent
+```
+
+```{r action_button_updateSelectedData}
+observeEvent(input$button_updateSelectedData, {
+  shiny::req(!is.null(rv$selectedDataSummary), !is.null(rv$selectedStations))
+  
+  cutoff_year <- lubridate::year(Sys.Date()) - as.integer(input$sel_ActiveWithinYrs)
+  
+  qualifying_site_chars <- rv$selectedDataSummary %>%
+    dplyr::group_by(MonitoringLocationIdentifier, CharacteristicName) %>%
+    dplyr::summarise(max_yr = max(YearSummarized, na.rm = TRUE),
+                     total_results = sum(ResultCount, na.rm = TRUE),
+                     .groups = "drop") %>%
+    dplyr::filter(max_yr >= cutoff_year, total_results >= input$sel_MinResults)
+  
+  rv$downloadDataSummary <- rv$selectedDataSummary %>%
+    dplyr::inner_join(dplyr::select(qualifying_site_chars, MonitoringLocationIdentifier, CharacteristicName),
+                      by = c("MonitoringLocationIdentifier", "CharacteristicName"))
+  
+  rv$downloadStations <- rv$selectedStations %>%
+    dplyr::filter(MonitoringLocationIdentifier %in% unique(qualifying_site_chars$MonitoringLocationIdentifier))
+  
+  qualifying_sites_sf <- rv$sitesPointsSub %>%
+    dplyr::filter(MonitoringLocationIdentifier %in% rv$downloadStations$MonitoringLocationIdentifier)
+  
+  leafletProxy("map") %>%
+    clearGroup("Selected monitoring sites") %>%
+    addCircleMarkers(data = qualifying_sites_sf, group = "Selected monitoring sites",
+                     label = ~SITELAB, popup = ~SITEPOP,
+                     radius = 8, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName),
+                     fillOpacity = 0.8, stroke = TRUE, weight = 4, color = "white", opacity = 1,
+                     options = pathOptions(pane = "pane_selectedStations"))
+}, ignoreInit = TRUE)
 ```
 
 ```{r action_button_downloadData}
@@ -3308,7 +3337,8 @@ observeEvent(eventExpr = input$button_downloadData, {
       title = "No monitoring sites selected",
       "Please select monitoring sites from which you would like to import data (filter sites by HUC or by distance from origin, then click 'Summarize Selected Sites' button)."
     ))
-  }
+    }
+  shiny::req(!is.null(rv$downloadStations), length(rv$downloadStations$MonitoringLocationIdentifier) > 0)
   shiny::req(!is.null(rv$selectedStations), !is.null(rv$sitesPointsSub), !is.null(rv$wqp_url_list))
   shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0, length(rv$wqp_url_list) > 0)
 
@@ -3319,7 +3349,20 @@ observeEvent(eventExpr = input$button_downloadData, {
         easyClose = TRUE,
         footer = NULL
       )))
+      # Rebuild wqp_url_list from downloadStations in batches of 20
+subset_stations_list <- split(rv$downloadStations$MonitoringLocationIdentifier,
+  ceiling(seq_along(rv$downloadStations$MonitoringLocationIdentifier)/20))
+
+tmp_url_list <- lapply(subset_stations_list, function(s) {
+  stationChoiceString <- paste0(utils::URLencode(s, reserved = TRUE), collapse = "&siteid=")
+  paste0("https://www.waterqualitydata.us/data/Result/search?siteid=", stationChoiceString,
+    "&sampleMedia=Water&mimeType=csv&zip=no&dataProfile=resultPhysChem&providers=NWIS&providers=STORET")
+})
+
+rv$wqp_url_list <- tmp_url_list
       
+
+# Begin WQP data download
       all_data <- list()
 for(i in 1:length(rv$wqp_url_list)) {
   setProgress(1/12, detail = paste0("Importing set #", i, " of ", length(rv$wqp_url_list), " (up to 20 sites imported per set)"))
@@ -3336,7 +3379,7 @@ tryCatch(
   }
 )
 all_data[[i]] <- read.csv(tmp_wqp) %>%
-  dplyr::filter(CharacteristicName %in% unique(rv$selectedDataSummary$CharacteristicName))
+  dplyr::filter(CharacteristicName %in% unique(rv$downloadDataSummary$CharacteristicName))
 unlink(tmp_wqp)
 Sys.sleep(0.5) # pause between data pulls
 }
@@ -3344,6 +3387,10 @@ Sys.sleep(0.5) # pause between data pulls
       tempDat <- do.call("rbind.data.frame", all_data) 
       rm(all_data)
      
+      # Filter tempDat to qualifying site-char combinations only
+      tempDat <- tempDat %>%
+  dplyr::inner_join(dplyr::select(rv$downloadDataSummary, MonitoringLocationIdentifier, CharacteristicName) %>% dplyr::distinct(),
+                    by = c("MonitoringLocationIdentifier", "CharacteristicName"))
       
 # Format WQP data ----
   setProgress(1/4, detail = "Formatting data")
@@ -4756,7 +4803,7 @@ observeEvent(eventExpr = input$button_aboutGetData, {
 # UI panel to import or load data----
 wellPanel(
   id = "new_data_P0",
-  p(strong("1. Choose data source, then click 'BEGIN DATA SEARCH' button")),
+  p(strong("1 (of 3). Choose data source, then click 'BEGIN DATA SEARCH' button")),
   
   br(),
   
@@ -4765,33 +4812,21 @@ wellPanel(
                choices = c("Load data file (.RDS) from computer"  = "existing_data",
                            "Download data from web services" = "new_data")),
   
+    conditionalPanel(
+    condition = "input.sel_GetData == 'new_data'",
+    selectInput("sel_UnitCode", label = h6("Enter a park name or 4-digit park code (e.g., BITH): "), 
+                choices = c("Choose a park" = "", unique_parks_df$unit_name_combined), 
+                selectize = TRUE)
+  ),
+  
   actionButton("button_beginSearch", "BEGIN DATA SEARCH", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
 ) # end import-load-data panel
-
-
-# UI panel to show WQP stations ----
-shinyjs::hidden( # initially hide this well panel, show only if user wants to import data from WQP
-  wellPanel(
-    id = "new_data_P1",
-    p(strong("2 (of 4). Choose a park, then click 'SHOW MONITORING SITES' button")),
-    
-    selectInput("sel_UnitCode", label = h6("Enter a park name or 4-digit park code (e.g., BITH): "), choices = c("Choose a park" = "", unique_parks_df$unit_name_combined), selectize = TRUE),
-    
-      
-      numericInput("sel_MinActivities",
-                 label = h6("Limit to sites with at least [ENTER AN INTEGER] sample records in WQP: "),
-                 value = 10,
-                 min = 1),
-    
-    actionButton("button_showStations", "SHOW MONITORING SITES", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
-    ) # end show-stations panel
-) # end hide for show-stations panel
   
 # UI panel to select subset of WQP stations ----
 shinyjs::hidden( # initially hide this well panel
   wellPanel(
-    id = "new_data_P2",
-    p(strong("3 (of 4). Filter sites to download, then click 'SUMMARIZE SELECTED SITES' button")),
+    id = "new_data_P1",
+    p(strong("2 (of 3). Filter sites to download, then click 'SUMMARIZE SELECTED SITES' button")),
     
     p("Click on a map point for more information about the station and data. Blue hyperlinks will open web pages with additional information."),
     
@@ -4883,24 +4918,32 @@ conditionalPanel(
                                    "Sediment",
                                    "Toxicity"),
                        selected = c("Microbiological", "Nutrient", "Physical")),
-
-    numericInput("sel_ActiveWithinYrs",
-                 label = h6("When summarizing selected sites, exclude sites that have NOT sampled within the past [ENTER AN INTEGER] years: "),
-                 value = 4,
-                 min = 1),
     
     actionButton("button_summarizeStations", "SUMMARIZE SELECTED SITES", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
     ) # end subset-stations panel
   ) # end hide for subset-stations panel
 
-# UI panel to select other stations ----
-shinyjs::hidden( # initially hide this well panel
+# UI panel for data availability filters and download ----
+shinyjs::hidden(
   wellPanel(
-    id = "new_data_P3",
-    p(strong("4 (of 4). Select stream gage data to import, then click 'DOWNLOAD SELECTED DATA' button")),
-    # p("Data will download only for selected gage and weather stations. When selected, these stations will show as orange-colored on the map."),
-    p("Data will download only for selected gage stations. When selected, these stations will show as orange-colored on the map."),
+    id = "new_data_P2",
+    p(strong("3 (of 3). Filter data to download, select gage stations, then click 'DOWNLOAD DATA' button")),
+
+    numericInput("sel_ActiveWithinYrs",
+             label = h6("Exclude site-characteristic combinations with no data in the past [ENTER AN INTEGER] years:"),
+             value = 30,
+             min = 1),
     
+    numericInput("sel_MinResults",
+             label = h6("Exclude site-characteristic combinations with fewer than [ENTER AN INTEGER] total data records:"),
+             value = 0,
+             min = 0),
+    
+    actionButton("button_updateSelectedData", "UPDATE SELECTED DATA", width = "100%",
+             style="color:black; background-color: lightyellow; border: 1px solid black; display:inline-block; margin:5px"),
+
+    p("Data will download only for selected gage stations. When selected, these stations will show as orange-colored on the map."),
+
     renderUI({
       shiny::req(!is.null(rv$gageStations))
       checkboxGroupInput("sel_Gages",
@@ -4908,10 +4951,10 @@ shinyjs::hidden( # initially hide this well panel
                          choices = sort(unique(rv$gageStations$GageName)))
       }),
 
-    actionButton("button_downloadData", "DOWNLOAD SELECTED DATA", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border: 1px solid black; margin:5px"),
-    
+    actionButton("button_downloadData", "DOWNLOAD DATA", width = "100%", style="color:black; background-color: lightgreen; display:inline-block; border: 1px solid black; margin:5px"),
+
     br(),
-    
+
     renderUI({
     shiny::req(rv_param_temp$newImport == TRUE, !is.null(rv))
     
@@ -4921,8 +4964,8 @@ shinyjs::hidden( # initially hide this well panel
     style = "width: 100%; background-color: #e97451; 
              display: inline-block; border: 1px solid black; margin: 5px;")
     })
-    ) # end subset-Meteo panel
-  ) # end hide for subset-Meteo panel
+  ) # end data availability panel
+) # end hide
 
 # Download RDS to user location ----
 
@@ -5126,12 +5169,12 @@ observeEvent(input$map_groups, {
 ```{r}
 output$table_char_summary <- DT::renderDT({
   shiny::validate(
-    need(!is.null(rv$selectedDataSummary), message = "No data selected. Follow prompts on the left to select data for import, then click <strong>'SUMMARIZE SELECTED SITES'</strong> button."))
+    need(!is.null(rv$downloadDataSummary), message = "No data selected. Follow prompts on the left to select data for import, then click <strong>'SUMMARIZE SELECTED DATA'</strong> button."))
 
-  shiny::req(!is.null(rv$selectedDataSummary))
+  shiny::req(!is.null(rv$downloadDataSummary))
 
   DT::datatable(
-    rv$selectedDataSummary %>% dplyr::group_by(CharacteristicType, CharacteristicName) %>% dplyr::summarize(`# of Data Records` = sum(ResultCount, na.rm = TRUE), .groups = "drop") %>% dplyr::rename(`Characteristic Type` = CharacteristicType, Characteristic = CharacteristicName),
+    rv$downloadDataSummary %>% dplyr::group_by(CharacteristicType, CharacteristicName) %>% dplyr::summarize(`# of Data Records` = sum(ResultCount, na.rm = TRUE), .groups = "drop") %>% dplyr::rename(`Characteristic Type` = CharacteristicType, Characteristic = CharacteristicName),
     rownames = FALSE,
     filter = "top",
     selection = "none",
@@ -5163,10 +5206,10 @@ DTOutput("table_char_summary")
 ```{r}
 output$table_import_summary <- DT::renderDT({
     shiny::validate(
-    need(!is.null(rv$selectedDataSummary), message = "No data selected. Follow prompts on the left to select data for import, then click <strong>'SUMMARIZE SELECTED SITES'</strong> button."))
+    need(!is.null(rv$downloadDataSummary), message = "No data selected. Follow prompts on the left to select data for import, then click <strong>'SUMMARIZE SELECTED DATA'</strong> button."))
 
   DT::datatable(
-    rv$selectedDataSummary %>%
+    rv$downloadDataSummary %>%
       dplyr::group_by(OrganizationFormalName, MonitoringLocationIdentifier, MonitoringLocationTypeName, CharacteristicType, CharacteristicName) %>%
       dplyr::summarize(`First Yr` = min(YearSummarized, na.rm = TRUE), `Most Recent Yr` = max(YearSummarized, na.rm = TRUE), `# of Data Records` = sum(ResultCount, na.rm = TRUE), .groups = "drop") %>%
       dplyr::rename(Organization = OrganizationFormalName, Site = MonitoringLocationIdentifier, `Site Type` = MonitoringLocationTypeName, `Characteristic Type` = CharacteristicType, Characteristic = CharacteristicName),
