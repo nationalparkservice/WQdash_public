@@ -373,6 +373,19 @@ FuncAllNoneButtons <- function(cond, name_all, name_none) {
   )
 }
 
+FuncDataRetrievalError <- function(url, data_description, source_name, extra_msg = "") {
+  showModal(
+    urlModal(url, title = "Data Retrieval Error",
+      subtitle = htmltools::HTML(paste0(
+        "Error retrieving ", data_description, " from the ", source_name, ".",
+        "<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), ",
+        "enter the above URL in a browser and see if data successfully downloads.</strong> ",
+        if(nchar(extra_msg) > 0) paste0(extra_msg, " ") else "",
+        "If this is an issue with the dashboard, help us improve this dashboard by reporting ",
+        "the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>"
+      )))
+  )
+}
 FuncCalcWaterSeasons <- function(dateVec){
   # Function to calculate water year from calendar date (modified from calcWaterSeasons function in package 'dataRetrieval')
   # POSIXlt years start at 100, POSIXlt months start at 0
@@ -2539,20 +2552,12 @@ download_button <- function(outputId, label = "Download", class = NULL, ...)  {
         icon("download"), label, ...)
 }
 
-grabit <- function(url) {
-  tmpfile <- tempfile(fileext = ".geojson")
-  download.file(url, tmpfile, mode = "w")
-  temp <- sf::st_read(dsn = tmpfile)
-  file.remove(tmpfile)
-  return(temp)
-}
-
 ```
 
 ```{r startup}
   rv_defaults <- list(wqp_url_list = list(), parkName = NULL, parkID = NULL, unitPoly = NULL, HUC10 = NULL, HUC12 = NULL, sitesPointsSub = NULL, meteoStations = NULL, selectedMeteo = NULL, meteoDat = NULL, facilitiesPointsSub = NULL, selectedHucs = NULL, selectedStations = NULL, selectedOriginStation = NULL, selectedUpstreamStations = NULL, selectedDownstreamStations = NULL, selectedUpstreamLines = NULL, selectedDownstreamLines = NULL, selectedDataSummary = NULL, orgs = NULL, gageStations = NULL, selectedGages = NULL, gagesDat = NULL, dat = NULL, importSettings = list())
 
-rv_param_defaults <- list(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, saved_map_groups = NULL, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_summarize_by = NULL, sel_quantile_group_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, saved_param_map_groups = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg = NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
+rv_param_defaults <- list(defaultInputs = list(), currentInputs = list(), loadMap = FALSE, saved_map_groups = NULL, resetFilter = FALSE, newImport = NULL, palOrg = NULL, selectCharSampleType = NULL, N_plotly_page = NULL, subDat = NULL, subDatTypes = NULL, subDatYears = NULL, popupSiteSummary = NULL, filterNPlot = NULL, showStations = NULL, sel_min_activities = NULL, sel_summarize_by = NULL, sel_quantile_group_by = NULL, sel_add_gage_precip = NULL, sel_gage_station = NULL, sel_gage_yscale = NULL, sel_precip_station = NULL, sel_precip_yscale = NULL, saved_param_map_groups = NULL, plotDat = NULL, quantDat = NULL, ggplot_ts_list = NULL, ggplot_season_list = NULL, finalPlot = list(plotly_page = NULL, shared_legend = NULL), seasonalPlot = list(plotly_page = NULL, shared_legend = NULL), plotSummary = NULL, precipDat = NULL, categLevels = NULL, categLevelsPlot = NULL, categLevelsImport = NULL, threshList = NULL, threshDF = NULL, threshCustom = NULL, threshColors = c("#56B4E9", "#F0E442", "#E69F00"), sel_show_thresholds = NULL, percCateg = NULL, showDM = FALSE, seasonType = NULL, param_map_highlight = NULL, update_from_sidebar = NULL)
   
   rv <- do.call(reactiveValues, rv_defaults)
 rv_param_temp <- do.call(reactiveValues, rv_param_defaults)
@@ -2678,12 +2683,13 @@ observeEvent(eventExpr = input$button_showStations, {
     ))
     }
  
-  shiny::req(input$sel_UnitCode!="") # make sure user has entered Park unit code
+  shiny::req(input$sel_UnitCode!="", !is.null(input$sel_MinActivities)) # make sure user has entered Park unit code
 
   FuncClearAll(rv, rv_param_temp)
   
   rv$parkName <- input$sel_UnitCode
   rv$parkID <- unique_parks_df$unit_code[unique_parks_df$unit_name_combined == rv$parkName]
+  rv_param_temp$sel_min_activities <- input$sel_MinActivities
   
   print("line2417")
   withProgress(message = "Getting data", detail = "...Park unit and intersecting watershed boundaries", value = 0, {
@@ -2711,18 +2717,19 @@ observeEvent(eventExpr = input$button_showStations, {
       incProgress(1/7, detail = paste0("...", hucName, " boundaries from National Watershed Boundary Dataset"))
 
       hucURL <- paste0("https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer/", hucLevel, "/query?where=&text=&objectIds=&time=&geometry=", paste(as.character(sf::st_bbox(rv$unitPoly)), collapse ="%2C"), "&geometryType=esriGeometryEnvelope&inSR=4326&outSR=4326&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=true&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&having=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&queryByDistance=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson")
+      
+      tmp_huc <- tempfile(fileext = ".geojson")
+tryCatch(
+  download.file(hucURL, tmp_huc, mode = "w", quiet = TRUE),
+  error = function(e) {
+    FuncDataRetrievalError(hucURL, paste0(hucName, " boundary data"), "National Watershed Boundary Dataset")
+    shiny::req(FALSE)
+  }
+)
+hucPoly <- tryCatch(sf::st_read(tmp_huc, quiet = TRUE), error = function(e) NULL)
+unlink(tmp_huc)
 
-    if(httr::http_status(httr::GET(hucURL))$category!="Success") { # make sure the service call is valid
-      shiny::showModal(
-         urlModal(hucURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving ", hucName, " boundary data from the National Watershed Boundary Dataset. The message from the web service is: `", httr::http_status(GET(hucURL))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
-       )
-      }
-   
-    shiny::req(httr::http_status(GET(hucURL))$category=="Success") # if not a valid service call, abort
-    
-    # hucPoly <- tryCatch(sf::st_read(hucURL), error=function(e) print("Error retrieving ", hucName, " data")
-    # NOTE: st_read() on a data service (WCS, maybe arcgis/rest too) uses GDAL to let it become a virtual feature, not (yet) downloading the entire data.  That includes extra authentication, which often gets broken by any ssl change on our systems
-    hucPoly <- tryCatch(grabit(hucURL), error=function(e) print("Error retrieving ", hucName, " data"))
+
 
     if(!"sf" %in% class(hucPoly)) {
       showModal(
@@ -2756,24 +2763,24 @@ observeEvent(eventExpr = input$button_showStations, {
 
     incProgress(1/7, detail = "...Monitoring sites from Water Quality Portal")
     print("line2481")
-    shiny::req(!is.null(rv[["HUC10"]]), !is.null(input$sel_ActiveWithinYrs))
+    shiny::req(!is.null(rv[["HUC10"]]))
     print("line2483")
     huc10_bbox <- sf::st_bbox(rv[["HUC10"]]) # HUC10 bbox
     
-   # Recently active WQP stations that fall within the HUC10 bbox (sampled within past [user-specified number of] years) 
-  sitesURL <- paste0("https://www.waterqualitydata.us/data/Station/search?siteType=Aggregate%20surface-water-use&siteType=Estuary&siteType=Lake%2C%20Reservoir%2C%20Impoundment&siteType=Spring&siteType=Stream&siteType=Well&siteType=Wetland&siteType=Aggregate%20groundwater%20use&siteType=Aggregate%20groundwater%20use%20&siteType=Aggregate%20water-use%20establishment&siteType=Subsurface&bBox=", paste(huc10_bbox, collapse ="%2C"), "&characteristicType=Toxicity&characteristicType=Physical&characteristicType=Organics%2C%20PFAS&characteristicType=Organics%2C%20Pesticide&characteristicType=Organics%2C%20PCBs&characteristicType=Nutrient&characteristicType=Microbiological&characteristicType=Cyanotoxins%2C%20Phytotoxins&characteristicType=Inorganics%2C%20Major%2C%20Metals&characteristicType=Inorganics%2C%20Major%2C%20Non-metals&minactivities=1&startDateLo=01-01-", lubridate::year(Sys.Date())-as.integer(input$sel_ActiveWithinYrs), "&sampleMedia=Water&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
+   # WQP stations that fall within the HUC10 bbox
+  sitesURL <- paste0("https://www.waterqualitydata.us/data/Station/search?siteType=Aggregate%20surface-water-use&siteType=Estuary&siteType=Lake%2C%20Reservoir%2C%20Impoundment&siteType=Spring&siteType=Stream&siteType=Well&siteType=Wetland&siteType=Aggregate%20groundwater%20use&siteType=Aggregate%20groundwater%20use%20&siteType=Aggregate%20water-use%20establishment&siteType=Subsurface&bBox=", paste(huc10_bbox, collapse ="%2C"), "&characteristicType=Toxicity&characteristicType=Physical&characteristicType=Organics%2C%20PFAS&characteristicType=Organics%2C%20Pesticide&characteristicType=Organics%2C%20PCBs&characteristicType=Nutrient&characteristicType=Microbiological&characteristicType=Cyanotoxins%2C%20Phytotoxins&characteristicType=Inorganics%2C%20Major%2C%20Metals&characteristicType=Inorganics%2C%20Major%2C%20Non-metals&minactivities=", rv_param_temp$sel_min_activities, "&sampleMedia=Water&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
    
-    if(httr::http_status(httr::GET(sitesURL))$category!="Success") { # make sure the service call is valid
-      shiny::showModal(
-        urlModal(sitesURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving monitoring sites information from the Water Quality Portal. The message from the web service is: `", httr::http_status(GET(sitesURL))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
-      )
-    }
-    
-    shiny::req(httr::http_status(GET(sitesURL))$category=="Success") # if not a valid service call, abort
+  tmp_sites <- tempfile(fileext = ".csv")
+tryCatch(
+  download.file(sitesURL, tmp_sites, mode = "w", quiet = TRUE),
+  error = function(e) {
+    FuncDataRetrievalError(sitesURL, "monitoring sites information", "Water Quality Portal")
+    shiny::req(FALSE)
+  }
+)
+sites <- readr::read_csv(tmp_sites, trim_ws = TRUE, show_col_types = FALSE)
+unlink(tmp_sites)
 
-    download.file(sitesURL, "tempSites.csv", mode = "w")
-    
-    sites <- read_csv("tempSites.csv", trim_ws = TRUE)
     sites$HUCEightDigitCode <- gsub(pattern="-", replacement = "", x= as.character(sites$HUCEightDigitCode)) # Weird issue with BLRI
     
     if(is.null(sites)|nrow(sites)==0) { # if no monitoring stations, abort
@@ -2804,7 +2811,7 @@ observeEvent(eventExpr = input$button_showStations, {
     rm(sites, temp_points, sitesPoints)
     # unlink("tempSites.csv")
   
-  # Get recently active USGS stream gauging station information, within HUC10's, from dashboard files ----
+  # Get USGS stream gauging station information, within HUC10's, from dashboard files ----
   incProgress(1/7, detail = "...USGS stream gages station information from NWIS")
   print("Getting gages")
   
@@ -2849,7 +2856,7 @@ observeEvent(eventExpr = input$button_showStations, {
   if(exists("temp_gagepoints")) rm(temp_gagepoints)
   if(exists("gagePoints")) rm(gagePoints)
 
-  # Get locations of recently active weather stations, for the bounding box, from dashboard files ----
+  # Get locations of weather stations, for the bounding box, from dashboard files ----
   # This requires a token, so don't want to embed in dashboard
   incProgress(1/7, detail = "...Weather station locations from NOAA")
 
@@ -2872,7 +2879,7 @@ observeEvent(eventExpr = input$button_showStations, {
     
     showModal(modalDialog(
       title = "No Weather Stations Meet Download Criteria",
-      "Could not find active weather stations with at least 10 years of data, located within the park's HUC10 watershed boundaries box (active = most recent data are less than one year old). These data are not necessary for visualizing water quality data on the dashboard.",
+      "Could not find weather stations with at least 10 years of data, located within the park's HUC10 watershed boundaries box (active = most recent data are less than one year old). These data are not necessary for visualizing water quality data on the dashboard.",
       easyClose = FALSE,
       footer = tagList(
         div(style="display:inline-block; width:100px;", actionButton("dismiss_weather_modal", "Got it!"))
@@ -3039,7 +3046,6 @@ if (is.null(facilitiesResp) || httr::http_status(facilitiesResp)$category != "Su
   print("reset Filter")
   # rv_param_temp$resetFilter <- FALSE # make sure these are still set to FALSE. User can't filter or plot data until they are downloaded/imported.
 
-
 showModal(modalDialog(
   title = "Done",
   HTML("In the <strong>'3 (of 4). Filter sites to download'</strong> panel, choose the monitoring sites you want to download data from. You can:<ul>
@@ -3055,10 +3061,7 @@ showModal(modalDialog(
 ```{r action_button_highlightStations}
 # Action to summarize selected stations ----
 observeEvent(eventExpr = input$button_summarizeStations, {
- saveRDS(isolate(reactiveValuesToList(rv)), here::here(
-   "TEMP_rv.RDS"))
- saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
- saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+
   if(is.null(input$sel_Organization)) {
     showModal(modalDialog(
       title = "No organization selected",
@@ -3170,15 +3173,17 @@ observeEvent(eventExpr = input$button_summarizeStations, {
       if(!is.na(nldiURLS[[n]])) { # if URL is specified
         tempURL <- nldiURLS[[n]]
       
-        if(httr::http_status(httr::GET(tempURL))$category != "Success") { # make sure the service call is valid
-          showModal(
-            urlModal(tempURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data from the Hydro Network-Linked Data Index for the `", n, "` query. The message from the web service is: `", httr::http_status(httr::GET(tempURL))$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
-            )
-          }
-   
-        shiny::validate(need(httr::http_status(httr::GET(tempURL))$category == "Success", message = FALSE)) # if not a valid service call, abort
+        tmp_nldi <- tempfile(fileext = ".geojson")
+tryCatch(
+  download.file(tempURL, tmp_nldi, mode = "w", quiet = TRUE),
+  error = function(e) {
+    FuncDataRetrievalError(tempURL, paste0("data for the `", n, "` query"), "Hydro Network-Linked Data Index")
+    shiny::req(FALSE)
+  }
+)
         
-        checkhydro <- tryCatch(sf::st_read(tempURL, quiet = TRUE), error = function(e) NULL)
+        checkhydro <- tryCatch(sf::st_read(tmp_nldi, quiet = TRUE), error = function(e) NULL)
+unlink(tmp_nldi)
     
         if(is.null(checkhydro)) {
           showModal(modalDialog(
@@ -3226,15 +3231,18 @@ observeEvent(eventExpr = input$button_summarizeStations, {
     
     summaryURL <- paste0("https://www.waterqualitydata.us/data/summary/monitoringLocation/search?siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&summaryYears=all&count=no&dataProfile=periodOfRecord")
     
-    summaryResponse <- httr::GET(summaryURL)
-if(httr::http_status(summaryResponse)$category != "Success") {
-  showModal(urlModal(summaryURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data selection information from the Water Quality Portal. The message from the web service is: `", httr::http_status(summaryResponse)$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>"))))
-}
-    shiny::req(httr::http_status(summaryResponse)$category == "Success")
-    
-    all_summaries[[i]] <- readr::read_csv(httr::content(summaryResponse, "text", encoding = "UTF-8"),
-                                          trim_ws = TRUE, show_col_types = FALSE) %>%
-      dplyr::select(-MonitoringLocationUrl, -CountyName, -StateName, -MonitoringLocationLatitude, -MonitoringLocationLongitude)
+    tmp_summary <- tempfile(fileext = ".csv")
+tryCatch(
+  download.file(summaryURL, tmp_summary, mode = "w", quiet = TRUE),
+  error = function(e) {
+    FuncDataRetrievalError(summaryURL, "data selection information", "Water Quality Portal")
+    shiny::req(FALSE)
+  }
+)
+all_summaries[[i]] <- readr::read_csv(tmp_summary, trim_ws = TRUE, show_col_types = FALSE) %>%
+  dplyr::select(-MonitoringLocationUrl, -CountyName, -StateName, -MonitoringLocationLatitude, -MonitoringLocationLongitude)
+unlink(tmp_summary)
+
     rv$wqp_url_list[[i]] <- paste0("https://www.waterqualitydata.us/data/Result/search?siteid=", stationChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&dataProfile=resultPhysChem&providers=NWIS&providers=STORET")
     Sys.sleep(0.5) # pause between data pulls
   }
@@ -3317,33 +3325,25 @@ for(i in 1:length(rv$wqp_url_list)) {
   setProgress(1/12, detail = paste0("Importing set #", i, " of ", length(rv$wqp_url_list), " (up to 20 sites imported per set)"))
   
   wqp_url <- rv$wqp_url_list[[i]]
-  wqpResponse <- httr::GET(wqp_url)
-  if(httr::http_status(wqpResponse)$category != "Success") {
-    showModal(
-      urlModal(wqp_url, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data from the Water Quality Portal for the requested query. The message from the web service is: `", httr::http_status(wqpResponse)$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If an error results, email WQP support (wqx@epa.gov) for assistance. If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
-    )
-  }
-  shiny::validate(need(httr::http_status(wqpResponse)$category == "Success", message = FALSE))
   
-  # tmpDat <- tempfile(fileext = ".csv")
-  # writeBin(httr::content(wqpResponse, "raw"), tmpDat)
-  # all_data[[i]] <-  read.csv("tempDat.csv") %>%
-  #   dplyr::filter(CharacteristicName %in% unique(rv$selectedDataSummary$CharacteristicName))
-  # unlink(tmpDat)
-  # Sys.sleep(0.5) # pause between data pulls
-    download.file(wqp_url, "tempDat.csv", mode = "w") # in Windows, mode = "w" when opening text files and "wb" for other types, such as .jpg
-  all_data[[i]] <- read.csv("tempDat.csv") %>%
-    dplyr::filter(CharacteristicName %in% unique(rv$selectedDataSummary$CharacteristicName))
-  Sys.sleep(0.5) # pause between data pulls
+  tmp_wqp <- tempfile(fileext = ".csv")
+tryCatch(
+  download.file(wqp_url, tmp_wqp, mode = "w", quiet = TRUE),
+  error = function(e) {
+    FuncDataRetrievalError(wqp_url, "water quality data", "Water Quality Portal",
+      "If an error results, email WQP support (wqx@epa.gov) for assistance.")
+    shiny::req(FALSE)
+  }
+)
+all_data[[i]] <- read.csv(tmp_wqp) %>%
+  dplyr::filter(CharacteristicName %in% unique(rv$selectedDataSummary$CharacteristicName))
+unlink(tmp_wqp)
+Sys.sleep(0.5) # pause between data pulls
 }
       
       tempDat <- do.call("rbind.data.frame", all_data) 
       rm(all_data)
-      unlink("tempDat.csv")
-      
-# tempDat <- dplyr::bind_rows(all_data)
-# saveRDS(tempDat, here::here("tempDat.RDS"))
-# rm(all_data)
+     
       
 # Format WQP data ----
   setProgress(1/4, detail = "Formatting data")
@@ -3387,21 +3387,23 @@ for(i in 1:length(rv$wqp_url_list)) {
 orgURL <- paste0("https://www.waterqualitydata.us/data/Organization/search?", allOrgs, "&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
 
 cat("Line3348")
-orgResponse <- httr::GET(orgURL)
-if(httr::http_status(orgResponse)$category != "Success") {
-  showModal(
-    urlModal(orgURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving organization information from the Water Quality Portal. The message from the web service is: `", httr::http_status(orgResponse)$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
-  )
-}
-shiny::req(httr::http_status(orgResponse)$category == "Success")
 
-rv$orgs <- readr::read_csv(httr::content(orgResponse, "text", encoding = "UTF-8"),
-                            show_col_types = FALSE) %>%
+tmp_org <- tempfile(fileext = ".csv")
+tryCatch(
+  download.file(orgURL, tmp_org, mode = "w", quiet = TRUE),
+  error = function(e) {
+    FuncDataRetrievalError(orgURL, "organization information", "Water Quality Portal")
+    shiny::req(FALSE)
+  }
+)
+rv$orgs <- readr::read_csv(tmp_org, show_col_types = FALSE) %>%
   dplyr::select(OrganizationFormalName, Description = OrganizationDescriptionText,
                 `Email/Web` = ElectronicAddress, Phone = Telephonic) %>%
   dplyr::mutate(Selected = TRUE) %>%
   dplyr::arrange(OrganizationFormalName) %>%
   as.data.frame()
+unlink(tmp_org)
+
 
 rm(orgURL, allOrgs)
 cat("line3368")
@@ -3417,16 +3419,21 @@ cat("line3368")
   
   gagesDatURL <- paste0("https://waterservices.usgs.gov/nwis/dv/?format=rdb,1.0&sites=", paste(rv$selectedGages$GageID, collapse = ","), "&startDT=",range(rv$dat$ActivityStartDate)[1], "&endDT=", range(rv$dat$ActivityStartDate)[2], "&siteStatus=all") # <<<< GOT RID OF START STOP AND END DATE OPTION HERE
   
-  if(httr::http_status(GET(gagesDatURL))$category!="Success") { # make sure the service call is valid
+  tmp_gages <- tempfile(fileext = ".txt")
+tryCatch(
+  download.file(gagesDatURL, tmp_gages, mode = "w", quiet = TRUE),
+  error = function(e) {
     rv$gagesDat <- NULL
     showModal(modalDialog(
       title = "No Streamflow Data",
       "Error retrieving data for selected stream gages."
-      ))
-    } else {
-      download.file(gagesDatURL, "tempGagesDat.txt", mode = "w")
+    ))
+    shiny::req(FALSE)
+  }
+)
+
       
-      gagesDat <- tryCatch(read.delim("tempGagesDat.txt", comment.char = '#'), error=function(e) print("Error retrieving USGS streamflow data")) # These daily data are  'Discharge, cubic feet per second (Mean)'. QC: 'A' means approved for publication, processing and review completed; 'e' means value has been estimated
+      gagesDat <- tryCatch(read.delim(tmp_gages, comment.char = '#'), error=function(e) print("Error retrieving USGS streamflow data")) # These daily data are  'Discharge, cubic feet per second (Mean)'. QC: 'A' means approved for publication, processing and review completed; 'e' means value has been estimated
      
     shiny::req(!is.null(gagesDat))
     names(gagesDat) <- c("Agency", "GageID", "ActivityStartDate", "MeanDailyDischarge", "MeanDailyDischargeQC")
@@ -3437,10 +3444,9 @@ cat("line3368")
     gagesDat$MeanDailyDischarge <- as.integer(gagesDat$MeanDailyDischarge)
     rv$gagesDat <- FuncBreakDates(gagesDat)
     rm(gagesDat, gagesDatURL)
-    unlink("tempGagesDat.txt")
+    unlink(tmp_gages)
     }
     }
-  }
   
   # Get precipitation data from selected weather stations ----
 
@@ -4759,7 +4765,6 @@ wellPanel(
                choices = c("Load data file (.RDS) from computer"  = "existing_data",
                            "Download data from web services" = "new_data")),
   
-  
   actionButton("button_beginSearch", "BEGIN DATA SEARCH", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
 ) # end import-load-data panel
 
@@ -4772,9 +4777,10 @@ shinyjs::hidden( # initially hide this well panel, show only if user wants to im
     
     selectInput("sel_UnitCode", label = h6("Enter a park name or 4-digit park code (e.g., BITH): "), choices = c("Choose a park" = "", unique_parks_df$unit_name_combined), selectize = TRUE),
     
-    numericInput("sel_ActiveWithinYrs",
-                 label = h6("Limit to sites that have been sampled within the past [ENTER AN INTEGER] years: "),
-                 value = 8,
+      
+      numericInput("sel_MinActivities",
+                 label = h6("Limit to sites with at least [ENTER AN INTEGER] sample records in WQP: "),
+                 value = 10,
                  min = 1),
     
     actionButton("button_showStations", "SHOW MONITORING SITES", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
@@ -4877,6 +4883,11 @@ conditionalPanel(
                                    "Sediment",
                                    "Toxicity"),
                        selected = c("Microbiological", "Nutrient", "Physical")),
+
+    numericInput("sel_ActiveWithinYrs",
+                 label = h6("When summarizing selected sites, exclude sites that have NOT sampled within the past [ENTER AN INTEGER] years: "),
+                 value = 4,
+                 min = 1),
     
     actionButton("button_summarizeStations", "SUMMARIZE SELECTED SITES", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
     ) # end subset-stations panel
