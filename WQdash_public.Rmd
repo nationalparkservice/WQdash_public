@@ -12,13 +12,19 @@ runtime: shiny
 ```{r global, include=FALSE}
 ### NEXT TO DO
 # > For dist from origin, can't use wells or other sources that don't link
+# > TADA data cleaning
+# > Save/show import/filter settings for .RDS
+# > Change the right-click site pop-up
+# > Show threshold cutoffs being used 
+# > All HUCs should only be those overlapping park unit (so for HUC12 it should not be all of them)
+# > SNowtel example for pop-up right click: https://nwcc-apps.sc.egov.usda.gov/imap/
 
 ### FINAL CLEANUP
 # > Increase speed of download, etc.
 # > User documentation
 # > Comment code, make layout/variable structure/etc. consistent
 
-### NOTES
+### FOR DEBUGGING
  # saveRDS(isolate(reactiveValuesToList(rv)), here::here(
  #   "TEMP_rv.RDS"))
  # saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
@@ -3214,17 +3220,16 @@ observeEvent(eventExpr = input$button_summarizeStations, {
   subset_stations_list <- split(unique(rv$selectedStations$MonitoringLocationIdentifier), ceiling(seq_along(unique(rv$selectedStations$MonitoringLocationIdentifier))/20)) # import data for 20 stations (max) at a time
 
   for(i in 1:length(subset_stations_list)) {
+    cat(i)
     s <- subset_stations_list[[i]]
-    stationChoiceString <- paste0(s, collapse = "&siteid=")
+    stationChoiceString <- paste0(utils::URLencode(s, reserved = TRUE), collapse = "&siteid=")
     
     summaryURL <- paste0("https://www.waterqualitydata.us/data/summary/monitoringLocation/search?siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&summaryYears=all&count=no&dataProfile=periodOfRecord")
     
     summaryResponse <- httr::GET(summaryURL)
-    if(httr::http_status(summaryResponse)$category != "Success") {
-      showModal(
-        urlModal(summaryURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data selection information from the Water Quality Portal. The message from the web service is: `", httr::http_status(summaryResponse)$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>")))
-      )
-    }
+if(httr::http_status(summaryResponse)$category != "Success") {
+  showModal(urlModal(summaryURL, title = "Data Retrieval Error", subtitle = htmltools::HTML(paste0("Error retrieving data selection information from the Water Quality Portal. The message from the web service is: `", httr::http_status(summaryResponse)$message, "`.<br><br><strong>To confirm this is a problem with the web service (and not the dashboard), enter the above URL in a browser and see if data successfully downloads.</strong> If this is an issue with the dashboard, help us improve this dashboard by reporting the problem via the project GitHub page: https://github.com/nationalparkservice/WQdash_public<br><br>"))))
+}
     shiny::req(httr::http_status(summaryResponse)$category == "Success")
     
     all_summaries[[i]] <- readr::read_csv(httr::content(summaryResponse, "text", encoding = "UTF-8"),
@@ -3235,6 +3240,20 @@ observeEvent(eventExpr = input$button_summarizeStations, {
   }
   
   rv$selectedDataSummary <- dplyr::bind_rows(all_summaries)
+  
+  # Enforce data recency filter
+  cutoff_year <- lubridate::year(Sys.Date()) - as.integer(input$sel_ActiveWithinYrs)
+
+recent_sites <- rv$selectedDataSummary %>%
+  dplyr::group_by(MonitoringLocationIdentifier) %>%
+  dplyr::summarise(max_yr = max(YearSummarized, na.rm = TRUE)) %>%
+  dplyr::filter(max_yr >= cutoff_year) %>%
+  dplyr::pull(MonitoringLocationIdentifier)
+
+rv$selectedDataSummary <- dplyr::filter(rv$selectedDataSummary, MonitoringLocationIdentifier %in% recent_sites)
+rv$selectedStations <- dplyr::filter(rv$selectedStations, MonitoringLocationIdentifier %in% recent_sites)
+rv$wqp_url_list <- rv$wqp_url_list[sapply(rv$wqp_url_list, function(url) any(recent_sites %in% unlist(strsplit(url, "&siteid="))))]
+
   rm(all_summaries)
   
 })
@@ -3321,6 +3340,7 @@ for(i in 1:length(rv$wqp_url_list)) {
       tempDat <- do.call("rbind.data.frame", all_data) 
       rm(all_data)
       unlink("tempDat.csv")
+      
 # tempDat <- dplyr::bind_rows(all_data)
 # saveRDS(tempDat, here::here("tempDat.RDS"))
 # rm(all_data)
