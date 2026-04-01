@@ -29,7 +29,6 @@ rm(list=ls())
 
 pkgs <- c("flexdashboard", 
           "shiny", 
-          # "knitr",
           "readr",
           "here", 
           # "plyr", 
@@ -37,56 +36,43 @@ pkgs <- c("flexdashboard",
           "purrr",
           "tools",
           "ggplot2",
-          # "janitor", 
-          # "mgcv", 
           "scales", 
-          # "rlang", # check for empty variables
-          # "rtf", 
-          # "rmarkdown", 
           "shinyWidgets", 
           "leaflet", 
-          # "plotrix", 
-          # "GGally", 
           "plotly", 
           "httr", 
-          # "climateR",
-          # "sp",
-          # "dataRetrieval", # for NLDI
           "bslib", 
-          # "bsicons",
           "RgoogleMaps", # to set map zoom
           "sf",
           "tidyr",
           "magrittr", 
-          # "leaflet.extras", 
           "lubridate",
           "stringi",
           "stringr",
           "fontawesome", 
           "viridisLite", 
-          # "ggpubr", # for drawing separate legends
-          # "heatmaply", # for interactive heat plots
           "reactable", # for easy nested tables
-          "htmltools", # for arranging plots in tab (browsable)
-          # "shinyFiles", # for user to save files in specified location
-          # "RColorBrewer", # to display brewer palettes
+          "htmltools", 
           "shinyjs", # for easy functions that use JavaScript
           "sortable", # drag-and-drop rank input
           "tmaptools", # for flexible color mapping (get_brewer_pal)
           "DT", # for interactive tables
-          # "zoo", # for year-month
           "cowplot", # to get legends from plots
           "gridExtra", # for arranging plots and adding plot annotations (ggplotly can't do captions or subtitles)
           "geojsonio", # to test for presence of features
           "lemon", # for facet_rep_wrap
           "shinyBS", # for collapsible panels
-          # "tigris", # for state boundaries
-          # "rnoaa", # to get NOAA climate data <<<<< THIS PACKAGE WILL RETIRE SOON. KEEP AN EYE ON THIS.
           "leaflet.minicharts") 
 
 installed_pkgs <- pkgs %in% installed.packages()
 if (length(pkgs[!installed_pkgs]) > 0) install.packages(pkgs[!installed_pkgs], repos = "https://cloud.r-project.org", dep=TRUE) 
 invisible(lapply(pkgs, library, character.only = TRUE))
+
+# Install TADA from GitHub if not already done
+if(!"EPATADA" %in% installed.packages()) {
+  remotes::install_github("USEPA/EPATADA", ref = "develop", dependencies = TRUE)
+}
+library(EPATADA)
 
 # Check for required dashboard files
 req_files <- c("park_noaa_overlaps_list.RDS", "park_gage_overlaps_list.RDS", "parks_sf.RDS", "unique_parks_df.csv")
@@ -2270,8 +2256,8 @@ FuncPieMap <- function(pie_map, map_by_yr = input$sel_MapByYr, limit_type, limit
             chartdata = chart_matrix,
             colorPalette = chart_palette,
             opacity = 1) %>%
-          hideGroup("Imported monitoring sites") %>%
           hideGroup("Filtered monitoring sites") %>%
+          hideGroup("Selected monitoring sites") %>%
           hideGroup("Selected gage stations") %>%
           hideGroup("Selected weather stations")
         
@@ -3063,7 +3049,10 @@ showModal(modalDialog(
 ```{r action_button_highlightStations}
 # Action to summarize selected stations ----
 observeEvent(eventExpr = input$button_summarizeStations, {
-
+ saveRDS(isolate(reactiveValuesToList(rv)), here::here(
+   "TEMP_rv.RDS"))
+ saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+ saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
   if(is.null(input$sel_Organization)) {
     showModal(modalDialog(
       title = "No organization selected",
@@ -3317,19 +3306,25 @@ for(i in 1:length(rv$wqp_url_list)) {
   }
   shiny::validate(need(httr::http_status(wqpResponse)$category == "Success", message = FALSE))
   
-  tmpDat <- tempfile(fileext = ".csv")
-  writeBin(httr::content(wqpResponse, "raw"), tmpDat)
-  all_data[[i]] <- readr::read_csv(tmpDat, show_col_types = FALSE) %>%
+  # tmpDat <- tempfile(fileext = ".csv")
+  # writeBin(httr::content(wqpResponse, "raw"), tmpDat)
+  # all_data[[i]] <-  read.csv("tempDat.csv") %>%
+  #   dplyr::filter(CharacteristicName %in% unique(rv$selectedDataSummary$CharacteristicName))
+  # unlink(tmpDat)
+  # Sys.sleep(0.5) # pause between data pulls
+    download.file(wqp_url, "tempDat.csv", mode = "w") # in Windows, mode = "w" when opening text files and "wb" for other types, such as .jpg
+  all_data[[i]] <- read.csv("tempDat.csv") %>%
     dplyr::filter(CharacteristicName %in% unique(rv$selectedDataSummary$CharacteristicName))
-  unlink(tmpDat)
   Sys.sleep(0.5) # pause between data pulls
 }
-
-tempDat <- dplyr::bind_rows(all_data)
-rm(all_data)
       
+      tempDat <- do.call("rbind.data.frame", all_data) 
+      rm(all_data)
+      unlink("tempDat.csv")
+# tempDat <- dplyr::bind_rows(all_data)
+# saveRDS(tempDat, here::here("tempDat.RDS"))
+# rm(all_data)
       
-
 # Format WQP data ----
   setProgress(1/4, detail = "Formatting data")
   
@@ -4215,7 +4210,7 @@ print("DONE WITH STANDARD MAP")
 
   # Done with the standard mapping. Now to conditional layers.
 
-  show_layers <- data.frame(layer = c(paste0(rv$importSettings$sel_HUClevel, " boundaries"), "Imported monitoring sites", "Filtered monitoring sites", "Imported stream lines", "Discharge facilities", "Selected gage stations", "Selected weather stations", "Site labels", "Map legend"), show = c(TRUE, TRUE, TRUE, FALSE, FALSE, TRUE, TRUE, TRUE, TRUE)) # dataframe to track what layers to show
+  show_layers <- data.frame(layer = c(paste0(rv$importSettings$sel_HUClevel, " boundaries"), "Filtered monitoring sites", "Selected monitoring sites", "Imported stream lines", "Discharge facilities", "Selected gage stations", "Selected weather stations", "Site labels", "Map legend"), show = c(TRUE, TRUE, TRUE, FALSE, FALSE, TRUE, TRUE, TRUE, TRUE)) # dataframe to track what layers to show
   print("line1796")
   if(input$sel_SummarizeBy == "by_chartype") { # if multiple sites per characteristic, then available sites are only those that actually have the selected characteristic
     shiny::req(!is.null(input$sel_ShowCharType))
@@ -4226,7 +4221,7 @@ print("DONE WITH STANDARD MAP")
 print("line1803")
 print("RENDERING AVAILABLE SITES IN FULL MAP\n")
   param_map %<>%
-    addCircleMarkers(data = avail_sites_data, group = "Imported monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12 + 3*map_point_size, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = TRUE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations")) %>% # WQ stations for which data (for selected parameter) are available  
+    addCircleMarkers(data = avail_sites_data, group = "Filtered monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 12 + 3*map_point_size, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = TRUE, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_param_importedStations")) %>% # WQ stations for which data (for selected parameter) are available  
     addLabelOnlyMarkers(
     data = avail_sites_data,
     label = ~MonitoringLocationIdentifier,
@@ -4307,7 +4302,7 @@ if(sel_param_map_show == "show") {
       if(length(sel_sites) > 0) {
         # Add white border on selected stations
         param_map %<>%
-      addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier %in% sel_sites,], group = "Filtered monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15 + 3*map_point_size, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations"))
+      addCircleMarkers(data = rv$sitesPointsSub[rv$sitesPointsSub$MonitoringLocationIdentifier %in% sel_sites,], group = "Selected monitoring sites", layerId = ~MonitoringLocationIdentifier, label = ~SITELAB, radius = 15 + 3*map_point_size, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 1, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_param_selectedStations"))
       }
 
     print("RENDERING SELECTED SITES IN FULL MAP\n")
@@ -4363,8 +4358,8 @@ cat("line4438")
         addControl(tags$div(tag.map.title, HTML(input$sel_ShowCharType, " in Year ", input$sel_SurvYr)), position = "topleft", className="map-title") %>%
         addCircleMarkers(data = median_sf, label = ~SITELAB, popup = ~SITEPOP, radius = 12, fillColor = ~palNumeric(median_val), fillOpacity = 1, color = ~palNumeric(median_val), stroke = TRUE, opacity = 1, options = pathOptions(pane = "pane_param_selectedStations")) %>%
         addLegend(pal = palNumeric, values = pie_median$median_val, position = "topleft", title = input$sel_ShowCharType) %>%
-        hideGroup("Imported monitoring sites") %>%
-        hideGroup("Filtered monitoring sites")
+        hideGroup("Filtered monitoring sites") %>%
+        hideGroup("Selected monitoring sites")
       
       if(input$sel_MapByYr == TRUE) {
         param_map %<>%
@@ -4421,8 +4416,8 @@ function(el, x) {
     if (this._layers) {
       Object.values(this._layers).forEach(function(layer) {
         if (layer.options && 
-            (layer.options.group === 'Imported monitoring sites' || 
-             layer.options.group === 'Filtered monitoring sites') && 
+            (layer.options.group === 'Filtered monitoring sites' || 
+             layer.options.group === 'Selected monitoring sites') && 
             layer.options.layerId &&
             typeof layer.getLatLng === 'function') {
           var latlng = layer.getLatLng();
