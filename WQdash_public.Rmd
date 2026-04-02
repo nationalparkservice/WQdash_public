@@ -2985,7 +2985,7 @@ showModal(modalDialog(
     <li>Download data for the entire park, or </li>
     <li>Select specific watersheds.</li>
   </ul>
-  You can also apply additional filters using the other options in the panel. When you're ready, click <strong>'Summarize Selected Sites'</strong> to preview a summary of the data before downloading.")
+  You can also apply additional filters using the other options in the panel. When you're ready, click <strong>'Summarize Selected Data'</strong> to preview a summary of the data before downloading.")
 ))
 
   } else { # if user chooses to load existing data...
@@ -3054,27 +3054,27 @@ observeEvent(eventExpr = input$saved_data_file, {
 ```
 
 ```{r action_button_highlightStations}
-# Action to summarize selected stations ----
-observeEvent(eventExpr = input$button_summarizeStations, {
+# Action to summarize selected data ----
+observeEvent(eventExpr = input$button_summarizeData, {
 
   if(is.null(input$sel_Organization)) {
     showModal(modalDialog(
       title = "No organization selected",
-      "Please select at least one organization to download WQ data from"))
+      "Please select at least one organization"))
     shiny::req(!is.null(input$sel_Organization))
     }
   
   if(is.null(input$sel_SiteType)) {
       showModal(modalDialog(
         title = "No site type selected",
-        "Please select at least one site type to download WQ data for"))
+        "Please select at least one site type"))
       shiny::req(!is.null(input$sel_SiteType))
   }
   
   if(is.null(input$sel_CharType)) {
     showModal(modalDialog(
       title = "No characteristic group(s) selected",
-      "Please select at least one characteristic group to download"))
+      "Please select at least one characteristic group"))
     shiny::req(!is.null(input$sel_CharType))
   }
   
@@ -3149,7 +3149,7 @@ observeEvent(eventExpr = input$button_summarizeStations, {
       shiny::req(input$sel_DistKmUpstream > 0 | input$sel_DistKmDownstream > 0)
     }
 
-    withProgress(message = "Downloading from Hydro Network-Linked Data Index...", value = 0, {
+    withProgress(message = "Getting Information from Hydro Network-Linked Data Index...", value = 0, {
       
       showModal(tags$div(id = "gif_modal", modalDialog(
         HTML('<img src="https://media.giphy.com/media/l44QjgeQ5ium91n9K/source.gif"><br><center>I am just your entertainment.<br><center>The progress bar is below.'), # custom loading gif--raccoon thief
@@ -3185,15 +3185,13 @@ unlink(tmp_nldi)
         if(is.null(checkhydro)) {
           showModal(modalDialog(
             title = "No Data",
-            "Error retrieving data from the Hydro Network-Linked Data Index",
+            "Error retrieving information from the Hydro Network-Linked Data Index",
             footer = modalButton("OK")
             ))
         } else {
           checkhydro <- sf::st_transform(checkhydro, crs = 4326) # convert to WGS84
           rv[[n]] <- checkhydro 
         }
-      
-        # renderText(paste(n, "is of class", class(nldiData[n][[1]])[1], "and has", length(nldiData[n][[1]]), "features"))
       }
     }
     }) # end of withProgress
@@ -3271,7 +3269,7 @@ showModal(modalDialog(
   title = "Done",
   HTML(paste0("<strong>You have summarized ", sum(rv$selectedDataSummary$ResultCount), " data records from ", length(unique(rv$selectedDataSummary$MonitoringLocationIdentifier)), " sites.</strong> Selected monitoring sites are shown as larger, white-outlined circles on the map.", 
               switch((input$sel_SelectMethod == "methodDist")+1, "", "The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in blue; downstream, in brown."),
-              "<br><br>Review your selection in the 'Summary of Selected Characteristics' and 'Summary of Selected Site-Characteristics' tabs. <br><br>Select gage stations (if available), then press the <strong>DOWNLOAD DATA</strong> button to import the water quality data."))
+              "<br><br>Review your selection in the 'Summary of Selected Characteristics' and 'Summary of Selected Site-Characteristics' tabs. <br><br>In the next panel, apply data availability filters, select gage stations (if available), then press the <strong>DOWNLOAD SELECTED DATA</strong> button.")) 
 )) # <<<<<< AFTER ADDING WEATHER SHOULD SAY 'GAGE AND WEATHER'
   
   shinyjs::showElement("new_data_P2")
@@ -3335,7 +3333,7 @@ observeEvent(eventExpr = input$button_downloadData, {
     if(is.null(rv$selectedStations) | length(rv$selectedStations$MonitoringLocationIdentifier) == 0 | is.null(rv$wqp_url_list)) {
     showModal(modalDialog(
       title = "No monitoring sites selected",
-      "Please select monitoring sites from which you would like to import data (filter sites by HUC or by distance from origin, then click 'Summarize Selected Sites' button)."
+      "Please select monitoring sites from which you would like to import data (filter sites by HUC or by distance from origin, then click 'Summarize Selected Data' button)."
     ))
     }
   shiny::req(!is.null(rv$downloadStations), length(rv$downloadStations$MonitoringLocationIdentifier) > 0)
@@ -4361,7 +4359,7 @@ print("RENDERING AVAILABLE SITES IN FULL MAP\n")
 
   print("line3098")
   
-# Summarize selected sites
+# Summarize selected data
 print("START OF SUMMARIZE SELECTED")
 
 if(sel_param_map_show == "show") {
@@ -4826,8 +4824,7 @@ wellPanel(
 shinyjs::hidden( # initially hide this well panel
   wellPanel(
     id = "new_data_P1",
-    p(strong("2 (of 3). Filter sites to download, then click 'SUMMARIZE SELECTED SITES' button")),
-    
+    p(strong("2 (of 3). Select sites and characteristics, then click 'SUMMARIZE SELECTED DATA' button")),     
     p("Click on a map point for more information about the station and data. Blue hyperlinks will open web pages with additional information."),
     
     tags$div(renderText({
@@ -4901,7 +4898,7 @@ conditionalPanel(
       checkboxGroupInput("sel_SiteType",
              label = h6("Import data only from these water body types: "),
              choices = sort(unique(rv$sitesPointsSub$MonitoringLocationTypeName)),
-             selected = unique(rv$sitesPointsSub$MonitoringLocationTypeName))
+             selected = setdiff(unique(rv$sitesPointsSub$MonitoringLocationTypeName), "Well"))
     }),
     
     checkboxGroupInput("sel_CharType",
@@ -4919,7 +4916,7 @@ conditionalPanel(
                                    "Toxicity"),
                        selected = c("Microbiological", "Nutrient", "Physical")),
     
-    actionButton("button_summarizeStations", "SUMMARIZE SELECTED SITES", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
+    actionButton("button_summarizeData", "SUMMARIZE SELECTED DATA", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
     ) # end subset-stations panel
   ) # end hide for subset-stations panel
 
