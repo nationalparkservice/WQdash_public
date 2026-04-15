@@ -11,10 +11,16 @@ runtime: shiny
 
 ```{r global, include=FALSE}
 ### NEXT TO DO
-# > For dist from origin, can't use wells or other sources that don't link
+# >>> HIGHLY PROBLEMATIC--IF I HAD A PARK SELECTED, THEN SWITCHT TO LOAD AND THEN IMPORT AGAIN, THE OLD PARK WILL STILL BE THERE AND ORGS LISTED WILL BE OLD PARK (ACTUALLY IT SHOULD NOT HAVE CHAGNED THE MAP AT ALL) AND THEN AFTER BEGIN-SEARCH, THE MAP CENTER/VIEW WILL BE WRONG
+# >>>> Pie charts format problem--the pies are very small and left-aligned
+# >>>> When I summarize selected data, the transparent de-selected sites disappear; When I update selected data, the red circle around origin site disappears and the up/down lines disappear, but it appears again when I filter to add gage stations (the red circle appears even if the site does not show)
+# >>>> When I select a new park to import I get maps with the wrong legend and sometimes map center/view wrong
+# >>>> Change the rt-click quick-peek
+# >>>> formatting issues with seasonal plot user entries
+# > If I change data avail filters before Summarize Selected Data, the data filters don't work--or if i set the filters too rigid so nothing qualifies, it may crash
+# > Combine import and filter onto single page if possible with sites summary info
 # > TADA data cleaning
 # > Save/show import/filter settings for .RDS
-# > Change the right-click site pop-up
 # > Show threshold cutoffs being used 
 # > All HUCs should only be those overlapping park unit (so for HUC12 it should not be all of them)
 # > SNowtel example for pop-up right click: https://nwcc-apps.sc.egov.usda.gov/imap/
@@ -37,6 +43,7 @@ pkgs <- c("flexdashboard",
           "shiny", 
           "readr",
           "here", 
+          "curl",
           # "plyr", 
           "dplyr",
           "purrr",
@@ -312,6 +319,13 @@ tags$style(HTML("
 }
 "))
 
+# Remove sidebar resize handles text
+tags$style(HTML("
+    .bslib-sidebar-resize-handle {
+      display: none !important;
+    }
+  "))
+
 # Make the bslib card full screen icon and exit more obvious
 tags$style(HTML("
         .bslib-full-screen-enter {
@@ -502,7 +516,7 @@ FuncBaseMap <- function(maptype) {
   print("in FuncBaseMap")
   cbp1_org <- switch((length(unique(rv$sitesPointsSub$OrganizationFormalName)) <= length(cbp1)) + 1,  colorRampPalette(cbp1)(length(unique(rv$sitesPointsSub$OrganizationFormalName))), cbp1[1:length(unique(rv$sitesPointsSub$OrganizationFormalName))])
   
-  rv_param_temp$palOrg <- colorFactor(palette = cbp1_org, domain = unique(rv$sitesPointsSub$OrganizationFormalName), levels = unique(rv$sitesPointsSub$OrganizationFormalName))
+  rv_param_temp$palOrg <- leaflet::colorFactor(palette = cbp1_org, domain = unique(rv$sitesPointsSub$OrganizationFormalName), levels = unique(rv$sitesPointsSub$OrganizationFormalName))
   
   iconGages = makeAwesomeIcon(
     text = fa("water"),
@@ -562,16 +576,16 @@ FuncBaseMap <- function(maptype) {
   map %<>% addCircleMarkers(data = init_sites, group = "Available monitoring sites", label = ~SITELAB, popup = ~SITEPOP, radius = 4, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = TRUE, weight = 1, color = ~rv_param_temp$palOrg(OrganizationFormalName), opacity = 0.7, options = pathOptions(pane = "pane_availableStations"))
       } # WQ stations
                                                          
-      if(!is.null(rv$selectedStations)) {
-        sel_stations <- rv$sitesPointsSub %>% dplyr::filter(MonitoringLocationIdentifier %in% rv$selectedStations$MonitoringLocationIdentifier)
+      if(!is.null(rv$downloadStations)) {
+        download_stations <- rv$sitesPointsSub %>% dplyr::filter(MonitoringLocationIdentifier %in% rv$downloadStations$MonitoringLocationIdentifier)
 
-        if(nrow(sel_stations) > 0) {
+        if(nrow(download_stations) > 0) {
           print("Mapping selected sites")
     map %<>%
-      addCircleMarkers(data = rv$sitesPointsSub %>% dplyr::filter(MonitoringLocationIdentifier %in% rv$selectedStations$MonitoringLocationIdentifier), group = "Selected monitoring sites", label = ~SITELAB, popup = ~SITEPOP, radius = 8, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_selectedStations"))
+      addCircleMarkers(data = download_stations, group = "Selected monitoring sites", label = ~SITELAB, popup = ~SITEPOP, radius = 8, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_selectedStations"))
+      # addCircleMarkers(data = rv$sitesPointsSub %>% dplyr::filter(MonitoringLocationIdentifier %in% rv$selectedStations$MonitoringLocationIdentifier), group = "Selected monitoring sites", label = ~SITELAB, popup = ~SITEPOP, radius = 8, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName), fillOpacity = 0.8, stroke = TRUE, weight = 4, color = "white", opacity = 1, options = pathOptions(pane = "pane_selectedStations"))
     }
       }
-
     
     if(all(!is.null(rv$selectedOriginStation), !is.null(rv$importSettings$sel_SelectMethod))){ # the origin station for up-down selection is outlined in red
     if(rv$importSettings$sel_SelectMethod=="methodDist") {
@@ -614,7 +628,7 @@ FuncBaseMap <- function(maptype) {
 
   print("about to map meteoStations")
   if(!is.null(rv$meteoStations)) { # Add weather stations only if found
-    print("map metioStations")
+    print("map meteoStations")
     map %<>%
       addAwesomeMarkers(icon = iconMeteo, data = rv$meteoStations, group = "Weather stations (cloud icon)", label = ~METEOLAB, popup = ~METEOPOP, options = pathOptions(pane = "pane_meteoStations")) # weather stations
   }
@@ -646,9 +660,6 @@ FuncBaseMap <- function(maptype) {
 }
 
 FuncUpdateHome <- function() {
-  updateTextInput(session,
-                  "sel_UnitCode",
-                  value = "")
   
   updateRadioButtons(session,
                      "sel_HUClevel",
@@ -656,7 +667,7 @@ FuncUpdateHome <- function() {
   
   updateRadioButtons(session,
                      "sel_SelectMethod",
-                     selected = "methodHuc")
+                     selected = "methodPark")
   
   updateTextInput(session,
                   "sel_OriginStationID",
@@ -2622,7 +2633,7 @@ if(input$sel_GetData == "new_data") {
  
   shiny::req(input$sel_UnitCode!="") # make sure user has entered Park unit code
   
-  rv$parkName <- input$sel_UnitCode
+  rv$parkName <- isolate(input$sel_UnitCode)
   rv$parkID <- unique_parks_df$unit_code[unique_parks_df$unit_name_combined == rv$parkName]
   
   print("line2417")
@@ -2636,7 +2647,7 @@ if(input$sel_GetData == "new_data") {
     
   shinyjs::hideElement("new_data_P1")
   shinyjs::hideElement("new_data_P2")
-  
+ 
   # Get park unit boundary data from dashboard files ----
   # Check for problems with self-intersections, etc. These problems should be fixed in the updated version of LandscapeDynamics
   parks_sf <- readRDS(here::here("dashboard_files", "parks_sf.RDS"))
@@ -2652,9 +2663,13 @@ if(input$sel_GetData == "new_data") {
 
       hucURL <- paste0("https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer/", hucLevel, "/query?where=&text=&objectIds=&time=&geometry=", paste(as.character(sf::st_bbox(rv$unitPoly)), collapse ="%2C"), "&geometryType=esriGeometryEnvelope&inSR=4326&outSR=4326&spatialRel=esriSpatialRelIntersects&relationParam=&outFields=*&returnGeometry=true&returnTrueCurves=false&maxAllowableOffset=&geometryPrecision=&having=&returnIdsOnly=false&returnCountOnly=false&orderByFields=&groupByFieldsForStatistics=&outStatistics=&returnZ=false&returnM=false&gdbVersion=&historicMoment=&returnDistinctValues=false&resultOffset=&resultRecordCount=&queryByDistance=&returnExtentOnly=false&datumTransformation=&parameterValues=&rangeValues=&quantizationParameters=&featureEncoding=esriDefault&f=geojson")
       
+      # remove HTML-escaped ampersands # <<<<< NEEDED FOR OLDER R VERSIONS
+hucURL <- gsub("&amp;", "&", hucURL, fixed = TRUE)
+      
       tmp_huc <- tempfile(fileext = ".geojson")
 tryCatch(
-  download.file(hucURL, tmp_huc, mode = "w", quiet = TRUE),
+  # download.file(hucURL, tmp_huc, mode = "w", quiet = TRUE),
+  curl::curl_download(hucURL, tmp_huc), # <<<<< NEEDED FOR OLDER R VERSIONS
   error = function(e) {
     FuncDataRetrievalError(hucURL, paste0(hucName, " boundary data"), "National Watershed Boundary Dataset")
     shiny::req(FALSE)
@@ -2704,9 +2719,13 @@ unlink(tmp_huc)
    # WQP stations that fall within the HUC10 bbox
   sitesURL <- paste0("https://www.waterqualitydata.us/data/Station/search?siteType=Aggregate%20surface-water-use&siteType=Estuary&siteType=Lake%2C%20Reservoir%2C%20Impoundment&siteType=Spring&siteType=Stream&siteType=Well&siteType=Wetland&siteType=Aggregate%20groundwater%20use&siteType=Aggregate%20groundwater%20use%20&siteType=Aggregate%20water-use%20establishment&siteType=Subsurface&bBox=", paste(huc10_bbox, collapse ="%2C"), "&characteristicType=Toxicity&characteristicType=Physical&characteristicType=Organics%2C%20PFAS&characteristicType=Organics%2C%20Pesticide&characteristicType=Organics%2C%20PCBs&characteristicType=Nutrient&characteristicType=Microbiological&characteristicType=Cyanotoxins%2C%20Phytotoxins&characteristicType=Inorganics%2C%20Major%2C%20Metals&characteristicType=Inorganics%2C%20Major%2C%20Non-metals&minactivities=1&sampleMedia=Water&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
    
+  # remove HTML-escaped ampersands # <<<<< NEEDED FOR OLDER R VERSIONS
+sitesURL <- gsub("&amp;", "&", sitesURL, fixed = TRUE)
+
   tmp_sites <- tempfile(fileext = ".csv")
 tryCatch(
-  download.file(sitesURL, tmp_sites, mode = "w", quiet = TRUE),
+  # download.file(sitesURL, tmp_sites, mode = "w", quiet = TRUE),
+  curl::curl_download(sitesURL, tmp_sites), # <<<<< NEEDED FOR OLDER R VERSIONS
   error = function(e) {
     FuncDataRetrievalError(sitesURL, "monitoring sites information", "Water Quality Portal")
     shiny::req(FALSE)
@@ -2742,6 +2761,9 @@ unlink(tmp_sites)
         SITEPOP = paste0("Org: ", OrganizationFormalName, '<br>Site ID: <a href="https://www.waterqualitydata.us/provider/', ProviderName, '/', OrganizationIdentifier, '/', MonitoringLocationIdentifier, '/" target="_blank">', MonitoringLocationIdentifier, '</a>', "<br>Water Monitoring Station: ", MonitoringLocationName, "<br>Type: ", MonitoringLocationTypeName))
     
     rv$sitesPointsSub <- sitesPoints
+#     rv$importSettings$sel_Organization <- unique(rv$sitesPointsSub$OrganizationFormalName)
+# rv$importSettings$sel_SiteType <- unique(rv$sitesPointsSub$MonitoringLocationTypeName)[!grepl("Well", unique(rv$sitesPointsSub$MonitoringLocationTypeName))]
+
     rm(sites, temp_points, sitesPoints)
     # unlink("tempSites.csv")
   
@@ -2979,13 +3001,15 @@ if (is.null(facilitiesResp) || httr::http_status(facilitiesResp)$category != "Su
   rv_param_temp$loadMap <- TRUE
   print("reset Filter")
 
+ 
 showModal(modalDialog(
   title = "Done",
   HTML("In the <strong>'2 (of 3). Filter sites to download'</strong> panel, choose the monitoring sites you want to download data from. You can:<ul>
     <li>Download data for the entire park, or </li>
-    <li>Select specific watersheds.</li>
+    <li>Download from sites in specific (sub)watersheds, or
+    <li>Download from sites upstream/downstream of a specified monitoring site.</li>
   </ul>
-  You can also apply additional filters using the other options in the panel. When you're ready, click <strong>'Summarize Selected Data'</strong> to preview a summary of the data before downloading.")
+  When you're ready, click <strong>'Summarize Selected Data'</strong> to preview a summary of the data before downloading.")
 ))
 
   } else { # if user chooses to load existing data...
@@ -2997,10 +3021,6 @@ showModal(modalDialog(
   ))
   }
   
- saveRDS(isolate(reactiveValuesToList(rv)), here::here(
-   "TEMP_rv.RDS"))
- saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
- saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
 })
 ```
 
@@ -3169,10 +3189,14 @@ observeEvent(eventExpr = input$button_summarizeData, {
       incProgress(1/7, detail = paste0("...", n))
       if(!is.na(nldiURLS[[n]])) { # if URL is specified
         tempURL <- nldiURLS[[n]]
+        
+        # remove HTML-escaped ampersands # <<<<< NEEDED FOR OLDER R VERSIONS
+        tempURL <- gsub("&amp;", "&", tempURL, fixed = TRUE)
       
         tmp_nldi <- tempfile(fileext = ".geojson")
 tryCatch(
-  download.file(tempURL, tmp_nldi, mode = "w", quiet = TRUE),
+  # download.file(tempURL, tmp_nldi, mode = "w", quiet = TRUE),
+  curl::curl_download(tempURL, tmp_nldi), # <<<<< NEEDED FOR OLDER R VERSIONS
   error = function(e) {
     FuncDataRetrievalError(tempURL, paste0("data for the `", n, "` query"), "Hydro Network-Linked Data Index")
     shiny::req(FALSE)
@@ -3223,12 +3247,16 @@ unlink(tmp_nldi)
     cat(i)
     s <- subset_stations_list[[i]]
     stationChoiceString <- paste0(utils::URLencode(s, reserved = TRUE), collapse = "&siteid=")
-    
+
     summaryURL <- paste0("https://www.waterqualitydata.us/data/summary/monitoringLocation/search?siteid=", stationChoiceString, "&characteristicType=", charTypeChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&summaryYears=all&count=no&dataProfile=periodOfRecord")
     
+    # remove HTML-escaped ampersands # <<<<< NEEDED FOR OLDER R VERSIONS
+  summaryURL <- gsub("&amp;", "&", summaryURL, fixed = TRUE)
+
     tmp_summary <- tempfile(fileext = ".csv")
 tryCatch(
-  download.file(summaryURL, tmp_summary, mode = "w", quiet = TRUE),
+  # download.file(summaryURL, tmp_summary, mode = "w", quiet = TRUE),
+  curl::curl_download(summaryURL, tmp_summary), # <<<<< NEEDED FOR OLDER R VERSIONS
   error = function(e) {
     FuncDataRetrievalError(summaryURL, "data selection information", "Water Quality Portal")
     shiny::req(FALSE)
@@ -3238,7 +3266,8 @@ all_summaries[[i]] <- readr::read_csv(tmp_summary, trim_ws = TRUE, show_col_type
   dplyr::select(-MonitoringLocationUrl, -CountyName, -StateName, -MonitoringLocationLatitude, -MonitoringLocationLongitude)
 unlink(tmp_summary)
 
-    rv$wqp_url_list[[i]] <- paste0("https://www.waterqualitydata.us/data/Result/search?siteid=", stationChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&dataProfile=resultPhysChem&providers=NWIS&providers=STORET")
+    rv$wqp_url_list[[i]] <- paste0("https://www.waterqualitydata.us/data/Result/search?siteid=", stationChoiceString, "&sampleMedia=Water&mimeType=csv&zip=no&dataProfile=resultPhysChem&providers=NWIS&providers=STORET") %>%
+      gsub("&amp;", "&", ., fixed = TRUE) # <<<<< FIX AMPERSANDS BACK
     Sys.sleep(0.5) # pause between data pulls
   }
   
@@ -3269,7 +3298,7 @@ showModal(modalDialog(
   title = "Done",
   HTML(paste0("<strong>You have summarized ", sum(rv$selectedDataSummary$ResultCount), " data records from ", length(unique(rv$selectedDataSummary$MonitoringLocationIdentifier)), " sites.</strong> Selected monitoring sites are shown as larger, white-outlined circles on the map.", 
               switch((input$sel_SelectMethod == "methodDist")+1, "", "The ORIGIN SITE is outlined in RED. The selected streamlines upstream of the origin are shown in blue; downstream, in brown."),
-              "<br><br>Review your selection in the 'Summary of Selected Characteristics' and 'Summary of Selected Site-Characteristics' tabs. <br><br>In the next panel, apply data availability filters, select gage stations (if available), then press the <strong>DOWNLOAD SELECTED DATA</strong> button.")) 
+              "<br><br>Review your selection in the 'Summary of Selected Characteristics' and 'Summary of Selected Site-Characteristics' tabs. <br><br>In panel 3 (of 3), filter the data to the subset you actually want to download (<strong>UPDATE SELECTED DATA</strong> to see how that changes the selected data), optionally choose gage stations to download data from, then press the <strong>DOWNLOAD DATA</strong> button to pull the data into the dashboard.")) 
 )) # <<<<<< AFTER ADDING WEATHER SHOULD SAY 'GAGE AND WEATHER'
   
   shinyjs::showElement("new_data_P2")
@@ -3279,6 +3308,7 @@ showModal(modalDialog(
 
 ```{r action_button_updateSelectedData}
 observeEvent(input$button_updateSelectedData, {
+  req(input$map_bounds)
   shiny::req(!is.null(rv$selectedDataSummary), !is.null(rv$selectedStations))
   
   cutoff_year <- lubridate::year(Sys.Date()) - as.integer(input$sel_ActiveWithinYrs)
@@ -3289,6 +3319,14 @@ observeEvent(input$button_updateSelectedData, {
                      total_results = sum(ResultCount, na.rm = TRUE),
                      .groups = "drop") %>%
     dplyr::filter(max_yr >= cutoff_year, total_results >= input$sel_MinResults)
+  
+    if(nrow(qualifying_site_chars) == 0) {
+    showModal(modalDialog(
+      title = "No qualifying data",
+      "No site-characteristic combinations meet the current data availability filters. Please relax your filter criteria."
+    ))
+    return()
+  }
   
   rv$downloadDataSummary <- rv$selectedDataSummary %>%
     dplyr::inner_join(dplyr::select(qualifying_site_chars, MonitoringLocationIdentifier, CharacteristicName),
@@ -3301,12 +3339,17 @@ observeEvent(input$button_updateSelectedData, {
     dplyr::filter(MonitoringLocationIdentifier %in% rv$downloadStations$MonitoringLocationIdentifier)
   
   leafletProxy("map") %>%
-    clearGroup("Selected monitoring sites") %>%
-    addCircleMarkers(data = qualifying_sites_sf, group = "Selected monitoring sites",
+    clearGroup("Selected monitoring sites") 
+  
+  if(nrow(qualifying_sites_sf) > 0) {
+    leafletProxy("map") %>% 
+      addCircleMarkers(data = qualifying_sites_sf, group = "Selected monitoring sites",
                      label = ~SITELAB, popup = ~SITEPOP,
                      radius = 8, fillColor = ~rv_param_temp$palOrg(OrganizationFormalName),
                      fillOpacity = 0.8, stroke = TRUE, weight = 4, color = "white", opacity = 1,
                      options = pathOptions(pane = "pane_selectedStations"))
+  }
+    
 }, ignoreInit = TRUE)
 ```
 
@@ -3330,15 +3373,15 @@ observeEvent(eventExpr = input$button_downloadData, {
     }
   shiny::req(length(input$sel_CharType) > 0)
   
-    if(is.null(rv$selectedStations) | length(rv$selectedStations$MonitoringLocationIdentifier) == 0 | is.null(rv$wqp_url_list)) {
+    if(is.null(rv$downloadStations) | length(rv$downloadStations$MonitoringLocationIdentifier) == 0 | is.null(rv$wqp_url_list)) {
     showModal(modalDialog(
       title = "No monitoring sites selected",
       "Please select monitoring sites from which you would like to import data (filter sites by HUC or by distance from origin, then click 'Summarize Selected Data' button)."
     ))
     }
-  shiny::req(!is.null(rv$downloadStations), length(rv$downloadStations$MonitoringLocationIdentifier) > 0)
-  shiny::req(!is.null(rv$selectedStations), !is.null(rv$sitesPointsSub), !is.null(rv$wqp_url_list))
-  shiny::req(length(rv$selectedStations$MonitoringLocationIdentifier) > 0, length(rv$wqp_url_list) > 0)
+  # shiny::req(!is.null(rv$downloadStations), length(rv$downloadStations$MonitoringLocationIdentifier) > 0)
+  shiny::req(!is.null(rv$downloadStations), !is.null(rv$sitesPointsSub), !is.null(rv$wqp_url_list))
+  shiny::req(length(rv$downloadStations$MonitoringLocationIdentifier) > 0, length(rv$wqp_url_list) > 0)
 
     withProgress(message = "Processing data request...", value = 0, {
       
@@ -3432,16 +3475,19 @@ Sys.sleep(0.5) # pause between data pulls
 orgURL <- paste0("https://www.waterqualitydata.us/data/Organization/search?", allOrgs, "&mimeType=csv&zip=no&providers=NWIS&providers=STEWARDS&providers=STORET")
 
 cat("Line3348")
+# remove HTML-escaped ampersands # <<<<< NEEDED FOR OLDER R VERSIONS
+orgURL <- gsub("&amp;", "&", orgURL, fixed = TRUE)
 
 tmp_org <- tempfile(fileext = ".csv")
 tryCatch(
-  download.file(orgURL, tmp_org, mode = "w", quiet = TRUE),
+  # download.file(orgURL, tmp_org, mode = "w", quiet = TRUE),
+  curl::curl_download(orgURL, tmp_org), # <<<<< NEEDED FOR OLDER R VERSIONS
   error = function(e) {
     FuncDataRetrievalError(orgURL, "organization information", "Water Quality Portal")
     shiny::req(FALSE)
   }
 )
-rv$orgs <- readr::read_csv(tmp_org, show_col_types = FALSE) %>%
+rv$orgs <- readr::read_csv(tmp_org, trim_ws = TRUE, show_col_types = FALSE) %>%
   dplyr::select(OrganizationFormalName, Description = OrganizationDescriptionText,
                 `Email/Web` = ElectronicAddress, Phone = Telephonic) %>%
   dplyr::mutate(Selected = TRUE) %>%
@@ -3464,9 +3510,13 @@ cat("line3368")
   
   gagesDatURL <- paste0("https://waterservices.usgs.gov/nwis/dv/?format=rdb,1.0&sites=", paste(rv$selectedGages$GageID, collapse = ","), "&startDT=",range(rv$dat$ActivityStartDate)[1], "&endDT=", range(rv$dat$ActivityStartDate)[2], "&siteStatus=all") # <<<< GOT RID OF START STOP AND END DATE OPTION HERE
   
-  tmp_gages <- tempfile(fileext = ".txt")
+  # remove HTML-escaped ampersands # <<<<< NEEDED FOR OLDER R VERSIONS
+gagesDatURL <- gsub("&amp;", "&", gagesDatURL, fixed = TRUE)
+  
+tmp_gages <- tempfile(fileext = ".txt")
 tryCatch(
-  download.file(gagesDatURL, tmp_gages, mode = "w", quiet = TRUE),
+  # download.file(gagesDatURL, tmp_gages, mode = "w", quiet = TRUE),
+  curl::curl_download(gagesDatURL, tmp_gages), # <<<<< NEEDED FOR OLDER R VERSIONS
   error = function(e) {
     rv$gagesDat <- NULL
     showModal(modalDialog(
@@ -3477,7 +3527,6 @@ tryCatch(
   }
 )
 
-      
       gagesDat <- tryCatch(read.delim(tmp_gages, comment.char = '#'), error=function(e) print("Error retrieving USGS streamflow data")) # These daily data are  'Discharge, cubic feet per second (Mean)'. QC: 'A' means approved for publication, processing and review completed; 'e' means value has been estimated
      
     shiny::req(!is.null(gagesDat))
@@ -4810,12 +4859,14 @@ wellPanel(
                choices = c("Load data file (.RDS) from computer"  = "existing_data",
                            "Download data from web services" = "new_data")),
   
-    conditionalPanel(
+  conditionalPanel(
     condition = "input.sel_GetData == 'new_data'",
     selectInput("sel_UnitCode", label = h6("Enter a park name or 4-digit park code (e.g., BITH): "), 
                 choices = c("Choose a park" = "", unique_parks_df$unit_name_combined), 
+                selected = c("Choose a park" = ""),
+                # selected = switch(is.null(input$sel_UnitCode)+1, input$sel_UnitCode, ""),
                 selectize = TRUE)
-  ),
+    ),
   
   actionButton("button_beginSearch", "BEGIN DATA SEARCH", width = "100%", style="color:black; background-color: lightgreen; border: 1px solid black; display:inline-block; margin:5px")
 ) # end import-load-data panel
@@ -4898,7 +4949,7 @@ conditionalPanel(
       checkboxGroupInput("sel_SiteType",
              label = h6("Import data only from these water body types: "),
              choices = sort(unique(rv$sitesPointsSub$MonitoringLocationTypeName)),
-             selected = setdiff(unique(rv$sitesPointsSub$MonitoringLocationTypeName), "Well"))
+             selected = unique(rv$sitesPointsSub$MonitoringLocationTypeName)[!grepl("Well", unique(rv$sitesPointsSub$MonitoringLocationTypeName))])
     }),
     
     checkboxGroupInput("sel_CharType",
@@ -5018,12 +5069,20 @@ output$map <- renderLeaflet({
   print("RENDER INITIAL MAP AGAIN")
   
   shiny::req(!is.null(input$sel_GetData))
+     saveRDS(isolate(reactiveValuesToList(rv)), here::here(
+   "TEMP_rv.RDS"))
+ saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+ saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+ 
   if(input$sel_GetData == "new_data"){
-      rv$importSettings <- list(sel_SelectMethod = input$sel_SelectMethod, sel_HUClevel = input$sel_HUClevel, sel_Organization = input$sel_Organization, sel_SiteType = input$sel_SiteType)} # make sure the map will show even if WQP data have not yet been imported
-  
-  shiny::req(!is.null(rv$parkID))
-  
-  if(any(is.null(rv$importSettings$sel_SelectMethod), is.null(rv$importSettings$sel_HUClevel), is.null(rv$importSettings$sel_Organization), is.null(rv$importSettings$sel_SiteType), is.null(rv$unitPoly), is.null(rv$HUC10), is.null(rv$sitesPointsSub), rv$parkID=="", !rv$importSettings$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName)) {
+      rv$importSettings <- list(sel_SelectMethod = input$sel_SelectMethod, sel_HUClevel = input$sel_HUClevel)
+      isolate(rv$importSettings$sel_Organization <- switch(is.null(rv$importSettings$sel_Organization)+1, rv$importSettings$sel_Organization, input$sel_Organization))
+      isolate(rv$importSettings$sel_SiteType <- switch(is.null(rv$importSettings$sel_SiteType)+1, rv$importSettings$sel_SiteType, input$sel_SiteType))
+      } # make sure the map will show even if WQP data have not yet been imported. Isolate ones that I don't want it to cause re-render.
+    # rv$importSettings <- list(sel_SelectMethod = input$sel_SelectMethod, sel_HUClevel = input$sel_HUClevel, sel_Organization = input$sel_Organization, sel_SiteType = input$sel_SiteType)
+    # }
+ 
+  if(any(is.null(rv$importSettings$sel_SelectMethod), is.null(rv$importSettings$sel_HUClevel), is.null(isolate(rv$importSettings$sel_Organization)), is.null(isolate(rv$importSettings$sel_SiteType)), is.null(rv$unitPoly), is.null(rv$HUC10), is.null(rv$sitesPointsSub), rv$parkID=="")) {
       map <- leaflet()
       } else {
         print("CALLING FUNCBASEMAP")
@@ -5036,7 +5095,7 @@ output$map <- renderLeaflet({
           addLegend(title = "CIRCLES are monitoring stations (colored by organization)", pal = rv_param_temp$palOrg, values = sort(rv$importSettings$sel_Organization), group = "Map legend", position = "bottomleft") %>%
           addLayersControl(
             baseGroups = c("Street", "Satellite"),
-            overlayGroups = na.omit(c("NPS unit", rv$importSettings$sel_HUClevel, "Available monitoring sites", ifelse(!is.null(rv$selectedStations), "Selected monitoring sites", NA), ifelse(!is.null(rv$facilitiesPointsSub), "Discharge facilities (bldg icon)", NA), ifelse(!is.null(rv$gageStations), "Gage stations (water drop icon)", NA), ifelse(!is.null(rv$meteoStations), "Weather stations (cloud icon)", NA), "Map legend")),
+            overlayGroups = na.omit(c("NPS unit", rv$importSettings$sel_HUClevel, "Available monitoring sites", ifelse(!is.null(rv$downloadStations), "Selected monitoring sites", NA), ifelse(!is.null(rv$facilitiesPointsSub), "Discharge facilities (bldg icon)", NA), ifelse(!is.null(rv$gageStations), "Gage stations (water drop icon)", NA), ifelse(!is.null(rv$meteoStations), "Weather stations (cloud icon)", NA), "Map legend")),
             options = layersControlOptions(collapsed = TRUE)) %>%
           setView(lng = ifelse(any(is.null(isolate(input$map_center$lng)), isolate(input$map_center$lng) == 0), mean(c(st_bbox(rv[["HUC10"]])$xmin, st_bbox(rv[["HUC10"]])$xmax)), isolate(input$map_center$lng)), lat = ifelse(any(is.null(isolate(input$map_center$lat)), isolate(input$map_center$lat) == 0), mean(c(st_bbox(rv[["HUC10"]])$ymin, st_bbox(rv[["HUC10"]])$ymax)), isolate(input$map_center$lat)), 
                   zoom = ifelse(is.null(isolate(input$map_zoom)) || isTRUE(isolate(input$map_zoom) == 1) || isTRUE(isolate(input$map_zoom) == ""),
@@ -5056,7 +5115,7 @@ output$map <- renderLeaflet({
     hidden_groups <- setdiff(hidden_groups, rv$importSettings$sel_HUClevel)
   }
   # Don't hide Selected monitoring sites if it wasn't available when state was saved
-  if(!is.null(rv$selectedStations) && !"Selected monitoring sites" %in% isolate(rv_param_temp$saved_map_groups)) {
+  if(!is.null(rv$downloadStations) && !"Selected monitoring sites" %in% isolate(rv_param_temp$saved_map_groups)) {
     hidden_groups <- setdiff(hidden_groups, "Selected monitoring sites")
   }
   for(g in hidden_groups) {
@@ -5070,9 +5129,10 @@ output$map <- renderLeaflet({
 
 leafletOutput("map", width = "100%")
   
-## Map updates by proxy
+## Map updates by proxy--must ensure map exists before any proxy updates, or will get "gray box"
 # User selects HUCs by clicking (when new data imported)
 observeEvent(input$map_shape_click, {
+  req(input$map_bounds)
   shiny::req(rv$importSettings$sel_SelectMethod=="methodHuc", !is.null(rv), !is.null(rv$importSettings$sel_HUClevel), !is.null(input$sel_GetData))
   shiny::req(input$sel_GetData=="new_data")
     click <- input$map_shape_click
@@ -5088,6 +5148,7 @@ observeEvent(input$map_shape_click, {
 
 # Select all HUCs
 observeEvent(input$button_selectAllHucs, {
+  req(input$map_bounds)
   shiny::req(!is.null(rv[[input$sel_HUClevel]]), input$sel_SelectMethod == "methodHuc")
   rv$selectedHucs <- rv[[input$sel_HUClevel]]$HUC
   leafletProxy("map") %>%
@@ -5099,6 +5160,7 @@ observeEvent(input$button_selectAllHucs, {
 
 # Deselect all HUCs
 observeEvent(input$button_deselectAllHucs, {
+  req(input$map_bounds)
   shiny::req(!is.null(rv[[input$sel_HUClevel]]), input$sel_SelectMethod == "methodHuc")
   rv$selectedHucs <- NULL
   leafletProxy("map") %>%
@@ -5110,7 +5172,13 @@ observeEvent(input$button_deselectAllHucs, {
 
 # User selects sites in park
 observeEvent(input$sel_SelectMethod, {
+  req(input$map_bounds)
   shiny::req(isTRUE(rv_param_temp$loadMap == TRUE), !is.null(input$sel_SelectMethod))
+  
+  if(input$sel_SelectMethod != "methodDist") {
+    leafletProxy("map") %>% clearGroup("Originsite")
+  }
+  
   if(input$sel_SelectMethod == "methodPark") {
     leafletProxy("map") %>%
       addPolygons(data = rv$unitPoly, group = "NPS unit", 
@@ -5122,13 +5190,51 @@ observeEvent(input$sel_SelectMethod, {
       addPolygons(data = rv$unitPoly, group = "NPS unit",
                   color = "black", fillColor = "yellow",
                   fillOpacity = opacity_unselected, weight = 1,
-                  options = pathOptions(pane = "pane_unitPoly")) %>%
-      clearGroup("Origin site")
+                  options = pathOptions(pane = "pane_unitPoly")) 
+  }
+}, ignoreInit = TRUE)
+
+# User changes filter for organization or site type
+observeEvent(list(input$sel_Organization, input$sel_SiteType), {
+  req(input$map_bounds)
+  shiny::req(!is.null(rv$sitesPointsSub), !is.null(rv_param_temp$palOrg))
+  
+  
+  org_filter <- if(is.null(input$sel_Organization)) character(0) else input$sel_Organization
+  
+  passing_sites <- rv$sitesPointsSub %>%
+    dplyr::filter(OrganizationFormalName %in% org_filter & 
+                  MonitoringLocationTypeName %in% input$sel_SiteType)
+  
+  failing_sites <- rv$sitesPointsSub %>%
+    dplyr::filter(!MonitoringLocationIdentifier %in% passing_sites$MonitoringLocationIdentifier)
+  
+  leafletProxy("map") %>% clearGroup("Available monitoring sites")
+  
+  if(nrow(passing_sites) > 0) {
+    leafletProxy("map") %>%
+      addCircleMarkers(data = passing_sites, group = "Available monitoring sites",
+                       label = ~SITELAB, popup = ~SITEPOP, radius = 4,
+                       fillColor = rv_param_temp$palOrg(passing_sites$OrganizationFormalName),
+                       fillOpacity = 0.8, stroke = TRUE, weight = 1,
+                       color = rv_param_temp$palOrg(passing_sites$OrganizationFormalName), opacity = 0.8,
+                       options = pathOptions(pane = "pane_availableStations"))
+  }
+  
+  if(nrow(failing_sites) > 0) {
+    leafletProxy("map") %>%
+      addCircleMarkers(data = failing_sites, group = "Available monitoring sites",
+                       label = ~SITELAB, popup = ~SITEPOP, radius = 4,
+                       fillColor = rv_param_temp$palOrg(failing_sites$OrganizationFormalName),
+                       fillOpacity = 0.1, stroke = TRUE, weight = 1,
+                       color = rv_param_temp$palOrg(failing_sites$OrganizationFormalName), opacity = 0.1,
+                       options = pathOptions(pane = "pane_availableStations"))
   }
 }, ignoreInit = TRUE)
 
 # User enters an origin site
 observeEvent(input$sel_OriginStationID, {
+  req(input$map_bounds)
   shiny::req(isTRUE(rv_param_temp$loadMap == TRUE),
              !is.null(input$sel_OriginStationID),
              isTRUE(input$sel_SelectMethod == "methodDist"),
@@ -5152,6 +5258,7 @@ observeEvent(rv_param_temp$loadMap, {
 })
 
 observeEvent(input$map_groups, {
+  req(input$map_bounds)
   shiny::req(!is.null(input$map_groups), isTRUE(rv_param_temp$loadMap == TRUE))
   rv_param_temp$saved_map_groups <- input$map_groups
 }, ignoreInit = TRUE)
@@ -5246,7 +5353,7 @@ output$table_selected_orgs <- renderReactable({
   shiny::req(!is.null(rv$dat), !is.null(rv$sitesPointsSub), !is.null(rv$importSettings$sel_Organization))
       print("Line4336")
   df_site <- rv$sitesPointsSub %>%
-    dplyr::filter(MonitoringLocationIdentifier %in% rv$selectedStations$MonitoringLocationIdentifier & OrganizationFormalName %in% rv$importSettings$sel_Organization) %>%
+    dplyr::filter(MonitoringLocationIdentifier %in% rv$downloadStations$MonitoringLocationIdentifier & OrganizationFormalName %in% rv$importSettings$sel_Organization) %>%
     dplyr::mutate(Longitude = sf::st_coordinates(.)[,1],
                 Latitude = sf::st_coordinates(.)[,2]) %>%
         sf::st_drop_geometry() %>%
