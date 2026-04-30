@@ -11,7 +11,7 @@ runtime: shiny
 
 ```{r global, include=FALSE}
 ### NEXT TO DO
-# >>> HIGHLY PROBLEMATIC--IF I HAD A PARK SELECTED, THEN SWITCHT TO LOAD AND THEN IMPORT AGAIN, THE OLD PARK WILL STILL BE THERE AND ORGS LISTED WILL BE OLD PARK (ACTUALLY IT SHOULD NOT HAVE CHAGNED THE MAP AT ALL) AND THEN AFTER BEGIN-SEARCH, THE MAP CENTER/VIEW WILL BE WRONG
+# >>>> SOMETIMES all orgs are deselected upon init map generation. that is b/c FuncUpdateHome sets selection to none selected, then checkboxGroupInput("sel_Organization") doesn't re-render with the updated rv$sitesPointsSub
 # >>>> Pie charts format problem--the pies are very small and left-aligned
 # >>>> When I summarize selected data, the transparent de-selected sites disappear; When I update selected data, the red circle around origin site disappears and the up/down lines disappear, but it appears again when I filter to add gage stations (the red circle appears even if the site does not show)
 # >>>> When I select a new park to import I get maps with the wrong legend and sometimes map center/view wrong
@@ -81,11 +81,11 @@ installed_pkgs <- pkgs %in% installed.packages()
 if (length(pkgs[!installed_pkgs]) > 0) install.packages(pkgs[!installed_pkgs], repos = "https://cloud.r-project.org", dep=TRUE) 
 invisible(lapply(pkgs, library, character.only = TRUE))
 
-# Install TADA from GitHub if not already done
-if(!"EPATADA" %in% installed.packages()) {
-  remotes::install_github("USEPA/EPATADA", ref = "develop", dependencies = TRUE)
-}
-library(EPATADA)
+# # Install TADA from GitHub if not already done
+# if(!"EPATADA" %in% installed.packages()) {
+#   remotes::install_github("USEPA/EPATADA", ref = "develop", dependencies = TRUE)
+# }
+# library(EPATADA)
 
 # Check for required dashboard files
 req_files <- c("park_noaa_overlaps_list.RDS", "park_gage_overlaps_list.RDS", "parks_sf.RDS", "unique_parks_df.csv")
@@ -321,10 +321,11 @@ tags$style(HTML("
 
 # Remove sidebar resize handles text
 tags$style(HTML("
-    .bslib-sidebar-resize-handle {
-      display: none !important;
-    }
-  "))
+  .bslib-sidebar-resize-handle {
+    font-size: 0 !important;
+    color: transparent !important;
+  }
+"))
 
 # Make the bslib card full screen icon and exit more obvious
 tags$style(HTML("
@@ -568,7 +569,7 @@ FuncBaseMap <- function(maptype) {
   print("Finished base map")
   # Conditional mapping (when data are available)
   
-  init_sites <- subset(rv$sitesPointsSub, OrganizationFormalName %in% rv$importSettings$sel_Organization & MonitoringLocationTypeName %in% rv$importSettings$sel_SiteType)
+  init_sites <- subset(rv$sitesPointsSub, OrganizationFormalName %in% isolate(rv$importSettings$sel_Organization) & MonitoringLocationTypeName %in% isolate(rv$importSettings$sel_SiteType))
   
   if(maptype == "initial") { # These are specific to the initial map
     print("Map type is 'initial'")
@@ -2761,9 +2762,11 @@ unlink(tmp_sites)
         SITEPOP = paste0("Org: ", OrganizationFormalName, '<br>Site ID: <a href="https://www.waterqualitydata.us/provider/', ProviderName, '/', OrganizationIdentifier, '/', MonitoringLocationIdentifier, '/" target="_blank">', MonitoringLocationIdentifier, '</a>', "<br>Water Monitoring Station: ", MonitoringLocationName, "<br>Type: ", MonitoringLocationTypeName))
     
     rv$sitesPointsSub <- sitesPoints
-#     rv$importSettings$sel_Organization <- unique(rv$sitesPointsSub$OrganizationFormalName)
-# rv$importSettings$sel_SiteType <- unique(rv$sitesPointsSub$MonitoringLocationTypeName)[!grepl("Well", unique(rv$sitesPointsSub$MonitoringLocationTypeName))]
+    rv$importSettings$sel_Organization <- unique(rv$sitesPointsSub$OrganizationFormalName)
+rv$importSettings$sel_SiteType <- unique(rv$sitesPointsSub$MonitoringLocationTypeName)[!grepl("Well", unique(rv$sitesPointsSub$MonitoringLocationTypeName))]
 
+cat("rv$importSettings$sel_Organization: ", rv$importSettings$sel_Organization)
+ 
     rm(sites, temp_points, sitesPoints)
     # unlink("tempSites.csv")
   
@@ -3000,7 +3003,6 @@ if (is.null(facilitiesResp) || httr::http_status(facilitiesResp)$category != "Su
   print("set loadMap to TRUE")
   rv_param_temp$loadMap <- TRUE
   print("reset Filter")
-
  
 showModal(modalDialog(
   title = "Done",
@@ -5041,7 +5043,7 @@ conditionalPanel(
   htmltools::tags$div(
     style = "display: flex; align-items: center; justify-content: center; gap: 15px; margin: 5px 0;",
     htmltools::tags$button(
-      "🔄 Refresh Map (if it goes wonky)", 
+      "🔄 Refresh Map (if it goes wonky)",
       onclick = "refreshMap()",
       style = "padding: 4px 10px; background: #5a9fd4; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"
     ),
@@ -5063,26 +5065,33 @@ conditionalPanel(
 output$map <- renderLeaflet({
   shiny::req(!is.null(rv_param_temp$loadMap))
   
+ saveRDS(isolate(reactiveValuesToList(rv)), here::here(
+   "TEMP_rv.RDS"))
+ saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
+ saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
+  
+ if(rv_param_temp$loadMap == FALSE) {map <- leaflet()} # force visible map to blank--resets input$map
   shiny::validate(
       need(rv_param_temp$loadMap == TRUE, message = "No data to show. From the left sidebar, please choose to load a data file or download data from web services and then click the green 'BEGIN DATA SEARCH' button"))
   
   print("RENDER INITIAL MAP AGAIN")
   
   shiny::req(!is.null(input$sel_GetData))
-     saveRDS(isolate(reactiveValuesToList(rv)), here::here(
-   "TEMP_rv.RDS"))
- saveRDS(isolate(reactiveValuesToList(rv_param_temp)), here::here("TEMP_rv_param_temp.RDS"))
- saveRDS(isolate(reactiveValuesToList(input)), here::here("TEMP_input.RDS"))
- 
+  
   if(input$sel_GetData == "new_data"){
-      rv$importSettings <- list(sel_SelectMethod = input$sel_SelectMethod, sel_HUClevel = input$sel_HUClevel)
-      isolate(rv$importSettings$sel_Organization <- switch(is.null(rv$importSettings$sel_Organization)+1, rv$importSettings$sel_Organization, input$sel_Organization))
-      isolate(rv$importSettings$sel_SiteType <- switch(is.null(rv$importSettings$sel_SiteType)+1, rv$importSettings$sel_SiteType, input$sel_SiteType))
+          # rv$importSettings <- list(sel_SelectMethod = input$sel_SelectMethod, sel_HUClevel = input$sel_HUClevel, sel_Organization = input$sel_Organization, sel_SiteType = input$sel_SiteType)} # make sure the map will show even if WQP data have not yet been imported
+ 
+      rv$importSettings$sel_SelectMethod = input$sel_SelectMethod
+      rv$importSettings$sel_HUClevel = input$sel_HUClevel
+      # isolate(rv$importSettings$sel_Organization <- switch(is.null(rv$importSettings$sel_Organization)+1, rv$importSettings$sel_Organization, input$sel_Organization))
+      # isolate(rv$importSettings$sel_SiteType <- switch(is.null(rv$importSettings$sel_SiteType)+1, rv$importSettings$sel_SiteType, input$sel_SiteType))
       } # make sure the map will show even if WQP data have not yet been imported. Isolate ones that I don't want it to cause re-render.
     # rv$importSettings <- list(sel_SelectMethod = input$sel_SelectMethod, sel_HUClevel = input$sel_HUClevel, sel_Organization = input$sel_Organization, sel_SiteType = input$sel_SiteType)
     # }
  
-  if(any(is.null(rv$importSettings$sel_SelectMethod), is.null(rv$importSettings$sel_HUClevel), is.null(isolate(rv$importSettings$sel_Organization)), is.null(isolate(rv$importSettings$sel_SiteType)), is.null(rv$unitPoly), is.null(rv$HUC10), is.null(rv$sitesPointsSub), rv$parkID=="")) {
+  # if(any(is.null(rv$importSettings$sel_SelectMethod), is.null(rv$importSettings$sel_HUClevel), is.null(isolate(rv$importSettings$sel_Organization)), is.null(isolate(rv$importSettings$sel_SiteType)), is.null(rv$unitPoly), is.null(rv$HUC10), is.null(rv$sitesPointsSub), rv$parkID=="")) {
+  if(any(is.null(rv$importSettings$sel_SelectMethod), is.null(rv$importSettings$sel_HUClevel), is.null(rv$importSettings$sel_Organization), isolate(is.null(rv$importSettings$sel_SiteType)), is.null(rv$unitPoly), is.null(rv$HUC10), is.null(rv$sitesPointsSub), is.null(rv$parkID), rv$parkID=="", isolate(!rv$importSettings$sel_Organization %in% rv$sitesPointsSub$OrganizationFormalName))) {
+
       map <- leaflet()
       } else {
         print("CALLING FUNCBASEMAP")
@@ -5092,12 +5101,12 @@ output$map <- renderLeaflet({
         # Initial map controls
         print("BACK TO INITIAL MAP CONTROLS")
         map %<>%
-          addLegend(title = "CIRCLES are monitoring stations (colored by organization)", pal = rv_param_temp$palOrg, values = sort(rv$importSettings$sel_Organization), group = "Map legend", position = "bottomleft") %>%
+          addLegend(title = "CIRCLES are monitoring stations (colored by organization)", pal = rv_param_temp$palOrg, values = sort(isolate(rv$importSettings$sel_Organization)), group = "Map legend", position = "bottomleft") %>%
           addLayersControl(
             baseGroups = c("Street", "Satellite"),
             overlayGroups = na.omit(c("NPS unit", rv$importSettings$sel_HUClevel, "Available monitoring sites", ifelse(!is.null(rv$downloadStations), "Selected monitoring sites", NA), ifelse(!is.null(rv$facilitiesPointsSub), "Discharge facilities (bldg icon)", NA), ifelse(!is.null(rv$gageStations), "Gage stations (water drop icon)", NA), ifelse(!is.null(rv$meteoStations), "Weather stations (cloud icon)", NA), "Map legend")),
             options = layersControlOptions(collapsed = TRUE)) %>%
-          setView(lng = ifelse(any(is.null(isolate(input$map_center$lng)), isolate(input$map_center$lng) == 0), mean(c(st_bbox(rv[["HUC10"]])$xmin, st_bbox(rv[["HUC10"]])$xmax)), isolate(input$map_center$lng)), lat = ifelse(any(is.null(isolate(input$map_center$lat)), isolate(input$map_center$lat) == 0), mean(c(st_bbox(rv[["HUC10"]])$ymin, st_bbox(rv[["HUC10"]])$ymax)), isolate(input$map_center$lat)), 
+          setView(lng = switch(any(is.null(isolate(input$map_center$lng)), isolate(input$map_center$lng) == 0, isolate(input$map_center$lng) > st_bbox(rv[["HUC10"]])$xmax, isolate(input$map_center$lng) < st_bbox(rv[["HUC10"]])$xmin)+1, isolate(input$map_center$lng), mean(c(st_bbox(rv[["HUC10"]])$xmin, st_bbox(rv[["HUC10"]])$xmax))), lat = switch(any(is.null(isolate(input$map_center$lat)), isolate(input$map_center$lat) == 0, isolate(input$map_center$lat) > st_bbox(rv[["HUC10"]])$ymax, isolate(input$map_center$lat) < st_bbox(rv[["HUC10"]])$ymin)+1, isolate(input$map_center$lat), mean(c(st_bbox(rv[["HUC10"]])$ymin, st_bbox(rv[["HUC10"]])$ymax))),
                   zoom = ifelse(is.null(isolate(input$map_zoom)) || isTRUE(isolate(input$map_zoom) == 1) || isTRUE(isolate(input$map_zoom) == ""),
   min(RgoogleMaps::MaxZoom(
     lonrange = c(st_bbox(rv[["HUC10"]])$xmin, st_bbox(rv[["HUC10"]])$xmax),
@@ -5230,6 +5239,7 @@ observeEvent(list(input$sel_Organization, input$sel_SiteType), {
                        color = rv_param_temp$palOrg(failing_sites$OrganizationFormalName), opacity = 0.1,
                        options = pathOptions(pane = "pane_availableStations"))
   }
+  
 }, ignoreInit = TRUE)
 
 # User enters an origin site
